@@ -181,8 +181,7 @@ func seedCategories(db *sql.DB) error {
 	for _, category := range parentCategories {
 		_, err := db.Exec(
 			`INSERT INTO categories (name, description, parent_id, created_at, updated_at)
-			VALUES ($1, $2, NULL, $3, $4)
-			ON CONFLICT (name) DO NOTHING`,
+			VALUES ($1, $2, NULL, $3, $4)`,
 			category.name, category.description, now, now,
 		)
 		if err != nil {
@@ -235,8 +234,7 @@ func seedCategories(db *sql.DB) error {
 
 		_, err := db.Exec(
 			`INSERT INTO categories (name, description, parent_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (name) DO NOTHING`,
+			VALUES ($1, $2, $3, $4, $5)`,
 			subcategory.name, subcategory.description, parentID, now, now,
 		)
 		if err != nil {
@@ -406,8 +404,7 @@ func seedProducts(db *sql.DB) error {
 
 		_, err := db.Exec(
 			`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			ON CONFLICT (name) DO NOTHING`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			product.name, product.description, product.price, product.stock, categoryID, sellerID, product.images, now, now,
 		)
 		if err != nil {

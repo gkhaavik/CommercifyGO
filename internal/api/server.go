@@ -49,13 +49,13 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	// Create use cases
 	userUseCase := usecase.NewUserUseCase(userRepo)
 	productUseCase := usecase.NewProductUseCase(productRepo, categoryRepo, productVariantRepo)
-	// cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
+	cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
 	orderUseCase := usecase.NewOrderUseCase(orderRepo, cartRepo, productRepo, userRepo, paymentService, emailService)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(userUseCase, jwtService, logger)
 	productHandler := handler.NewProductHandler(productUseCase, logger)
-	// cartHandler := handler.NewCartHandler(cartUseCase, logger)
+	cartHandler := handler.NewCartHandler(cartUseCase, logger)
 	orderHandler := handler.NewOrderHandler(orderUseCase, logger)
 	paymentHandler := handler.NewPaymentHandler(orderUseCase, logger)
 	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, logger)
@@ -100,11 +100,11 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	protected.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.DeleteVariant).Methods(http.MethodDelete)
 
 	// Cart routes
-	// protected.HandleFunc("/cart", cartHandler.GetCart).Methods(http.MethodGet)
-	// protected.HandleFunc("/cart/items", cartHandler.AddToCart).Methods(http.MethodPost)
-	// protected.HandleFunc("/cart/items/{productId:[0-9]+}", cartHandler.UpdateCartItem).Methods(http.MethodPut)
-	// protected.HandleFunc("/cart/items/{productId:[0-9]+}", cartHandler.RemoveFromCart).Methods(http.MethodDelete)
-	// protected.HandleFunc("/cart", cartHandler.ClearCart).Methods(http.MethodDelete)
+	protected.HandleFunc("/cart", cartHandler.GetCart).Methods(http.MethodGet)
+	protected.HandleFunc("/cart/items", cartHandler.AddToCart).Methods(http.MethodPost)
+	protected.HandleFunc("/cart/items/{productId:[0-9]+}", cartHandler.UpdateCartItem).Methods(http.MethodPut)
+	protected.HandleFunc("/cart/items/{productId:[0-9]+}", cartHandler.RemoveFromCart).Methods(http.MethodDelete)
+	protected.HandleFunc("/cart", cartHandler.ClearCart).Methods(http.MethodDelete)
 
 	// Order routes
 	protected.HandleFunc("/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
