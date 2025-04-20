@@ -43,12 +43,12 @@ type PaymentRequest struct {
 
 // CardDetails represents credit card payment details
 type CardDetails struct {
-	CardNumber     string
-	ExpiryMonth    int
-	ExpiryYear     int
-	CVV            string
-	CardholderName string
-	Token          string
+	CardNumber     string `json:"card_number"`
+	ExpiryMonth    int    `json:"expiry_month"`
+	ExpiryYear     int    `json:"expiry_year"`
+	CVV            string `json:"cvv"`
+	CardholderName string `json:"cardholder_name"`
+	Token          string `json:"token,omitempty"`
 }
 
 // PayPalDetails represents PayPal payment details
@@ -59,9 +59,9 @@ type PayPalDetails struct {
 
 // BankDetails represents bank transfer details
 type BankDetails struct {
-	AccountNumber string
-	BankCode      string
-	AccountName   string
+	AccountNumber string `json:"account_number"`
+	BankCode      string `json:"bank_code"`
+	AccountName   string `json:"account_name"`
 }
 
 // PaymentResult represents the result of a payment processing

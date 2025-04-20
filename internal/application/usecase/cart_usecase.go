@@ -43,8 +43,8 @@ func (uc *CartUseCase) GetOrCreateCart(userID uint) (*entity.Cart, error) {
 
 // AddToCartInput contains the data needed to add an item to a cart
 type AddToCartInput struct {
-	ProductID uint
-	Quantity  int
+	ProductID uint `json:"product_id"`
+	Quantity  int  `json:"quantity"`
 }
 
 // AddToCart adds a product to a user's cart
