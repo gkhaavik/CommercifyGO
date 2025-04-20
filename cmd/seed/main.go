@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -20,6 +21,7 @@ func main() {
 	usersFlag := flag.Bool("users", false, "Seed users data")
 	categoriesFlag := flag.Bool("categories", false, "Seed categories data")
 	productsFlag := flag.Bool("products", false, "Seed products data")
+	ordersFlag := flag.Bool("orders", false, "Seed orders data")
 	clearFlag := flag.Bool("clear", false, "Clear all data before seeding")
 	flag.Parse()
 
@@ -71,7 +73,14 @@ func main() {
 		fmt.Println("Products seeded successfully")
 	}
 
-	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*clearFlag {
+	if *allFlag || *ordersFlag {
+		if err := seedOrders(db); err != nil {
+			log.Fatalf("Failed to seed orders: %v", err)
+		}
+		fmt.Println("Orders seeded successfully")
+	}
+
+	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*ordersFlag && !*clearFlag {
 		fmt.Println("No action specified")
 		fmt.Println("\nUsage:")
 		flag.PrintDefaults()
@@ -408,6 +417,239 @@ func seedProducts(db *sql.DB) error {
 			product.name, product.description, product.price, product.stock, categoryID, sellerID, product.images, now, now,
 		)
 		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// seedOrders seeds order data
+func seedOrders(db *sql.DB) error {
+	// Get user IDs
+	rows, err := db.Query("SELECT id FROM users WHERE role = 'user' OR role = 'admin'")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var userIDs []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		userIDs = append(userIDs, id)
+	}
+
+	if len(userIDs) == 0 {
+		return fmt.Errorf("no users found to create orders for")
+	}
+
+	// Get product data
+	productRows, err := db.Query("SELECT id, price FROM products")
+	if err != nil {
+		return err
+	}
+	defer productRows.Close()
+
+	type productInfo struct {
+		id    int
+		price float64
+	}
+
+	var products []productInfo
+	for productRows.Next() {
+		var p productInfo
+		if err := productRows.Scan(&p.id, &p.price); err != nil {
+			return err
+		}
+		products = append(products, p)
+	}
+
+	if len(products) == 0 {
+		return fmt.Errorf("no products found to create orders with")
+	}
+
+	// Sample addresses
+	addresses := []map[string]string{
+		{
+			"street":      "123 Main St",
+			"city":        "New York",
+			"state":       "NY",
+			"postal_code": "10001",
+			"country":     "USA",
+		},
+		{
+			"street":      "456 Oak Ave",
+			"city":        "Los Angeles",
+			"state":       "CA",
+			"postal_code": "90001",
+			"country":     "USA",
+		},
+		{
+			"street":      "789 Pine Rd",
+			"city":        "Chicago",
+			"state":       "IL",
+			"postal_code": "60601",
+			"country":     "USA",
+		},
+		{
+			"street":      "101 Maple Dr",
+			"city":        "Seattle",
+			"state":       "WA",
+			"postal_code": "98101",
+			"country":     "USA",
+		},
+	}
+
+	// Order statuses
+	statuses := []string{"pending", "paid", "shipped", "delivered", "cancelled"}
+
+	// Payment providers
+	paymentProviders := []string{"stripe", "paypal", "mock"}
+
+	// Create orders
+	for i := 0; i < 10; i++ {
+		// Select random user
+		userID := userIDs[i%len(userIDs)]
+
+		// Select random address
+		addrIndex := i % len(addresses)
+		shippingAddr := addresses[addrIndex]
+		billingAddr := addresses[addrIndex] // Use same address for billing
+
+		// Convert addresses to JSON
+		shippingAddrJSON, err := json.Marshal(shippingAddr)
+		if err != nil {
+			return err
+		}
+
+		billingAddrJSON, err := json.Marshal(billingAddr)
+		if err != nil {
+			return err
+		}
+
+		// Select random status
+		status := statuses[i%len(statuses)]
+
+		// Create timestamps
+		now := time.Now()
+		createdAt := now.Add(time.Duration(-i*24) * time.Hour) // Each order created a day apart
+		updatedAt := createdAt
+
+		// Set completed_at for delivered orders
+		var completedAt *time.Time
+		if status == "delivered" {
+			completedTime := updatedAt.Add(3 * 24 * time.Hour) // 3 days after creation
+			completedAt = &completedTime
+		}
+
+		// Set payment details for paid, shipped, or delivered orders
+		var paymentID string
+		var paymentProvider string
+		var trackingCode string
+
+		if status == "paid" || status == "shipped" || status == "delivered" {
+			paymentID = fmt.Sprintf("payment_%d_%s", i, time.Now().Format("20060102"))
+			paymentProvider = paymentProviders[i%len(paymentProviders)]
+		}
+
+		if status == "shipped" || status == "delivered" {
+			trackingCode = fmt.Sprintf("TRACK%d%s", i, time.Now().Format("20060102"))
+		}
+
+		// Start a transaction
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+
+		// Insert order
+		var orderID int
+		err = tx.QueryRow(`
+			INSERT INTO orders (
+				user_id, total_amount, status, shipping_address, billing_address,
+				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			RETURNING id
+		`,
+			userID, 0, // Total amount will be updated after adding items
+			status,
+			shippingAddrJSON,
+			billingAddrJSON,
+			paymentID,
+			paymentProvider,
+			trackingCode,
+			createdAt,
+			updatedAt,
+			completedAt,
+		).Scan(&orderID)
+
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Add 1-3 random products as order items
+		numItems := (i % 3) + 1
+		totalAmount := 0.0
+
+		// Ensure we don't try to add more items than we have products
+		if numItems > len(products) {
+			numItems = len(products)
+		}
+
+		for j := 0; j < numItems; j++ {
+			// Select product
+			product := products[(i+j)%len(products)]
+
+			// Random quantity between 1 and 3
+			quantity := (j % 3) + 1
+
+			// Calculate subtotal
+			subtotal := float64(quantity) * product.price
+			totalAmount += subtotal
+
+			// Insert order item
+			_, err = tx.Exec(`
+				INSERT INTO order_items (
+					order_id, product_id, quantity, price, subtotal, created_at
+				)
+				VALUES ($1, $2, $3, $4, $5, $6)
+			`,
+				orderID,
+				product.id,
+				quantity,
+				product.price,
+				subtotal,
+				createdAt,
+			)
+
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		// Update order with total amount
+		_, err = tx.Exec(`
+			UPDATE orders
+			SET total_amount = $1
+			WHERE id = $2
+		`,
+			totalAmount,
+			orderID,
+		)
+
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Commit transaction
+		if err := tx.Commit(); err != nil {
 			return err
 		}
 	}
