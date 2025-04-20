@@ -405,16 +405,17 @@ func seedProducts(db *sql.DB) error {
 		},
 	}
 
-	for _, product := range products {
+	for i, product := range products {
 		categoryID, ok := categoryIDs[product.categoryName]
 		if !ok {
 			continue
 		}
-
+		// Generate product number
+		productNumber := fmt.Sprintf("PROD-%06d", i+1)
 		_, err := db.Exec(
-			`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			product.name, product.description, product.price, product.stock, categoryID, sellerID, product.images, now, now,
+			`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at, product_number)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			product.name, product.description, product.price, product.stock, categoryID, sellerID, product.images, now, now, productNumber,
 		)
 		if err != nil {
 			return err
@@ -559,6 +560,9 @@ func seedOrders(db *sql.DB) error {
 			trackingCode = fmt.Sprintf("TRACK%d%s", i, time.Now().Format("20060102"))
 		}
 
+		// Generate order number
+		orderNumber := fmt.Sprintf("ORD-%s-%06d", createdAt.Format("20060102"), i+1)
+
 		// Start a transaction
 		tx, err := db.Begin()
 		if err != nil {
@@ -570,12 +574,13 @@ func seedOrders(db *sql.DB) error {
 		err = tx.QueryRow(`
 			INSERT INTO orders (
 				user_id, total_amount, status, shipping_address, billing_address,
-				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
+				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, order_number
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			RETURNING id
 		`,
-			userID, 0, // Total amount will be updated after adding items
+			userID,
+			0, // Total amount will be updated after adding items
 			status,
 			shippingAddrJSON,
 			billingAddrJSON,
@@ -585,6 +590,7 @@ func seedOrders(db *sql.DB) error {
 			createdAt,
 			updatedAt,
 			completedAt,
+			orderNumber,
 		).Scan(&orderID)
 
 		if err != nil {

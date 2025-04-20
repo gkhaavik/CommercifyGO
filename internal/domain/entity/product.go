@@ -2,23 +2,25 @@ package entity
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
 // Product represents a product in the system
 type Product struct {
-	ID          uint              `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Price       float64           `json:"price"`
-	Stock       int               `json:"stock"`
-	CategoryID  uint              `json:"category_id"`
-	SellerID    uint              `json:"seller_id"`
-	Images      []string          `json:"images"`
-	HasVariants bool              `json:"has_variants"`
-	Variants    []*ProductVariant `json:"variants,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID            uint              `json:"id"`
+	ProductNumber string            `json:"product_number"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	Price         float64           `json:"price"`
+	Stock         int               `json:"stock"`
+	CategoryID    uint              `json:"category_id"`
+	SellerID      uint              `json:"seller_id"`
+	Images        []string          `json:"images"`
+	HasVariants   bool              `json:"has_variants"`
+	Variants      []*ProductVariant `json:"variants,omitempty"`
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
 // NewProduct creates a new product with the given details
@@ -34,17 +36,22 @@ func NewProduct(name, description string, price float64, stock int, categoryID, 
 	}
 
 	now := time.Now()
+
+	// Generate a temporary product number (will be replaced with actual ID after creation)
+	productNumber := "PROD-TEMP"
+
 	return &Product{
-		Name:        name,
-		Description: description,
-		Price:       price,
-		Stock:       stock,
-		CategoryID:  categoryID,
-		SellerID:    sellerID,
-		Images:      images,
-		HasVariants: false,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		Name:          name,
+		ProductNumber: productNumber,
+		Description:   description,
+		Price:         price,
+		Stock:         stock,
+		CategoryID:    categoryID,
+		SellerID:      sellerID,
+		Images:        images,
+		HasVariants:   false,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}, nil
 }
 
@@ -143,6 +150,12 @@ func (p *Product) GetVariantBySKU(sku string) *ProductVariant {
 	}
 
 	return nil
+}
+
+// SetProductNumber sets the product number
+func (p *Product) SetProductNumber(id uint) {
+	// Format: PROD-000001
+	p.ProductNumber = fmt.Sprintf("PROD-%06d", id)
 }
 
 // Category represents a product category

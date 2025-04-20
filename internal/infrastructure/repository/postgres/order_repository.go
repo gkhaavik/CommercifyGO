@@ -72,6 +72,19 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 		return err
 	}
 
+	// Generate and set the order number
+	order.SetOrderNumber(order.ID)
+
+	// Update the order with the generated order number
+	_, err = tx.Exec(
+		"UPDATE orders SET order_number = $1 WHERE id = $2",
+		order.OrderNumber,
+		order.ID,
+	)
+	if err != nil {
+		return err
+	}
+
 	// Insert order items
 	for i := range order.Items {
 		order.Items[i].OrderID = order.ID
@@ -101,7 +114,7 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	// Get order
 	query := `
-		SELECT id, user_id, total_amount, status, shipping_address, billing_address,
+		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
 		FROM orders
 		WHERE id = $1
@@ -111,9 +124,11 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	var shippingAddrJSON, billingAddrJSON []byte
 	var completedAt sql.NullTime
 	var paymentProvider sql.NullString
+	var orderNumber sql.NullString
 
 	err := r.db.QueryRow(query, id).Scan(
 		&order.ID,
+		&orderNumber,
 		&order.UserID,
 		&order.TotalAmount,
 		&order.Status,
@@ -133,6 +148,11 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Set order number if valid
+	if orderNumber.Valid {
+		order.OrderNumber = orderNumber.String
 	}
 
 	// Set payment provider if valid
@@ -204,8 +224,8 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 	query := `
 		UPDATE orders
 		SET status = $1, shipping_address = $2, billing_address = $3,
-			payment_id = $4, payment_provider = $5, tracking_code = $6, updated_at = $7, completed_at = $8
-		WHERE id = $9
+			payment_id = $4, payment_provider = $5, tracking_code = $6, updated_at = $7, completed_at = $8, order_number = $9
+		WHERE id = $10
 	`
 
 	_, err = r.db.Exec(
@@ -218,6 +238,7 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 		order.TrackingCode,
 		time.Now(),
 		order.CompletedAt,
+		order.OrderNumber,
 		order.ID,
 	)
 
@@ -227,8 +248,8 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 // GetByUser retrieves orders for a user
 func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.Order, error) {
 	query := `
-		SELECT id, user_id, total_amount, status, shipping_address, billing_address,
-			payment_id, tracking_code, created_at, updated_at, completed_at
+		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
+			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
 		FROM orders
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -246,15 +267,19 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 		order := &entity.Order{}
 		var shippingAddrJSON, billingAddrJSON []byte
 		var completedAt sql.NullTime
+		var paymentProvider sql.NullString
+		var orderNumber sql.NullString
 
 		err := rows.Scan(
 			&order.ID,
+			&orderNumber,
 			&order.UserID,
 			&order.TotalAmount,
 			&order.Status,
 			&shippingAddrJSON,
 			&billingAddrJSON,
 			&order.PaymentID,
+			&paymentProvider,
 			&order.TrackingCode,
 			&order.CreatedAt,
 			&order.UpdatedAt,
@@ -262,6 +287,16 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Set order number if valid
+		if orderNumber.Valid {
+			order.OrderNumber = orderNumber.String
+		}
+
+		// Set payment provider if valid
+		if paymentProvider.Valid {
+			order.PaymentProvider = paymentProvider.String
 		}
 
 		// Unmarshal addresses
@@ -318,8 +353,8 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 // ListByStatus retrieves orders by status
 func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
 	query := `
-		SELECT id, user_id, total_amount, status, shipping_address, billing_address,
-			payment_id, tracking_code, created_at, updated_at, completed_at
+		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
+			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
 		FROM orders
 		WHERE status = $1
 		ORDER BY created_at DESC
@@ -337,15 +372,19 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 		order := &entity.Order{}
 		var shippingAddrJSON, billingAddrJSON []byte
 		var completedAt sql.NullTime
+		var paymentProvider sql.NullString
+		var orderNumber sql.NullString
 
 		err := rows.Scan(
 			&order.ID,
+			&orderNumber,
 			&order.UserID,
 			&order.TotalAmount,
 			&order.Status,
 			&shippingAddrJSON,
 			&billingAddrJSON,
 			&order.PaymentID,
+			&paymentProvider,
 			&order.TrackingCode,
 			&order.CreatedAt,
 			&order.UpdatedAt,
@@ -353,6 +392,16 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Set order number if valid
+		if orderNumber.Valid {
+			order.OrderNumber = orderNumber.String
+		}
+
+		// Set payment provider if valid
+		if paymentProvider.Valid {
+			order.PaymentProvider = paymentProvider.String
 		}
 
 		// Unmarshal addresses

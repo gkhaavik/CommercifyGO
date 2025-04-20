@@ -2,6 +2,7 @@ package entity
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -19,6 +20,7 @@ const (
 // Order represents an order in the system
 type Order struct {
 	ID              uint        `json:"id"`
+	OrderNumber     string      `json:"order_number"`
 	UserID          uint        `json:"user_id"`
 	Items           []OrderItem `json:"items"`
 	TotalAmount     float64     `json:"total_amount"`
@@ -74,8 +76,14 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 	}
 
 	now := time.Now()
+
+	// Generate a friendly order number (will be replaced with actual ID after creation)
+	// Format: ORD-YYYYMMDD-TEMP
+	orderNumber := fmt.Sprintf("ORD-%s-TEMP", now.Format("20060102"))
+
 	return &Order{
 		UserID:       userID,
+		OrderNumber:  orderNumber,
 		Items:        items,
 		TotalAmount:  totalAmount,
 		Status:       string(OrderStatusPending),
@@ -134,4 +142,10 @@ func (o *Order) SetTrackingCode(trackingCode string) error {
 	o.TrackingCode = trackingCode
 	o.UpdatedAt = time.Now()
 	return nil
+}
+
+// SetOrderNumber sets the order number
+func (o *Order) SetOrderNumber(id uint) {
+	// Format: ORD-YYYYMMDD-000001
+	o.OrderNumber = fmt.Sprintf("ORD-%s-%06d", o.CreatedAt.Format("20060102"), id)
 }
