@@ -240,7 +240,7 @@ go test -cover ./...
 
 # Create a new migration
 
-Install the golang-migrate/migrate tool
+Install the [golang-migrate/migrate](https://github.com/golang-migrate/migrate) tool
 
 ### Homebrew
 
