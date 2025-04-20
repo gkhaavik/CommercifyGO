@@ -136,7 +136,7 @@ func LoadConfig() (*Config, error) {
 			Port:     getEnv("DB_PORT", "5432"),
 			User:     getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", "postgres"),
-			DBName:   getEnv("DB_NAME", "ecommerce"),
+			DBName:   getEnv("DB_NAME", "commercify"),
 			SSLMode:  getEnv("DB_SSL_MODE", "disable"),
 		},
 		Auth: AuthConfig{
@@ -152,7 +152,7 @@ func LoadConfig() (*Config, error) {
 			SMTPUsername: getEnv("EMAIL_SMTP_USERNAME", ""),
 			SMTPPassword: getEnv("EMAIL_SMTP_PASSWORD", ""),
 			FromEmail:    getEnv("EMAIL_FROM_ADDRESS", "noreply@example.com"),
-			FromName:     getEnv("EMAIL_FROM_NAME", "E-Commerce Store"),
+			FromName:     getEnv("EMAIL_FROM_NAME", "Commercify Store"),
 			AdminEmail:   getEnv("EMAIL_ADMIN_ADDRESS", "admin@example.com"),
 			Enabled:      emailEnabled,
 		},
@@ -160,7 +160,7 @@ func LoadConfig() (*Config, error) {
 			SecretKey:          getEnv("STRIPE_SECRET_KEY", ""),
 			PublicKey:          getEnv("STRIPE_PUBLIC_KEY", ""),
 			WebhookSecret:      getEnv("STRIPE_WEBHOOK_SECRET", ""),
-			PaymentDescription: getEnv("STRIPE_PAYMENT_DESCRIPTION", "E-Commerce Store Purchase"),
+			PaymentDescription: getEnv("STRIPE_PAYMENT_DESCRIPTION", "Commercify Store Purchase"),
 			Enabled:            stripeEnabled,
 		},
 		PayPal: PayPalConfig{
