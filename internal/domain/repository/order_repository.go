@@ -9,4 +9,5 @@ type OrderRepository interface {
 	Update(order *entity.Order) error
 	GetByUser(userID uint, offset, limit int) ([]*entity.Order, error)
 	ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error)
+	IsDiscountIdUsed(discountID uint) (bool, error)
 }

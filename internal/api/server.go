@@ -37,6 +37,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	categoryRepo := postgres.NewCategoryRepository(db)
 	orderRepo := postgres.NewOrderRepository(db)
 	cartRepo := postgres.NewCartRepository(db)
+	discountRepo := postgres.NewDiscountRepository(db)
 
 	// Create services
 	jwtService := auth.NewJWTService(cfg.Auth)
@@ -51,6 +52,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	productUseCase := usecase.NewProductUseCase(productRepo, categoryRepo, productVariantRepo)
 	cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
 	orderUseCase := usecase.NewOrderUseCase(orderRepo, cartRepo, productRepo, userRepo, paymentService, emailService)
+	discountUseCase := usecase.NewDiscountUseCase(discountRepo, productRepo, categoryRepo, orderRepo)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(userUseCase, jwtService, logger)
@@ -59,6 +61,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	orderHandler := handler.NewOrderHandler(orderUseCase, logger)
 	paymentHandler := handler.NewPaymentHandler(orderUseCase, logger)
 	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, logger)
+	discountHandler := handler.NewDiscountHandler(discountUseCase, orderUseCase, logger)
 
 	// Create middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, logger)
@@ -75,6 +78,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	api.HandleFunc("/products/search", productHandler.SearchProducts).Methods(http.MethodGet)
 	api.HandleFunc("/categories", productHandler.ListCategories).Methods(http.MethodGet)
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
+	api.HandleFunc("/discounts/validate", discountHandler.ValidateDiscountCode).Methods(http.MethodPost)
 
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
@@ -111,6 +115,16 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	protected.HandleFunc("/orders/{id:[0-9]+}", orderHandler.GetOrder).Methods(http.MethodGet)
 	protected.HandleFunc("/orders", orderHandler.ListOrders).Methods(http.MethodGet)
 	protected.HandleFunc("/orders/{id:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
+
+	// Discount routes
+	protected.HandleFunc("/discounts", discountHandler.CreateDiscount).Methods(http.MethodPost)
+	protected.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.UpdateDiscount).Methods(http.MethodPut)
+	protected.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.DeleteDiscount).Methods(http.MethodDelete)
+	protected.HandleFunc("/discounts", discountHandler.ListDiscounts).Methods(http.MethodGet)
+	protected.HandleFunc("/discounts/active", discountHandler.ListActiveDiscounts).Methods(http.MethodGet)
+	protected.HandleFunc("/discounts/apply/{orderId:[0-9]+}", discountHandler.ApplyDiscountToOrder).Methods(http.MethodPost)
+	protected.HandleFunc("/discounts/remove/{orderId:[0-9]+}", discountHandler.RemoveDiscountFromOrder).Methods(http.MethodDelete)
+	protected.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.GetDiscount).Methods(http.MethodGet)
 
 	// Admin routes
 	admin := protected.PathPrefix("/admin").Subrouter()

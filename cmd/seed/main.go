@@ -21,6 +21,7 @@ func main() {
 	usersFlag := flag.Bool("users", false, "Seed users data")
 	categoriesFlag := flag.Bool("categories", false, "Seed categories data")
 	productsFlag := flag.Bool("products", false, "Seed products data")
+	discountsFlag := flag.Bool("discounts", false, "Seed discounts data")
 	ordersFlag := flag.Bool("orders", false, "Seed orders data")
 	clearFlag := flag.Bool("clear", false, "Clear all data before seeding")
 	flag.Parse()
@@ -73,6 +74,13 @@ func main() {
 		fmt.Println("Products seeded successfully")
 	}
 
+	if *allFlag || *discountsFlag {
+		if err := seedDiscounts(db); err != nil {
+			log.Fatalf("Failed to seed discounts: %v", err)
+		}
+		fmt.Println("Discounts seeded successfully")
+	}
+
 	if *allFlag || *ordersFlag {
 		if err := seedOrders(db); err != nil {
 			log.Fatalf("Failed to seed orders: %v", err)
@@ -80,7 +88,7 @@ func main() {
 		fmt.Println("Orders seeded successfully")
 	}
 
-	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*ordersFlag && !*clearFlag {
+	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*ordersFlag && !*clearFlag && !*discountsFlag {
 		fmt.Println("No action specified")
 		fmt.Println("\nUsage:")
 		flag.PrintDefaults()
@@ -660,5 +668,252 @@ func seedOrders(db *sql.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// seedDiscounts seeds discount data
+func seedDiscounts(db *sql.DB) error {
+	now := time.Now()
+	startDate := now.Add(-24 * time.Hour)   // Start date is yesterday
+	endDate := now.Add(30 * 24 * time.Hour) // End date is 30 days from now
+
+	// Sample discounts
+	discounts := []struct {
+		code             string
+		discountType     string
+		method           string
+		value            float64
+		minOrderValue    float64
+		maxDiscountValue float64
+		productIDs       []uint
+		categoryIDs      []uint
+		startDate        time.Time
+		endDate          time.Time
+		usageLimit       int
+		currentUsage     int
+		active           bool
+	}{
+		{
+			code:             "WELCOME10",
+			discountType:     "basket",
+			method:           "percentage",
+			value:            10.0,
+			minOrderValue:    0,
+			maxDiscountValue: 0,
+			productIDs:       []uint{},
+			categoryIDs:      []uint{},
+			startDate:        startDate,
+			endDate:          endDate,
+			usageLimit:       0,
+			currentUsage:     0,
+			active:           true,
+		},
+		{
+			code:             "SAVE20",
+			discountType:     "basket",
+			method:           "percentage",
+			value:            20.0,
+			minOrderValue:    100.0,
+			maxDiscountValue: 50.0,
+			productIDs:       []uint{},
+			categoryIDs:      []uint{},
+			startDate:        startDate,
+			endDate:          endDate,
+			usageLimit:       100,
+			currentUsage:     0,
+			active:           true,
+		},
+		{
+			code:             "FLAT25",
+			discountType:     "basket",
+			method:           "fixed",
+			value:            25.0,
+			minOrderValue:    150.0,
+			maxDiscountValue: 0,
+			productIDs:       []uint{},
+			categoryIDs:      []uint{},
+			startDate:        startDate,
+			endDate:          endDate,
+			usageLimit:       50,
+			currentUsage:     0,
+			active:           true,
+		},
+	}
+
+	// Get product IDs for product-specific discounts
+	productRows, err := db.Query("SELECT id FROM products LIMIT 5")
+	if err != nil {
+		return err
+	}
+	defer productRows.Close()
+
+	var productIDs []uint
+	for productRows.Next() {
+		var id uint
+		if err := productRows.Scan(&id); err != nil {
+			return err
+		}
+		productIDs = append(productIDs, id)
+	}
+
+	// Get category IDs for category-specific discounts
+	categoryRows, err := db.Query("SELECT id FROM categories WHERE parent_id IS NOT NULL LIMIT 3")
+	if err != nil {
+		return err
+	}
+	defer categoryRows.Close()
+
+	var categoryIDs []uint
+	for categoryRows.Next() {
+		var id uint
+		if err := categoryRows.Scan(&id); err != nil {
+			return err
+		}
+		categoryIDs = append(categoryIDs, id)
+	}
+
+	// Add product-specific discounts if we have products
+	if len(productIDs) > 0 {
+		// Product-specific percentage discount
+		productDiscount := struct {
+			code             string
+			discountType     string
+			method           string
+			value            float64
+			minOrderValue    float64
+			maxDiscountValue float64
+			productIDs       []uint
+			categoryIDs      []uint
+			startDate        time.Time
+			endDate          time.Time
+			usageLimit       int
+			currentUsage     int
+			active           bool
+		}{
+			code:             "PRODUCT15",
+			discountType:     "product",
+			method:           "percentage",
+			value:            15.0,
+			minOrderValue:    0,
+			maxDiscountValue: 0,
+			productIDs:       productIDs[:2], // Use first 2 products
+			categoryIDs:      []uint{},
+			startDate:        startDate,
+			endDate:          endDate,
+			usageLimit:       0,
+			currentUsage:     0,
+			active:           true,
+		}
+		discounts = append(discounts, productDiscount)
+
+		// Product-specific fixed discount
+		productFixedDiscount := struct {
+			code             string
+			discountType     string
+			method           string
+			value            float64
+			minOrderValue    float64
+			maxDiscountValue float64
+			productIDs       []uint
+			categoryIDs      []uint
+			startDate        time.Time
+			endDate          time.Time
+			usageLimit       int
+			currentUsage     int
+			active           bool
+		}{
+			code:             "PRODUCT10OFF",
+			discountType:     "product",
+			method:           "fixed",
+			value:            10.0,
+			minOrderValue:    0,
+			maxDiscountValue: 0,
+			productIDs:       productIDs[2:], // Use remaining products
+			categoryIDs:      []uint{},
+			startDate:        startDate,
+			endDate:          endDate,
+			usageLimit:       0,
+			currentUsage:     0,
+			active:           true,
+		}
+		discounts = append(discounts, productFixedDiscount)
+	}
+
+	// Add category-specific discounts if we have categories
+	if len(categoryIDs) > 0 {
+		categoryDiscount := struct {
+			code             string
+			discountType     string
+			method           string
+			value            float64
+			minOrderValue    float64
+			maxDiscountValue float64
+			productIDs       []uint
+			categoryIDs      []uint
+			startDate        time.Time
+			endDate          time.Time
+			usageLimit       int
+			currentUsage     int
+			active           bool
+		}{
+			code:             "CATEGORY25",
+			discountType:     "product",
+			method:           "percentage",
+			value:            25.0,
+			minOrderValue:    0,
+			maxDiscountValue: 0,
+			productIDs:       []uint{},
+			categoryIDs:      categoryIDs,
+			startDate:        startDate,
+			endDate:          endDate,
+			usageLimit:       0,
+			currentUsage:     0,
+			active:           true,
+		}
+		discounts = append(discounts, categoryDiscount)
+	}
+
+	// Insert discounts
+	for _, discount := range discounts {
+		productIDsJSON, err := json.Marshal(discount.productIDs)
+		if err != nil {
+			return err
+		}
+
+		categoryIDsJSON, err := json.Marshal(discount.categoryIDs)
+		if err != nil {
+			return err
+		}
+
+		_, err = db.Exec(
+			`INSERT INTO discounts (
+				code, type, method, value, min_order_value, max_discount_value,
+				product_ids, category_ids, start_date, end_date,
+				usage_limit, current_usage, active, created_at, updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			ON CONFLICT (code) DO NOTHING`,
+			discount.code,
+			discount.discountType,
+			discount.method,
+			discount.value,
+			discount.minOrderValue,
+			discount.maxDiscountValue,
+			productIDsJSON,
+			categoryIDsJSON,
+			discount.startDate,
+			discount.endDate,
+			discount.usageLimit,
+			discount.currentUsage,
+			discount.active,
+			now,
+			now,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("Seeded %d discounts\n", len(discounts))
 	return nil
 }

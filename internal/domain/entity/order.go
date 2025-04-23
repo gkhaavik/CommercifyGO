@@ -19,20 +19,23 @@ const (
 
 // Order represents an order in the system
 type Order struct {
-	ID              uint        `json:"id"`
-	OrderNumber     string      `json:"order_number"`
-	UserID          uint        `json:"user_id"`
-	Items           []OrderItem `json:"items"`
-	TotalAmount     float64     `json:"total_amount"`
-	Status          string      `json:"status"`
-	ShippingAddr    Address     `json:"shipping_address"`
-	BillingAddr     Address     `json:"billing_address"`
-	PaymentID       string      `json:"payment_id"`
-	PaymentProvider string      `json:"payment_provider"`
-	TrackingCode    string      `json:"tracking_code"`
-	CreatedAt       time.Time   `json:"created_at"`
-	UpdatedAt       time.Time   `json:"updated_at"`
-	CompletedAt     *time.Time  `json:"completed_at"`
+	ID              uint             `json:"id"`
+	OrderNumber     string           `json:"order_number"`
+	UserID          uint             `json:"user_id"`
+	Items           []OrderItem      `json:"items"`
+	TotalAmount     float64          `json:"total_amount"`
+	DiscountAmount  float64          `json:"discount_amount"`
+	FinalAmount     float64          `json:"final_amount"`
+	AppliedDiscount *AppliedDiscount `json:"applied_discount,omitempty"`
+	Status          string           `json:"status"`
+	ShippingAddr    Address          `json:"shipping_address"`
+	BillingAddr     Address          `json:"billing_address"`
+	PaymentID       string           `json:"payment_id"`
+	PaymentProvider string           `json:"payment_provider"`
+	TrackingCode    string           `json:"tracking_code"`
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	CompletedAt     *time.Time       `json:"completed_at"`
 }
 
 // OrderItem represents an item in an order
@@ -82,15 +85,17 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 	orderNumber := fmt.Sprintf("ORD-%s-TEMP", now.Format("20060102"))
 
 	return &Order{
-		UserID:       userID,
-		OrderNumber:  orderNumber,
-		Items:        items,
-		TotalAmount:  totalAmount,
-		Status:       string(OrderStatusPending),
-		ShippingAddr: shippingAddr,
-		BillingAddr:  billingAddr,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		UserID:         userID,
+		OrderNumber:    orderNumber,
+		Items:          items,
+		TotalAmount:    totalAmount,
+		DiscountAmount: 0,
+		FinalAmount:    totalAmount, // Initially same as total amount
+		Status:         string(OrderStatusPending),
+		ShippingAddr:   shippingAddr,
+		BillingAddr:    billingAddr,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}, nil
 }
 
@@ -148,4 +153,45 @@ func (o *Order) SetTrackingCode(trackingCode string) error {
 func (o *Order) SetOrderNumber(id uint) {
 	// Format: ORD-YYYYMMDD-000001
 	o.OrderNumber = fmt.Sprintf("ORD-%s-%06d", o.CreatedAt.Format("20060102"), id)
+}
+
+// ApplyDiscount applies a discount to the order
+func (o *Order) ApplyDiscount(discount *Discount) error {
+	if discount == nil {
+		return errors.New("discount cannot be nil")
+	}
+
+	if !discount.IsValid() {
+		return errors.New("discount is not valid")
+	}
+
+	if !discount.IsApplicableToOrder(o) {
+		return errors.New("discount is not applicable to this order")
+	}
+
+	// Calculate discount amount
+	discountAmount := discount.CalculateDiscount(o)
+	if discountAmount <= 0 {
+		return errors.New("discount amount must be greater than zero")
+	}
+
+	// Apply the discount
+	o.DiscountAmount = discountAmount
+	o.FinalAmount = o.TotalAmount - o.DiscountAmount
+	o.AppliedDiscount = &AppliedDiscount{
+		DiscountID:     discount.ID,
+		DiscountCode:   discount.Code,
+		DiscountAmount: discountAmount,
+	}
+	o.UpdatedAt = time.Now()
+
+	return nil
+}
+
+// RemoveDiscount removes any applied discount from the order
+func (o *Order) RemoveDiscount() {
+	o.DiscountAmount = 0
+	o.FinalAmount = o.TotalAmount
+	o.AppliedDiscount = nil
+	o.UpdatedAt = time.Now()
 }
