@@ -4,9 +4,10 @@ package service
 type PaymentProviderType string
 
 const (
-	PaymentProviderStripe PaymentProviderType = "stripe"
-	PaymentProviderPayPal PaymentProviderType = "paypal"
-	PaymentProviderMock   PaymentProviderType = "mock"
+	PaymentProviderStripe    PaymentProviderType = "stripe"
+	PaymentProviderPayPal    PaymentProviderType = "paypal"
+	PaymentProviderMock      PaymentProviderType = "mock"
+	PaymentProviderMobilePay PaymentProviderType = "mobilepay"
 )
 
 // PaymentMethod represents a payment method type
@@ -16,6 +17,7 @@ const (
 	PaymentMethodCreditCard   PaymentMethod = "credit_card"
 	PaymentMethodPayPal       PaymentMethod = "paypal"
 	PaymentMethodBankTransfer PaymentMethod = "bank_transfer"
+	PaymentMethodWallet       PaymentMethod = "wallet"
 )
 
 // PaymentProvider represents information about a payment provider

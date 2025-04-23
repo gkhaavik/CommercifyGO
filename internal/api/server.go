@@ -11,6 +11,7 @@ import (
 	"github.com/zenfulcode/commercify/internal/api/handler"
 	"github.com/zenfulcode/commercify/internal/api/middleware"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/auth"
 	"github.com/zenfulcode/commercify/internal/infrastructure/email"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -38,12 +39,25 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	orderRepo := postgres.NewOrderRepository(db)
 	cartRepo := postgres.NewCartRepository(db)
 	discountRepo := postgres.NewDiscountRepository(db)
+	webhookRepo := postgres.NewWebhookRepository(db)
 
 	// Create services
 	jwtService := auth.NewJWTService(cfg.Auth)
 
 	// Create payment service with multiple providers
 	paymentService := payment.NewMultiProviderPaymentService(cfg, logger)
+
+	// Extract MobilePay service for webhook registration
+	var mobilePayService *payment.MobilePayPaymentService
+	for _, provider := range paymentService.GetProviders() {
+		if provider.Type == service.PaymentProviderMobilePay {
+			mobilePayService = provider.Service.(*payment.MobilePayPaymentService)
+			break
+		}
+	}
+
+	// Create webhook service
+	webhookService := payment.NewWebhookService(cfg, webhookRepo, logger, mobilePayService)
 
 	emailService := email.NewSMTPEmailService(cfg.Email, logger)
 
@@ -53,6 +67,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
 	orderUseCase := usecase.NewOrderUseCase(orderRepo, cartRepo, productRepo, userRepo, paymentService, emailService)
 	discountUseCase := usecase.NewDiscountUseCase(discountRepo, productRepo, categoryRepo, orderRepo)
+	webhookUseCase := usecase.NewWebhookUseCase(webhookRepo, webhookService)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(userUseCase, jwtService, logger)
@@ -60,7 +75,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	cartHandler := handler.NewCartHandler(cartUseCase, logger)
 	orderHandler := handler.NewOrderHandler(orderUseCase, logger)
 	paymentHandler := handler.NewPaymentHandler(orderUseCase, logger)
-	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, logger)
+	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, webhookUseCase, webhookService, logger)
 	discountHandler := handler.NewDiscountHandler(discountUseCase, orderUseCase, logger)
 
 	// Create middleware
@@ -82,6 +97,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
+	api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)
 
 	// Protected routes
 	protected := api.PathPrefix("").Subrouter()
@@ -132,6 +148,13 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	admin.HandleFunc("/users", userHandler.ListUsers).Methods(http.MethodGet)
 	admin.HandleFunc("/orders", orderHandler.ListAllOrders).Methods(http.MethodGet)
 	admin.HandleFunc("/orders/{id:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
+
+	// Webhook management routes (admin only)
+	admin.HandleFunc("/webhooks", webhookHandler.ListWebhooks).Methods(http.MethodGet)
+	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.ListMobilePayWebhooks).Methods(http.MethodGet)
+	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
+	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.GetWebhook).Methods(http.MethodGet)
+	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
 
 	// Create HTTP server
 	httpServer := &http.Server{

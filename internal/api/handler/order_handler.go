@@ -181,6 +181,8 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		paymentMethod = service.PaymentMethodPayPal
 	case "bank_transfer":
 		paymentMethod = service.PaymentMethodBankTransfer
+	case "wallet":
+		paymentMethod = service.PaymentMethodWallet
 	default:
 		http.Error(w, "Invalid payment method", http.StatusBadRequest)
 		return
@@ -195,6 +197,8 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		paymentProvider = service.PaymentProviderPayPal
 	case "mock":
 		paymentProvider = service.PaymentProviderMock
+	case "mobilepay":
+		paymentProvider = service.PaymentProviderMobilePay
 	default:
 		http.Error(w, "Invalid payment provider", http.StatusBadRequest)
 		return
