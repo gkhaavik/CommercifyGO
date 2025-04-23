@@ -21,10 +21,10 @@ func NewUserUseCase(userRepo repository.UserRepository) *UserUseCase {
 
 // RegisterInput contains the data needed to register a new user
 type RegisterInput struct {
-	Email     string
-	Password  string
-	FirstName string
-	LastName  string
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 // Register registers a new user
@@ -51,8 +51,8 @@ func (uc *UserUseCase) Register(input RegisterInput) (*entity.User, error) {
 
 // LoginInput contains the data needed for user login
 type LoginInput struct {
-	Email    string
-	Password string
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // Login authenticates a user
@@ -78,8 +78,8 @@ func (uc *UserUseCase) GetUserByID(id uint) (*entity.User, error) {
 
 // UpdateUserInput contains the data needed to update a user
 type UpdateUserInput struct {
-	FirstName string
-	LastName  string
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 // UpdateUser updates a user's information
@@ -102,8 +102,8 @@ func (uc *UserUseCase) UpdateUser(id uint, input UpdateUserInput) (*entity.User,
 
 // ChangePasswordInput contains the data needed to change a password
 type ChangePasswordInput struct {
-	CurrentPassword string
-	NewPassword     string
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }
 
 // ChangePassword changes a user's password

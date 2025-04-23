@@ -33,17 +33,17 @@ func NewDiscountUseCase(
 
 // CreateDiscountInput contains the data needed to create a discount
 type CreateDiscountInput struct {
-	Code             string
-	Type             string
-	Method           string
-	Value            float64
-	MinOrderValue    float64
-	MaxDiscountValue float64
-	ProductIDs       []uint
-	CategoryIDs      []uint
-	StartDate        time.Time
-	EndDate          time.Time
-	UsageLimit       int
+	Code             string    `json:"code"`
+	Type             string    `json:"type"`
+	Method           string    `json:"method"`
+	Value            float64   `json:"value"`
+	MinOrderValue    float64   `json:"min_order_value"`
+	MaxDiscountValue float64   `json:"max_discount_value"`
+	ProductIDs       []uint    `json:"product_ids"`
+	CategoryIDs      []uint    `json:"category_ids"`
+	StartDate        time.Time `json:"start_date"`
+	EndDate          time.Time `json:"end_date"`
+	UsageLimit       int       `json:"usage_limit"`
 }
 
 // CreateDiscount creates a new discount
@@ -134,18 +134,18 @@ func (uc *DiscountUseCase) GetDiscountByCode(code string) (*entity.Discount, err
 
 // UpdateDiscountInput contains the data needed to update a discount
 type UpdateDiscountInput struct {
-	Code             string
-	Type             string
-	Method           string
-	Value            float64
-	MinOrderValue    float64
-	MaxDiscountValue float64
-	ProductIDs       []uint
-	CategoryIDs      []uint
-	StartDate        time.Time
-	EndDate          time.Time
-	UsageLimit       int
-	Active           bool
+	Code             string    `json:"code"`
+	Type             string    `json:"type"`
+	Method           string    `json:"method"`
+	Value            float64   `json:"value"`
+	MinOrderValue    float64   `json:"min_order_value"`
+	MaxDiscountValue float64   `json:"max_discount_value"`
+	ProductIDs       []uint    `json:"product_ids"`
+	CategoryIDs      []uint    `json:"category_ids"`
+	StartDate        time.Time `json:"start_date"`
+	EndDate          time.Time `json:"end_date"`
+	UsageLimit       int       `json:"usage_limit"`
+	Active           bool      `json:"active"`
 }
 
 // UpdateDiscount updates a discount
@@ -274,8 +274,8 @@ func (uc *DiscountUseCase) ListActiveDiscounts(offset, limit int) ([]*entity.Dis
 
 // ApplyDiscountToOrderInput contains the data needed to apply a discount to an order
 type ApplyDiscountToOrderInput struct {
-	OrderID      uint
-	DiscountCode string
+	OrderID      uint   `json:"order_id"`
+	DiscountCode string `json:"discount_code"`
 }
 
 // ApplyDiscountToOrder applies a discount to an order

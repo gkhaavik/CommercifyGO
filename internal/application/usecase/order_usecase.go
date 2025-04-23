@@ -44,9 +44,9 @@ func (uc *OrderUseCase) GetAvailablePaymentProviders() []service.PaymentProvider
 
 // CreateOrderInput contains the data needed to create an order
 type CreateOrderInput struct {
-	UserID       uint
-	ShippingAddr entity.Address
-	BillingAddr  entity.Address
+	UserID       uint           `json:"user_id"`
+	ShippingAddr entity.Address `json:"shipping_address"`
+	BillingAddr  entity.Address `json:"billing_address"`
 }
 
 // CreateOrderFromCart creates an order from a user's cart
@@ -130,13 +130,13 @@ func (uc *OrderUseCase) CreateOrderFromCart(input CreateOrderInput) (*entity.Ord
 
 // ProcessPaymentInput contains the data needed to process a payment
 type ProcessPaymentInput struct {
-	OrderID         uint
-	PaymentMethod   service.PaymentMethod
-	PaymentProvider service.PaymentProviderType
-	CardDetails     *service.CardDetails
-	PayPalDetails   *service.PayPalDetails
-	BankDetails     *service.BankDetails
-	CustomerEmail   string
+	OrderID         uint                        `json:"order_id"`
+	PaymentMethod   service.PaymentMethod       `json:"payment_method"`
+	PaymentProvider service.PaymentProviderType `json:"payment_provider"`
+	CardDetails     *service.CardDetails        `json:"card_details,omitempty"`
+	PayPalDetails   *service.PayPalDetails      `json:"paypal_details,omitempty"`
+	BankDetails     *service.BankDetails        `json:"bank_details,omitempty"`
+	CustomerEmail   string                      `json:"customer_email,omitempty"`
 }
 
 // ProcessPayment processes payment for an order
@@ -208,8 +208,8 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 
 // UpdateOrderStatusInput contains the data needed to update an order status
 type UpdateOrderStatusInput struct {
-	OrderID uint
-	Status  entity.OrderStatus
+	OrderID uint               `json:"order_id"`
+	Status  entity.OrderStatus `json:"status"`
 }
 
 // UpdateOrderStatus updates the status of an order

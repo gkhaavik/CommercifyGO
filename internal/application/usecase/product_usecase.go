@@ -29,26 +29,26 @@ func NewProductUseCase(
 
 // CreateProductInput contains the data needed to create a product
 type CreateProductInput struct {
-	Name        string
-	Description string
-	Price       float64
-	Stock       int
-	CategoryID  uint
-	SellerID    uint
-	Images      []string
-	HasVariants bool
-	Variants    []CreateVariantInput
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	Price       float64              `json:"price"`
+	Stock       int                  `json:"stock"`
+	CategoryID  uint                 `json:"category_id"`
+	SellerID    uint                 `json:"seller_id"`
+	Images      []string             `json:"images"`
+	HasVariants bool                 `json:"has_variants"`
+	Variants    []CreateVariantInput `json:"variants"`
 }
 
 // CreateVariantInput contains the data needed to create a product variant
 type CreateVariantInput struct {
-	SKU          string
-	Price        float64
-	ComparePrice float64
-	Stock        int
-	Attributes   []entity.VariantAttribute
-	Images       []string
-	IsDefault    bool
+	SKU          string                    `json:"sku"`
+	Price        float64                   `json:"price"`
+	ComparePrice float64                   `json:"compare_price"`
+	Stock        int                       `json:"stock"`
+	Attributes   []entity.VariantAttribute `json:"attributes"`
+	Images       []string                  `json:"images"`
+	IsDefault    bool                      `json:"is_default"`
 }
 
 // CreateProduct creates a new product
@@ -128,12 +128,12 @@ func (uc *ProductUseCase) GetProductByID(id uint) (*entity.Product, error) {
 
 // UpdateProductInput contains the data needed to update a product
 type UpdateProductInput struct {
-	Name        string
-	Description string
-	Price       float64
-	Stock       int
-	CategoryID  uint
-	Images      []string
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Price       float64  `json:"price"`
+	Stock       int      `json:"stock"`
+	CategoryID  uint     `json:"category_id"`
+	Images      []string `json:"images"`
 }
 
 // UpdateProduct updates a product
@@ -194,13 +194,13 @@ func (uc *ProductUseCase) UpdateProduct(id uint, sellerID uint, input UpdateProd
 
 // UpdateVariantInput contains the data needed to update a product variant
 type UpdateVariantInput struct {
-	SKU          string
-	Price        float64
-	ComparePrice float64
-	Stock        int
-	Attributes   []entity.VariantAttribute
-	Images       []string
-	IsDefault    bool
+	SKU          string                    `json:"sku"`
+	Price        float64                   `json:"price"`
+	ComparePrice float64                   `json:"compare_price"`
+	Stock        int                       `json:"stock"`
+	Attributes   []entity.VariantAttribute `json:"attributes"`
+	Images       []string                  `json:"images"`
+	IsDefault    bool                      `json:"is_default"`
 }
 
 // UpdateVariant updates a product variant
@@ -287,14 +287,14 @@ func (uc *ProductUseCase) UpdateVariant(productID uint, variantID uint, sellerID
 
 // AddVariantInput contains the data needed to add a variant to a product
 type AddVariantInput struct {
-	ProductID    uint
-	SKU          string
-	Price        float64
-	ComparePrice float64
-	Stock        int
-	Attributes   []entity.VariantAttribute
-	Images       []string
-	IsDefault    bool
+	ProductID    uint                      `json:"product_id"`
+	SKU          string                    `json:"sku"`
+	Price        float64                   `json:"price"`
+	ComparePrice float64                   `json:"compare_price"`
+	Stock        int                       `json:"stock"`
+	Attributes   []entity.VariantAttribute `json:"attributes"`
+	Images       []string                  `json:"images"`
+	IsDefault    bool                      `json:"is_default"`
 }
 
 // AddVariant adds a new variant to a product
@@ -454,12 +454,12 @@ func (uc *ProductUseCase) DeleteProduct(id uint, sellerID uint) error {
 
 // SearchProductsInput contains the data needed to search for products
 type SearchProductsInput struct {
-	Query      string
-	CategoryID uint
-	MinPrice   float64
-	MaxPrice   float64
-	Offset     int
-	Limit      int
+	Query      string  `json:"query"`
+	CategoryID uint    `json:"category_id"`
+	MinPrice   float64 `json:"min_price"`
+	MaxPrice   float64 `json:"max_price"`
+	Offset     int     `json:"offset"`
+	Limit      int     `json:"limit"`
 }
 
 // SearchProducts searches for products based on criteria

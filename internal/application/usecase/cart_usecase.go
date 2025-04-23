@@ -80,8 +80,8 @@ func (uc *CartUseCase) AddToCart(userID uint, input AddToCartInput) (*entity.Car
 
 // UpdateCartItemInput contains the data needed to update a cart item
 type UpdateCartItemInput struct {
-	ProductID uint
-	Quantity  int
+	ProductID uint `json:"product_id"`
+	Quantity  int  `json:"quantity"`
 }
 
 // UpdateCartItem updates the quantity of a product in a user's cart

@@ -168,7 +168,7 @@ func (h *DiscountHandler) ApplyDiscountToOrder(w http.ResponseWriter, r *http.Re
 
 	// Parse request body
 	var input struct {
-		DiscountCode string
+		DiscountCode string `json:"discount_code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -272,7 +272,7 @@ func (h *DiscountHandler) RemoveDiscountFromOrder(w http.ResponseWriter, r *http
 func (h *DiscountHandler) ValidateDiscountCode(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var input struct {
-		DiscountCode string
+		DiscountCode string `json:"discount_code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
