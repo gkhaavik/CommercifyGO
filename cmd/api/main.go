@@ -25,7 +25,7 @@ func main() {
 
 	// Initialize logger
 	logger := logger.NewLogger()
-	logger.Info("Starting e-commerce backend service")
+	logger.Info("Starting Commercify backend service")
 
 	// Load configuration
 	cfg, err := config.LoadConfig()
