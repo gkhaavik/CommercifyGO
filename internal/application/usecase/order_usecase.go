@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
@@ -137,6 +138,7 @@ type ProcessPaymentInput struct {
 	PayPalDetails   *service.PayPalDetails      `json:"paypal_details,omitempty"`
 	BankDetails     *service.BankDetails        `json:"bank_details,omitempty"`
 	CustomerEmail   string                      `json:"customer_email,omitempty"`
+	PhoneNumber     string                      `json:"phone_number,omitempty"`
 }
 
 // ProcessPayment processes payment for an order
@@ -178,15 +180,18 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 		PayPalDetails:   input.PayPalDetails,
 		BankDetails:     input.BankDetails,
 		CustomerEmail:   input.CustomerEmail,
+		PhoneNumber:     input.PhoneNumber,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	if !paymentResult.Success {
-		return nil, errors.New("payment failed: " + paymentResult.ErrorMessage)
-	}
+	fmt.Println("Payment Result:", paymentResult)
+
+	// if !paymentResult.Success {
+	// 	return nil, errors.New("payment failed: " + paymentResult.ErrorMessage)
+	// }
 
 	// Update order with payment ID, provider, and status
 	if err := order.SetPaymentID(paymentResult.TransactionID); err != nil {
@@ -195,7 +200,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	if err := order.SetPaymentProvider(string(paymentResult.Provider)); err != nil {
 		return nil, err
 	}
-	if err := order.UpdateStatus(entity.OrderStatusPaid); err != nil {
+	if err := order.UpdateStatus(entity.OrderStatusPending); err != nil {
 		return nil, err
 	}
 

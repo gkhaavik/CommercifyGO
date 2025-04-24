@@ -41,6 +41,7 @@ type PaymentRequest struct {
 	PayPalDetails   *PayPalDetails
 	BankDetails     *BankDetails
 	CustomerEmail   string
+	PhoneNumber     string
 }
 
 // CardDetails represents credit card payment details

@@ -34,7 +34,7 @@ ADD COLUMN IF NOT EXISTS discount_code VARCHAR(50);
 -- Update existing orders to set final_amount equal to total_amount
 UPDATE orders
 SET
-    final_amount = total_amount
+    final_amount = orders.total_amount
 WHERE
     final_amount IS NULL;
 

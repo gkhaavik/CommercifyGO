@@ -152,6 +152,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		PayPalDetails   *service.PayPalDetails `json:"paypal_details,omitempty"`
 		BankDetails     *service.BankDetails   `json:"bank_details,omitempty"`
 		CustomerEmail   string                 `json:"customer_email,omitempty"`
+		PhoneNumber     string                 `json:"phone_number,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&paymentInput); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -213,7 +214,10 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		PayPalDetails:   paymentInput.PayPalDetails,
 		BankDetails:     paymentInput.BankDetails,
 		CustomerEmail:   paymentInput.CustomerEmail,
+		PhoneNumber:     paymentInput.PhoneNumber,
 	}
+
+	h.logger.Debug("Processing payment: %v", input)
 
 	updatedOrder, err := h.orderUseCase.ProcessPayment(input)
 	if err != nil {

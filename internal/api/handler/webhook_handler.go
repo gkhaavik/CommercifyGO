@@ -95,8 +95,6 @@ func (h *WebhookHandler) RegisterMobilePayWebhook(w http.ResponseWriter, r *http
 		Events:   input.Events,
 	}
 
-	h.logger.Debug("Registering MobilePay webhook: %v", usecaseInput)
-
 	webhook, err := h.webhookUseCase.RegisterMobilePayWebhook(usecaseInput)
 	if err != nil {
 		h.logger.Error("Failed to register MobilePay webhook: %v", err)
