@@ -249,14 +249,16 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 		WHERE id = $14
 	`
 
-	var discountID any = nil
-	var discountCode any = nil
+	var discountID sql.NullInt64
+	var discountCode sql.NullString
 	discountAmount := 0.0
 
-	if order.AppliedDiscount != nil {
-		discountID = order.AppliedDiscount.DiscountID
+	if order.AppliedDiscount != nil && order.AppliedDiscount.DiscountID > 0 {
+		discountID.Int64 = int64(order.AppliedDiscount.DiscountID)
+		discountID.Valid = true
 		discountAmount = order.AppliedDiscount.DiscountAmount
-		discountCode = order.AppliedDiscount.DiscountCode
+		discountCode.String = order.AppliedDiscount.DiscountCode
+		discountCode.Valid = true
 	}
 
 	_, err = r.db.Exec(
