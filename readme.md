@@ -101,19 +101,25 @@ PAYPAL_ENABLED=false
 
 ### Database Setup
 
-1. Create a PostgreSQL database:
+1. Create a PostgreSQL user (optional):
 
 ```bash
-createdb commercify
+createuser -s newuser
 ```
 
-2. Run migrations:
+2. Create a PostgreSQL database:
+
+```bash
+createdb -U newuser commercify
+```
+
+3. Run migrations:
 
 ```bash
 go run cmd/migrate/main.go -up
 ```
 
-3. Seed the database with sample data (optional):
+4. Seed the database with sample data (optional):
 
 ```bash
 go run cmd/seed/main.go -all
