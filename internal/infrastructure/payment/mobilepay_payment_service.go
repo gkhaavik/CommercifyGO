@@ -19,6 +19,7 @@ type MobilePayPaymentService struct {
 	webhookClient *client.Webhook
 	epayment      *client.Payment
 	logger        logger.Logger
+	config        config.MobilePayConfig
 }
 
 // NewMobilePayPaymentService creates a new MobilePayPaymentService
@@ -38,6 +39,7 @@ func NewMobilePayPaymentService(config config.MobilePayConfig, logger logger.Log
 		webhookClient: webhookClient,
 		epayment:      paymentClient,
 		logger:        logger,
+		config:        config,
 	}
 }
 
@@ -89,6 +91,8 @@ func (s *MobilePayPaymentService) ProcessPayment(request service.PaymentRequest)
 	// Generate a unique reference for this payment
 	reference := fmt.Sprintf("order-%d-%s", request.OrderID, uuid.New().String())
 
+	s.logger.Debug("amount: %f", request.Amount)
+
 	// Convert amount to smallest currency unit (øre/cents)
 	amountInSmallestUnit := int64(request.Amount * 100)
 
@@ -105,10 +109,12 @@ func (s *MobilePayPaymentService) ProcessPayment(request service.PaymentRequest)
 			Type: "WALLET",
 		},
 		Reference:          reference,
-		ReturnURL:          "https://example.com/return?order=" + reference,
+		ReturnURL:          s.config.ReturnURL + "?reference=" + reference,
 		UserFlow:           models.UserFlowWebRedirect,
-		PaymentDescription: "Test payment",
+		PaymentDescription: s.config.PaymentDescription,
 	}
+
+	s.logger.Debug("Creating payment with request: %+v", paymentRequest)
 
 	res, err := s.epayment.Create(paymentRequest)
 	if err != nil {

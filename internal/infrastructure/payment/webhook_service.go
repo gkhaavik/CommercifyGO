@@ -1,9 +1,6 @@
 package payment
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
@@ -119,19 +116,4 @@ func (s *WebhookService) GetMobilePayWebhooks() ([]*entity.Webhook, error) {
 
 	// Get all MobilePay webhooks from database
 	return s.webhookRepo.GetByProvider("mobilepay")
-}
-
-// VerifyMobilePayWebhookSignature verifies the signature of a MobilePay webhook
-func (s *WebhookService) VerifyMobilePayWebhookSignature(requestBody []byte, signatureHeader string, webhookSecret string) bool {
-	if signatureHeader == "" || webhookSecret == "" {
-		return false
-	}
-
-	// Create HMAC signature using webhookSecret
-	h := hmac.New(sha256.New, []byte(webhookSecret))
-	h.Write(requestBody)
-	expectedSignature := hex.EncodeToString(h.Sum(nil))
-
-	// Compare with provided signature (case-insensitive)
-	return expectedSignature == signatureHeader
 }

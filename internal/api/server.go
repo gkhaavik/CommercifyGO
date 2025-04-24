@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
+	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/webhooks"
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/api/handler"
@@ -75,7 +78,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	cartHandler := handler.NewCartHandler(cartUseCase, logger)
 	orderHandler := handler.NewOrderHandler(orderUseCase, logger)
 	paymentHandler := handler.NewPaymentHandler(orderUseCase, logger)
-	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, webhookUseCase, webhookService, logger)
+	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, webhookUseCase, logger)
 	discountHandler := handler.NewDiscountHandler(discountUseCase, orderUseCase, logger)
 
 	// Create middleware
@@ -97,7 +100,57 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
-	api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)
+	// api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)
+	if cfg.MobilePay.Enabled {
+		result, err := webhookService.GetMobilePayWebhooks()
+		if err != nil {
+			logger.Error("Failed to get MobilePay webhooks: %v", err)
+		} else {
+			if len(result) == 0 {
+				webhook, err := webhookService.RegisterMobilePayWebhook(cfg.MobilePay.WebhookURL, []string{
+					string(models.WebhookEventPaymentAborted),
+					string(models.WebhookEventPaymentCancelled),
+					string(models.WebhookEventPaymentCaptured),
+					string(models.WebhookEventPaymentRefunded),
+					string(models.WebhookEventPaymentExpired),
+					string(models.WebhookEventPaymentAuthorized),
+				})
+
+				if err != nil {
+					logger.Error("Failed to register MobilePay webhook: %v", err)
+				} else {
+					logger.Info("Registered MobilePay webhook: %s", webhook.URL)
+					result = append(result, webhook)
+				}
+
+			} else {
+				logger.Info("Found %d MobilePay webhooks", len(result))
+			}
+
+			for _, webhook := range result {
+				if webhook.IsActive {
+					handler := webhooks.NewHandler(webhook.Secret)
+					router := webhooks.NewRouter()
+
+					router.HandleFunc(models.EventAuthorized, webhookHandler.HandleMobilePayAuthorized)
+					router.HandleFunc(models.EventAborted, webhookHandler.HandleMobilePayAborted)
+					router.HandleFunc(models.EventCancelled, webhookHandler.HandleMobilePayCancelled)
+					router.HandleFunc(models.EventCaptured, webhookHandler.HandleMobilePayCaptured)
+					router.HandleFunc(models.EventRefunded, webhookHandler.HandleMobilePayRefunded)
+					router.HandleFunc(models.EventExpired, webhookHandler.HandleMobilePayExpired)
+
+					router.HandleDefault(func(event *models.WebhookEvent) error {
+						fmt.Printf("Received unhandled event: %s\n", event.Name)
+						return nil
+					})
+
+					api.HandleFunc("/webhooks/mobilepay", handler.HandleHTTP(router.Process))
+
+					logger.Info("Registered MobilePay webhook: %s", webhook.URL)
+				}
+			}
+		}
+	}
 
 	// Protected routes
 	protected := api.PathPrefix("").Subrouter()
@@ -151,8 +204,6 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 
 	// Webhook management routes (admin only)
 	admin.HandleFunc("/webhooks", webhookHandler.ListWebhooks).Methods(http.MethodGet)
-	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.ListMobilePayWebhooks).Methods(http.MethodGet)
-	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.GetWebhook).Methods(http.MethodGet)
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
 

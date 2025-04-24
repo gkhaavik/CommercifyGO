@@ -130,14 +130,14 @@ func (uc *OrderUseCase) CreateOrderFromCart(input CreateOrderInput) (*entity.Ord
 
 // ProcessPaymentInput contains the data needed to process a payment
 type ProcessPaymentInput struct {
-	OrderID         uint                        `json:"order_id"`
-	PaymentMethod   service.PaymentMethod       `json:"payment_method"`
-	PaymentProvider service.PaymentProviderType `json:"payment_provider"`
-	CardDetails     *service.CardDetails        `json:"card_details,omitempty"`
-	PayPalDetails   *service.PayPalDetails      `json:"paypal_details,omitempty"`
-	BankDetails     *service.BankDetails        `json:"bank_details,omitempty"`
-	CustomerEmail   string                      `json:"customer_email,omitempty"`
-	PhoneNumber     string                      `json:"phone_number,omitempty"`
+	OrderID         uint
+	PaymentMethod   service.PaymentMethod
+	PaymentProvider service.PaymentProviderType
+	CardDetails     *service.CardDetails
+	PayPalDetails   *service.PayPalDetails
+	BankDetails     *service.BankDetails
+	CustomerEmail   string
+	PhoneNumber     string
 }
 
 // ProcessPayment processes payment for an order
@@ -171,7 +171,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	// Process payment
 	paymentResult, err := uc.paymentSvc.ProcessPayment(service.PaymentRequest{
 		OrderID:         order.ID,
-		Amount:          order.TotalAmount,
+		Amount:          order.FinalAmount, // Use final amount (after discounts)
 		Currency:        "USD",
 		PaymentMethod:   input.PaymentMethod,
 		PaymentProvider: input.PaymentProvider,
@@ -186,6 +186,34 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 		return nil, err
 	}
 
+	// Handle payment results that require additional action (like redirects)
+	if paymentResult.RequiresAction && paymentResult.ActionURL != "" {
+		// Update order with payment ID, provider, and status
+		if err := order.SetPaymentID(paymentResult.TransactionID); err != nil {
+			return nil, err
+		}
+		if err := order.SetPaymentProvider(string(paymentResult.Provider)); err != nil {
+			return nil, err
+		}
+		if err := order.SetActionURL(paymentResult.ActionURL); err != nil {
+			return nil, err
+		}
+		if err := order.UpdateStatus(entity.OrderStatusPendingAction); err != nil {
+			return nil, err
+		}
+
+		// Update order in repository
+		if err := uc.orderRepo.Update(order); err != nil {
+			return nil, err
+		}
+
+		return order, nil
+	}
+
+	if !paymentResult.Success {
+		return nil, errors.New(paymentResult.ErrorMessage)
+	}
+
 	// Update order with payment ID, provider, and status
 	if err := order.SetPaymentID(paymentResult.TransactionID); err != nil {
 		return nil, err
@@ -193,7 +221,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	if err := order.SetPaymentProvider(string(paymentResult.Provider)); err != nil {
 		return nil, err
 	}
-	if err := order.UpdateStatus(entity.OrderStatusPending); err != nil {
+	if err := order.UpdateStatus(entity.OrderStatusPaid); err != nil {
 		return nil, err
 	}
 
