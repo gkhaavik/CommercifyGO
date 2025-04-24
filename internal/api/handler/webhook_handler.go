@@ -190,9 +190,6 @@ func (h *WebhookHandler) HandleMobilePayWebhook(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Log the raw webhook data for debugging
-	h.logger.Debug("Received MobilePay webhook: %s", string(body))
-
 	// Parse the webhook event
 	var event MobilePayWebhookEvent
 	if err := json.Unmarshal(body, &event); err != nil {

@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
@@ -186,12 +185,6 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("Payment Result:", paymentResult)
-
-	// if !paymentResult.Success {
-	// 	return nil, errors.New("payment failed: " + paymentResult.ErrorMessage)
-	// }
 
 	// Update order with payment ID, provider, and status
 	if err := order.SetPaymentID(paymentResult.TransactionID); err != nil {

@@ -217,8 +217,6 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber:     paymentInput.PhoneNumber,
 	}
 
-	h.logger.Debug("Processing payment: %v", input)
-
 	updatedOrder, err := h.orderUseCase.ProcessPayment(input)
 	if err != nil {
 		h.logger.Error("Failed to process payment: %v", err)
