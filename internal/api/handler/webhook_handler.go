@@ -47,6 +47,56 @@ type RegisterWebhookRequest struct {
 	Events   []string `json:"events"`
 }
 
+// RegisterWebhook handles registering a new webhook
+func (h *WebhookHandler) RegisterMobilePayWebhook(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var req RegisterWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to parse request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate request
+	if req.URL == "" || len(req.Events) == 0 {
+		h.logger.Error("Invalid request: missing required fields")
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Register webhook
+	input := usecase.RegisterWebhookInput{
+		URL:    req.URL,
+		Events: req.Events,
+	}
+
+	webhook, err := h.webhookUseCase.RegisterMobilePayWebhook(input)
+
+	if err != nil {
+		h.logger.Error("Failed to register webhook: %v", err)
+		http.Error(w, "Failed to register webhook", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(webhook)
+}
+
+// GetMobilePayWebhooks handles getting all webhooks for MobilePay
+func (h *WebhookHandler) GetMobilePayWebhooks(w http.ResponseWriter, r *http.Request) {
+	webhooks, err := h.webhookUseCase.GetMobilePayWebhooks()
+	if err != nil {
+		h.logger.Error("Failed to get webhooks: %v", err)
+		http.Error(w, "Failed to get webhooks", http.StatusInternalServerError)
+		return
+	}
+
+	// Return webhooks
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(webhooks)
+}
+
 // ListWebhooks handles listing all webhooks
 func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 	webhooks, err := h.webhookUseCase.GetAllWebhooks()

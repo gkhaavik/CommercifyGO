@@ -114,8 +114,6 @@ func (s *MobilePayPaymentService) ProcessPayment(request service.PaymentRequest)
 		PaymentDescription: s.config.PaymentDescription,
 	}
 
-	s.logger.Debug("Creating payment with request: %+v", paymentRequest)
-
 	res, err := s.epayment.Create(paymentRequest)
 	if err != nil {
 		return &service.PaymentResult{

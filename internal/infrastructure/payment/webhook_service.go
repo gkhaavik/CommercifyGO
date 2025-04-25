@@ -111,9 +111,6 @@ func (s *WebhookService) deleteMobilePayWebhook(externalID string) error {
 }
 
 // GetMobilePayWebhooks returns all registered MobilePay webhooks
-func (s *WebhookService) GetMobilePayWebhooks() ([]*entity.Webhook, error) {
-	// s.mobilePayService.webhookClient.GetAll()
-
-	// Get all MobilePay webhooks from database
-	return s.webhookRepo.GetByProvider("mobilepay")
+func (s *WebhookService) GetMobilePayWebhooks() ([]models.WebhookRegistration, error) {
+	return s.mobilePayService.webhookClient.GetAll()
 }

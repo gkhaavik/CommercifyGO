@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
@@ -68,6 +69,6 @@ func (u *WebhookUseCase) GetAllWebhooks() ([]*entity.Webhook, error) {
 }
 
 // GetMobilePayWebhooks returns all MobilePay webhooks
-func (u *WebhookUseCase) GetMobilePayWebhooks() ([]*entity.Webhook, error) {
-	return u.webhookRepo.GetByProvider("mobilepay")
+func (u *WebhookUseCase) GetMobilePayWebhooks() ([]models.WebhookRegistration, error) {
+	return u.webhookService.GetMobilePayWebhooks()
 }

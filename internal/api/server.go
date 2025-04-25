@@ -102,7 +102,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
 	// api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)
 	if cfg.MobilePay.Enabled {
-		result, err := webhookService.GetMobilePayWebhooks()
+		result, err := webhookUseCase.GetAllWebhooks()
 		if err != nil {
 			logger.Error("Failed to get MobilePay webhooks: %v", err)
 		} else {
@@ -128,7 +128,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 			}
 
 			for _, webhook := range result {
-				if webhook.IsActive {
+				if webhook.IsActive && webhook.Provider == "mobilepay" {
 					handler := webhooks.NewHandler(webhook.Secret)
 					router := webhooks.NewRouter()
 
@@ -206,6 +206,8 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	admin.HandleFunc("/webhooks", webhookHandler.ListWebhooks).Methods(http.MethodGet)
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.GetWebhook).Methods(http.MethodGet)
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
+	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
+	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.GetMobilePayWebhooks).Methods(http.MethodGet)
 
 	// Create HTTP server
 	httpServer := &http.Server{
