@@ -3,7 +3,7 @@ module github.com/zenfulcode/commercify
 go 1.24.0
 
 require (
-	github.com/gkhaavik/vipps-mobilepay-sdk v0.0.0-20250424120819-ac67a9149777
+	github.com/gkhaavik/vipps-mobilepay-sdk v0.0.2
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
