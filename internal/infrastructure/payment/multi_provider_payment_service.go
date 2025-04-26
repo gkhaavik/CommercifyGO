@@ -3,6 +3,8 @@ package payment
 import (
 	"fmt"
 
+	"slices"
+
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -159,12 +161,27 @@ func (s *MultiProviderPaymentService) RefundPayment(transactionID string, amount
 	return paymentProvider.RefundPayment(transactionID, amount, provider)
 }
 
+// CapturePayment captures a payment
+func (s *MultiProviderPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+	paymentProvider, exists := s.providers[provider]
+	if !exists {
+		return fmt.Errorf("payment provider %s not available", provider)
+	}
+
+	return paymentProvider.CapturePayment(transactionID, amount, provider)
+}
+
+// CancelPayment cancels a payment
+func (s *MultiProviderPaymentService) CancelPayment(transactionID string, provider service.PaymentProviderType) error {
+	paymentProvider, exists := s.providers[provider]
+	if !exists {
+		return fmt.Errorf("payment provider %s not available", provider)
+	}
+
+	return paymentProvider.CancelPayment(transactionID, provider)
+}
+
 // Helper function to check if a slice contains a string
 func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }

@@ -1,13 +1,14 @@
 package usecase_test
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/service"
+	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
 	"github.com/zenfulcode/commercify/testutil/mock"
 )
 
@@ -27,15 +28,16 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 
 		// Simple mock payment service that always succeeds
-		paymentSvc := &mockPaymentService{
-			availableProviders: []service.PaymentProvider{
-				{
-					Type:    service.PaymentProviderStripe,
-					Name:    "Stripe",
-					Enabled: true,
-				},
-			},
-		}
+		paymentSvc := payment.NewMockPaymentService()
+		// paymentSvc := &mockPaymentService{
+		// 	availableProviders: []service.PaymentProvider{
+		// 		{
+		// 			Type:    service.PaymentProviderStripe,
+		// 			Name:    "Stripe",
+		// 			Enabled: true,
+		// 		},
+		// 	},
+		// }
 
 		// Simple mock email service
 		emailSvc := &mockEmailService{}
@@ -141,15 +143,16 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 
 		// Simple mock payment service that always succeeds
-		paymentSvc := &mockPaymentService{
-			availableProviders: []service.PaymentProvider{
-				{
-					Type:    service.PaymentProviderStripe,
-					Name:    "Stripe",
-					Enabled: true,
-				},
-			},
-		}
+		paymentSvc := payment.NewMockPaymentService()
+		// paymentSvc := &mockPaymentService{
+		// 	availableProviders: []service.PaymentProvider{
+		// 		{
+		// 			Type:    service.PaymentProviderStripe,
+		// 			Name:    "Stripe",
+		// 			Enabled: true,
+		// 		},
+		// 	},
+		// }
 
 		// Simple mock email service
 		emailSvc := &mockEmailService{}
@@ -253,7 +256,7 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create a test user
@@ -303,7 +306,7 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create a test user
@@ -373,7 +376,7 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
 
-		// Create mock payment service that succeeds
+		// Create custom mock payment service that succeeds
 		paymentSvc := &mockPaymentService{
 			shouldSucceed: true,
 			transactionID: "txn_12345",
@@ -411,7 +414,7 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		// Process payment input
 		input := usecase.ProcessPaymentInput{
 			OrderID:         1,
-			PaymentMethod:   PaymentMethodCard,
+			PaymentMethod:   service.PaymentMethodCreditCard,
 			PaymentProvider: service.PaymentProviderStripe,
 			CardDetails: &service.CardDetails{
 				CardNumber:     "4242424242424242",
@@ -441,8 +444,9 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
 
-		// Create mock payment service that requires action
+		// Create custom mock payment service that requires action
 		paymentSvc := &mockPaymentService{
+			shouldSucceed:  true,
 			requiresAction: true,
 			actionURL:      "https://example.com/3dsecure",
 			transactionID:  "txn_3ds_12345",
@@ -480,7 +484,7 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		// Process payment input
 		input := usecase.ProcessPaymentInput{
 			OrderID:         1,
-			PaymentMethod:   PaymentMethodCard,
+			PaymentMethod:   service.PaymentMethodCreditCard,
 			PaymentProvider: service.PaymentProviderStripe,
 			CardDetails: &service.CardDetails{
 				CardNumber:     "4000002500003155", // Example 3DS card
@@ -499,8 +503,8 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, updatedOrder)
 		assert.Equal(t, string(entity.OrderStatusPendingAction), updatedOrder.Status)
-		assert.Equal(t, paymentSvc.transactionID, updatedOrder.PaymentID)
-		assert.Equal(t, paymentSvc.actionURL, updatedOrder.ActionURL)
+		assert.Equal(t, "txn_3ds_12345", updatedOrder.PaymentID)
+		assert.Equal(t, "https://example.com/3dsecure", updatedOrder.ActionURL)
 	})
 
 	t.Run("Process payment with unavailable provider", func(t *testing.T) {
@@ -511,15 +515,7 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 
 		// Create mock payment service with only Stripe available
-		paymentSvc := &mockPaymentService{
-			availableProviders: []service.PaymentProvider{
-				{
-					Type:    service.PaymentProviderStripe,
-					Name:    "Stripe",
-					Enabled: true,
-				},
-			},
-		}
+		paymentSvc := payment.NewMockPaymentService()
 
 		emailSvc := &mockEmailService{}
 
@@ -566,7 +562,7 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create a test order that's already paid
@@ -615,7 +611,7 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create a test order
@@ -641,7 +637,7 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 		// Update status input
 		input := usecase.UpdateOrderStatusInput{
 			OrderID: 1,
-			Status:  entity.OrderStatusShipped,
+			Status:  entity.OrderStatusCaptured,
 		}
 
 		// Execute
@@ -650,7 +646,7 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, updatedOrder)
-		assert.Equal(t, string(entity.OrderStatusShipped), updatedOrder.Status)
+		assert.Equal(t, string(entity.OrderStatusCaptured), updatedOrder.Status)
 	})
 
 	t.Run("Update order with invalid status transition", func(t *testing.T) {
@@ -659,7 +655,7 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create a test order that's pending
@@ -705,7 +701,7 @@ func TestOrderUseCase_GetOrderByID(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create a test order
@@ -755,7 +751,7 @@ func TestOrderUseCase_GetOrderByID(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create use case with mocks
@@ -784,7 +780,7 @@ func TestOrderUseCase_GetUserOrders(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create test orders for user 1
@@ -841,7 +837,7 @@ func TestOrderUseCase_ListOrdersByStatus(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentSvc := &mockPaymentService{}
+		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
 
 		// Create test orders with different statuses
@@ -890,61 +886,401 @@ func TestOrderUseCase_ListOrdersByStatus(t *testing.T) {
 	})
 }
 
-// Mock implementations for payment and email services
+func TestOrderUseCase_CapturePayment(t *testing.T) {
+	t.Run("Capture payment successfully with MobilePay", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
 
-type mockPaymentService struct {
-	shouldSucceed      bool
-	requiresAction     bool
-	actionURL          string
-	transactionID      string
-	availableProviders []service.PaymentProvider
+		// Create a mock payment service with MobilePay support
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create a test order with MobilePay payment
+		order := &entity.Order{
+			ID:              1,
+			UserID:          1,
+			TotalAmount:     199.98,
+			FinalAmount:     199.98,
+			Status:          string(entity.OrderStatusPaid),
+			PaymentID:       "mp_payment_12345",
+			PaymentProvider: string(service.PaymentProviderMobilePay),
+		}
+		orderRepo.Create(order)
+
+		// Add mock implementation for GetByPaymentID to the order repository
+		orderRepo.AddMockGetByPaymentID(order)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute
+		err := orderUseCase.CapturePayment("mp_payment_12345", 199.98)
+
+		// Assert
+		assert.NoError(t, err)
+		capturedOrder, _ := orderRepo.GetByID(1)
+		assert.Equal(t, string(entity.OrderStatusPaid), capturedOrder.Status) // Status remains as the capture doesn't change it
+	})
+
+	t.Run("Capture payment with invalid payment ID", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute with non-existent payment ID
+		err := orderUseCase.CapturePayment("non_existent_payment", 100)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "order not found")
+	})
+
+	t.Run("Capture payment with unsupported provider", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create a test order with Stripe payment (which we don't support for capture in this test)
+		order := &entity.Order{
+			ID:              1,
+			UserID:          1,
+			TotalAmount:     199.98,
+			FinalAmount:     199.98,
+			Status:          string(entity.OrderStatusCaptured),
+			PaymentID:       "stripe_payment_12345",
+			PaymentProvider: string(service.PaymentProviderStripe),
+		}
+		orderRepo.Create(order)
+
+		// Add mock implementation for GetByPaymentID to the order repository
+		orderRepo.AddMockGetByPaymentID(order)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute
+		err := orderUseCase.CapturePayment("stripe_payment_12345", 199.98)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "payment already captured")
+	})
 }
 
-func (m *mockPaymentService) ProcessPayment(request service.PaymentRequest) (*service.PaymentResult, error) {
-	result := &service.PaymentResult{
-		Success:        m.shouldSucceed,
-		TransactionID:  m.transactionID,
-		Provider:       request.PaymentProvider,
-		RequiresAction: m.requiresAction,
-		ActionURL:      m.actionURL,
-	}
+func TestOrderUseCase_CancelPayment(t *testing.T) {
+	t.Run("Cancel payment successfully with MobilePay", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
 
-	if !m.shouldSucceed && !m.requiresAction {
-		result.ErrorMessage = "Payment failed"
-	}
+		paymentSvc := payment.NewMockPaymentService()
 
-	return result, nil
+		emailSvc := &mockEmailService{}
+
+		// Create a test order with MobilePay payment
+		order := &entity.Order{
+			ID:              1,
+			UserID:          1,
+			TotalAmount:     199.98,
+			FinalAmount:     199.98,
+			Status:          string(entity.OrderStatusPendingAction),
+			PaymentID:       "mp_payment_12345",
+			PaymentProvider: string(service.PaymentProviderMobilePay),
+		}
+		orderRepo.Create(order)
+
+		// Add mock implementation for GetByPaymentID to the order repository
+		orderRepo.AddMockGetByPaymentID(order)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute
+		err := orderUseCase.CancelPayment("mp_payment_12345")
+
+		// Assert
+		assert.NoError(t, err)
+		cancelledOrder, _ := orderRepo.GetByID(1)
+		assert.Equal(t, string(entity.OrderStatusCancelled), cancelledOrder.Status)
+	})
+
+	t.Run("Cancel payment with invalid payment ID", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute with non-existent payment ID
+		err := orderUseCase.CancelPayment("non_existent_payment")
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "order not found")
+	})
+
+	t.Run("Cancel payment with unsupported provider", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create a test order with Stripe payment (which we don't support for cancellation in this test)
+		order := &entity.Order{
+			ID:              1,
+			UserID:          1,
+			TotalAmount:     199.98,
+			FinalAmount:     199.98,
+			Status:          string(entity.OrderStatusPaid),
+			PaymentID:       "stripe_payment_12345",
+			PaymentProvider: string(service.PaymentProviderStripe),
+		}
+		orderRepo.Create(order)
+
+		// Add mock implementation for GetByPaymentID to the order repository
+		orderRepo.AddMockGetByPaymentID(order)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute
+		err := orderUseCase.CancelPayment("stripe_payment_12345")
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "payment cancellation not allowed in current order status")
+	})
 }
 
-func (m *mockPaymentService) RefundPayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
-	if transactionID == "" {
-		return fmt.Errorf("transaction ID is required")
-	}
-	if amount <= 0 {
-		return fmt.Errorf("amount must be greater than zero")
-	}
+func TestOrderUseCase_RefundPayment(t *testing.T) {
+	t.Run("Full refund payment successfully", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
 
-	// Simulate refund
-	if m.shouldSucceed {
-		return nil
-	}
-	return fmt.Errorf("refund failed")
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create a test order
+		order := &entity.Order{
+			ID:              1,
+			UserID:          1,
+			TotalAmount:     199.98,
+			FinalAmount:     199.98,
+			Status:          string(entity.OrderStatusPaid),
+			PaymentID:       "payment_12345",
+			PaymentProvider: string(service.PaymentProviderStripe),
+		}
+		orderRepo.Create(order)
+
+		// Add mock implementation for GetByPaymentID to the order repository
+		orderRepo.AddMockGetByPaymentID(order)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute - full refund
+		err := orderUseCase.RefundPayment("payment_12345", 199.98)
+
+		// Assert
+		assert.NoError(t, err)
+		refundedOrder, _ := orderRepo.GetByID(1)
+		assert.Equal(t, string(entity.OrderStatusRefunded), refundedOrder.Status)
+	})
+
+	t.Run("Partial refund payment successfully", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create a test order
+		order := &entity.Order{
+			ID:              1,
+			UserID:          1,
+			TotalAmount:     199.98,
+			FinalAmount:     199.98,
+			Status:          string(entity.OrderStatusPaid),
+			PaymentID:       "payment_12345",
+			PaymentProvider: string(service.PaymentProviderStripe),
+		}
+		orderRepo.Create(order)
+
+		// Add mock implementation for GetByPaymentID to the order repository
+		orderRepo.AddMockGetByPaymentID(order)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute - partial refund
+		err := orderUseCase.RefundPayment("payment_12345", 50.00)
+
+		// Assert
+		assert.NoError(t, err)
+		refundedOrder, _ := orderRepo.GetByID(1)
+		// Status should remain paid for partial refunds
+		assert.Equal(t, string(entity.OrderStatusPaid), refundedOrder.Status)
+	})
+
+	t.Run("Refund payment with invalid amount", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute with invalid amount
+		err := orderUseCase.RefundPayment("payment_12345", -10.00)
+
+		// Assert
+		assert.Error(t, err)
+	})
+
+	// Test Case: Refund payment with invalid payment provider
+
+	t.Run("Refund payment with failed payment service", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		paymentSvc := payment.NewMockPaymentService()
+
+		emailSvc := &mockEmailService{}
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Execute
+		err := orderUseCase.RefundPayment("payment_12345", 100.00)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "order not found for payment ID")
+	})
 }
 
-func (m *mockPaymentService) VerifyPayment(transactionID string, provider service.PaymentProviderType) (bool, error) {
-	if transactionID == "" {
-		return false, fmt.Errorf("transaction ID is required")
-	}
-
-	// Simulate verification
-	if m.shouldSucceed {
-		return true, nil
-	}
-	return false, fmt.Errorf("verification failed")
-}
-
-func (m *mockPaymentService) GetAvailableProviders() []service.PaymentProvider {
-	return m.availableProviders
+func TestOrderUseCase_NotifyShipping(t *testing.T) {
+	// This function would contain tests for notifying shipping, if applicable.
 }
 
 type mockEmailService struct {
@@ -963,5 +1299,66 @@ func (m *mockEmailService) SendOrderNotification(order *entity.Order, user *enti
 }
 
 func (m *mockEmailService) SendEmail(data service.EmailData) error {
+	return nil
+}
+
+type mockPaymentService struct {
+	shouldSucceed      bool
+	requiresAction     bool
+	actionURL          string
+	transactionID      string
+	availableProviders []service.PaymentProvider
+}
+
+func (m *mockPaymentService) ProcessPayment(request service.PaymentRequest) (*service.PaymentResult, error) {
+	if !m.shouldSucceed {
+		return nil, errors.New("payment failed")
+	}
+
+	result := &service.PaymentResult{
+		Success:        true,
+		TransactionID:  m.transactionID,
+		Provider:       request.PaymentProvider,
+		RequiresAction: m.requiresAction,
+		ActionURL:      m.actionURL,
+	}
+
+	return result, nil
+}
+
+func (m *mockPaymentService) VerifyPayment(transactionID string, provider service.PaymentProviderType) (bool, error) {
+	return m.shouldSucceed, nil
+}
+
+func (m *mockPaymentService) RefundPayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+	if !m.shouldSucceed {
+		return errors.New("refund failed")
+	}
+	if amount <= 0 {
+		return errors.New("invalid amount")
+	}
+	return nil
+}
+
+func (m *mockPaymentService) GetAvailableProviders() []service.PaymentProvider {
+	return m.availableProviders
+}
+
+// CapturePayment implements the payment service interface method for capturing payments
+func (m *mockPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+	if !m.shouldSucceed {
+		return errors.New("capture failed")
+	}
+	if amount <= 0 {
+		return errors.New("invalid amount")
+	}
+	return nil
+}
+
+// CancelPayment implements the payment service interface method for cancelling payments
+func (m *mockPaymentService) CancelPayment(transactionID string, provider service.PaymentProviderType) error {
+	if !m.shouldSucceed {
+		return errors.New("cancel failed")
+	}
 	return nil
 }

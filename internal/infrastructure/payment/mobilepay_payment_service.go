@@ -158,14 +158,6 @@ func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount flo
 		return errors.New("invalid payment provider")
 	}
 
-	if transactionID == "" {
-		return errors.New("transaction ID is required")
-	}
-
-	if amount <= 0 {
-		return errors.New("refund amount must be greater than zero")
-	}
-
 	// Convert amount to smallest currency unit (øre/cents)
 	amountInSmallestUnit := int64(amount * 100)
 
@@ -187,13 +179,9 @@ func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount flo
 }
 
 // CapturePayment captures an authorized payment
-func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount float64) error {
-	if transactionID == "" {
-		return errors.New("transaction ID is required")
-	}
-
-	if amount <= 0 {
-		return errors.New("capture amount must be greater than zero")
+func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+	if provider != service.PaymentProviderMobilePay {
+		return errors.New("invalid payment provider")
 	}
 
 	// Convert amount to smallest currency unit (øre/cents)
@@ -216,7 +204,11 @@ func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount fl
 }
 
 // CancelPayment cancels a payment
-func (s *MobilePayPaymentService) CancelPayment(transactionID string) error {
+func (s *MobilePayPaymentService) CancelPayment(transactionID string, provider service.PaymentProviderType) error {
+	if provider != service.PaymentProviderMobilePay {
+		return errors.New("invalid payment provider")
+	}
+
 	if transactionID == "" {
 		return errors.New("transaction ID is required")
 	}

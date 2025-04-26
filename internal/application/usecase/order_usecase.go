@@ -384,3 +384,118 @@ func (uc *OrderUseCase) GetUserOrders(userID uint, offset, limit int) ([]*entity
 func (uc *OrderUseCase) ListOrdersByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
 	return uc.orderRepo.ListByStatus(status, offset, limit)
 }
+
+// CapturePayment captures an authorized payment
+func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) error {
+	// Find the order with this payment ID
+	order, err := uc.orderRepo.GetByPaymentID(transactionID)
+	if err != nil {
+		return errors.New("order not found for payment ID")
+	}
+
+	// Check if the order is already captured
+	if order.Status == string(entity.OrderStatusCaptured) {
+		return errors.New("payment already captured")
+	}
+	// Check if the order is in a state that allows capture
+	if order.Status != string(entity.OrderStatusPaid) {
+		return errors.New("payment capture not allowed in current order status")
+	}
+	// Check if the amount is valid
+	if amount <= 0 {
+		return errors.New("capture amount must be greater than zero")
+	}
+
+	providerType := service.PaymentProviderType(order.PaymentProvider)
+
+	// Call payment service to capture payment
+	err = uc.paymentSvc.CapturePayment(transactionID, amount, providerType)
+	if err != nil {
+		return fmt.Errorf("failed to capture payment: %v", err)
+	}
+
+	return nil
+}
+
+// CancelPayment cancels a payment
+func (uc *OrderUseCase) CancelPayment(transactionID string) error {
+	// Find the order with this payment ID
+	order, err := uc.orderRepo.GetByPaymentID(transactionID)
+	if err != nil {
+		return errors.New("order not found for payment ID")
+	}
+
+	// Check if the order is already canceled
+	if order.Status == string(entity.OrderStatusCancelled) {
+		return errors.New("payment already canceled")
+	}
+	// Check if the order is in a state that allows cancellation
+	if order.Status != string(entity.OrderStatusPendingAction) {
+		return errors.New("payment cancellation not allowed in current order status")
+	}
+	// Check if the transaction ID is valid
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+
+	providerType := service.PaymentProviderType(order.PaymentProvider)
+
+	err = uc.paymentSvc.CancelPayment(transactionID, providerType)
+	if err != nil {
+		return fmt.Errorf("failed to cancel payment: %v", err)
+	}
+
+	// Update the order status to cancelled after successful payment cancellation
+	if err := order.UpdateStatus(entity.OrderStatusCancelled); err != nil {
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
+
+	// Save the updated order in the repository
+	if err := uc.orderRepo.Update(order); err != nil {
+		return fmt.Errorf("failed to save order status: %v", err)
+	}
+
+	return nil
+}
+
+// RefundPayment refunds a payment
+func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) error {
+	// Find the order with this payment ID
+	order, err := uc.orderRepo.GetByPaymentID(transactionID)
+	if err != nil {
+		return errors.New("order not found for payment ID")
+	}
+
+	// Check if the order is already refunded
+	if order.Status == string(entity.OrderStatusRefunded) {
+		return errors.New("payment already refunded")
+	}
+	// Check if the order is in a state that allows refund
+	if order.Status != string(entity.OrderStatusPaid) && order.Status != string(entity.OrderStatusCaptured) {
+		return errors.New("payment refund not allowed in current order status")
+	}
+	// Check if the amount is valid
+	if amount <= 0 {
+		return errors.New("refund amount must be greater than zero")
+	}
+	providerType := service.PaymentProviderType(order.PaymentProvider)
+	err = uc.paymentSvc.RefundPayment(transactionID, amount, providerType)
+	if err != nil {
+		return fmt.Errorf("failed to refund payment: %v", err)
+	}
+
+	// Only update the order status to refunded if it's a full refund
+	// Consider it a full refund if the refund amount is equal to the final amount
+	if amount >= order.FinalAmount {
+		if err := order.UpdateStatus(entity.OrderStatusRefunded); err != nil {
+			return fmt.Errorf("failed to update order status: %v", err)
+		}
+
+		// Save the updated order in the repository
+		if err := uc.orderRepo.Update(order); err != nil {
+			return fmt.Errorf("failed to save order status: %v", err)
+		}
+	}
+
+	return nil
+}

@@ -90,4 +90,10 @@ type PaymentService interface {
 
 	// RefundPayment refunds a payment
 	RefundPayment(transactionID string, amount float64, provider PaymentProviderType) error
+
+	// CapturePayment captures a payment
+	CapturePayment(transactionID string, amount float64, provider PaymentProviderType) error
+
+	// CancelPayment cancels a payment
+	CancelPayment(transactionID string, provider PaymentProviderType) error
 }

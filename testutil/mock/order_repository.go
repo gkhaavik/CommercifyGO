@@ -6,146 +6,151 @@ import (
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 )
 
-// MockOrderRepository is a mock implementation of the order repository
-type MockOrderRepository struct {
+// OrderRepository is a mock implementation of the order repository interface
+type OrderRepository struct {
 	orders               map[uint]*entity.Order
-	ordersByUser         map[uint][]*entity.Order
-	lastID               uint
+	paymentIDIndex       map[string]*entity.Order // Index to find orders by payment ID
 	MockIsDiscountIdUsed func(id uint) (bool, error)
 }
 
-// NewMockOrderRepository creates a new instance of MockOrderRepository
-func NewMockOrderRepository() *MockOrderRepository {
-	return &MockOrderRepository{
-		orders:       make(map[uint]*entity.Order),
-		ordersByUser: make(map[uint][]*entity.Order),
-		lastID:       0,
-		MockIsDiscountIdUsed: func(id uint) (bool, error) {
-			return false, nil
-		},
+// NewMockOrderRepository creates a new mock order repository
+func NewMockOrderRepository() *OrderRepository {
+	return &OrderRepository{
+		orders:         make(map[uint]*entity.Order),
+		paymentIDIndex: make(map[string]*entity.Order),
 	}
 }
 
-// Create adds an order to the repository
-func (r *MockOrderRepository) Create(order *entity.Order) error {
-	// Assign ID
-	r.lastID++
-	order.ID = r.lastID
-
-	// Store order
-	r.orders[order.ID] = order
-
-	// Add to user's orders
-	userOrders, exists := r.ordersByUser[order.UserID]
-	if !exists {
-		userOrders = make([]*entity.Order, 0)
+// Create adds a new order to the mock repository
+func (r *OrderRepository) Create(order *entity.Order) error {
+	// If no ID provided, generate one
+	if order.ID == 0 {
+		maxID := uint(0)
+		for id := range r.orders {
+			if id > maxID {
+				maxID = id
+			}
+		}
+		order.ID = maxID + 1
 	}
-	userOrders = append(userOrders, order)
-	r.ordersByUser[order.UserID] = userOrders
+
+	// Clone the order to prevent unintended modifications
+	clone := *order
+	r.orders[order.ID] = &clone
+
+	// Index by payment ID if available
+	if order.PaymentID != "" {
+		r.paymentIDIndex[order.PaymentID] = &clone
+	}
 
 	return nil
 }
 
-// GetByID retrieves an order by ID
-func (r *MockOrderRepository) GetByID(id uint) (*entity.Order, error) {
+// GetByID retrieves an order by ID from the mock repository
+func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	order, exists := r.orders[id]
 	if !exists {
 		return nil, errors.New("order not found")
 	}
-	return order, nil
+
+	// Return a clone to prevent unintended modifications
+	clone := *order
+	return &clone, nil
 }
 
-// Update updates an order
-func (r *MockOrderRepository) Update(order *entity.Order) error {
+// Update updates an existing order in the mock repository
+func (r *OrderRepository) Update(order *entity.Order) error {
 	if _, exists := r.orders[order.ID]; !exists {
 		return errors.New("order not found")
 	}
 
-	// Get current user's orders
-	oldOrder := r.orders[order.ID]
-	userOrders := r.ordersByUser[oldOrder.UserID]
-
-	// If user ID changed, update ordersByUser mapping
-	if oldOrder.UserID != order.UserID {
-		// Remove from old user's orders
-		for i, o := range userOrders {
-			if o.ID == order.ID {
-				userOrders = append(userOrders[:i], userOrders[i+1:]...)
-				break
-			}
+	// If payment ID has changed, update the index
+	existingOrder := r.orders[order.ID]
+	if existingOrder.PaymentID != order.PaymentID {
+		if existingOrder.PaymentID != "" {
+			delete(r.paymentIDIndex, existingOrder.PaymentID)
 		}
-		r.ordersByUser[oldOrder.UserID] = userOrders
-
-		// Add to new user's orders
-		newUserOrders, exists := r.ordersByUser[order.UserID]
-		if !exists {
-			newUserOrders = make([]*entity.Order, 0)
+		if order.PaymentID != "" {
+			r.paymentIDIndex[order.PaymentID] = order
 		}
-		newUserOrders = append(newUserOrders, order)
-		r.ordersByUser[order.UserID] = newUserOrders
 	}
 
-	// Update the order
-	r.orders[order.ID] = order
+	// Clone the order to prevent unintended modifications
+	clone := *order
+	r.orders[order.ID] = &clone
 
 	return nil
 }
 
-// GetByUser retrieves orders for a user with pagination
-func (r *MockOrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.Order, error) {
-	userOrders, exists := r.ordersByUser[userID]
-	if !exists {
-		return []*entity.Order{}, nil
-	}
-
-	// Apply pagination
-	start := offset
-	end := offset + limit
-	if start >= len(userOrders) {
-		return []*entity.Order{}, nil
-	}
-	if end > len(userOrders) {
-		end = len(userOrders)
-	}
-
-	return userOrders[start:end], nil
-}
-
-// ListByStatus retrieves orders by status with pagination
-func (r *MockOrderRepository) ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
-	statusOrders := make([]*entity.Order, 0)
-
+// GetByUser retrieves orders for a user from the mock repository
+func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.Order, error) {
+	var orders []*entity.Order
 	for _, order := range r.orders {
-		if entity.OrderStatus(order.Status) == status {
-			statusOrders = append(statusOrders, order)
+		if order.UserID == userID {
+			clone := *order
+			orders = append(orders, &clone)
 		}
 	}
 
-	// Apply pagination
-	start := offset
-	end := offset + limit
-	if start >= len(statusOrders) {
+	// Apply offset and limit
+	if offset >= len(orders) {
 		return []*entity.Order{}, nil
 	}
-	if end > len(statusOrders) {
-		end = len(statusOrders)
-	}
+	end := min(offset+limit, len(orders))
 
-	return statusOrders[start:end], nil
+	return orders[offset:end], nil
 }
 
-// IsDiscountIdUsed checks if a discount ID is used by any order
-func (r *MockOrderRepository) IsDiscountIdUsed(id uint) (bool, error) {
-	if r.MockIsDiscountIdUsed != nil {
-		return r.MockIsDiscountIdUsed(id)
+// ListByStatus retrieves orders by status from the mock repository
+func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
+	var orders []*entity.Order
+	for _, order := range r.orders {
+		if order.Status == string(status) {
+			clone := *order
+			orders = append(orders, &clone)
+		}
 	}
 
-	// Default implementation
+	// Apply offset and limit
+	if offset >= len(orders) {
+		return []*entity.Order{}, nil
+	}
+	end := min(offset+limit, len(orders))
+
+	return orders[offset:end], nil
+}
+
+// IsDiscountIdUsed checks if a discount is used by any order in the mock repository
+func (r *OrderRepository) IsDiscountIdUsed(discountID uint) (bool, error) {
+	// If a mock function is provided, use it
+	if r.MockIsDiscountIdUsed != nil {
+		return r.MockIsDiscountIdUsed(discountID)
+	}
+
+	// Otherwise fall back to the default implementation
 	for _, order := range r.orders {
-		if order.AppliedDiscount != nil && order.AppliedDiscount.DiscountID == id {
+		if order.AppliedDiscount != nil && order.AppliedDiscount.DiscountID == discountID {
 			return true, nil
 		}
 	}
-
 	return false, nil
+}
+
+// GetByPaymentID retrieves an order by payment ID from the mock repository
+func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error) {
+	order, exists := r.paymentIDIndex[paymentID]
+	if !exists {
+		return nil, errors.New("order not found for payment ID")
+	}
+
+	// Return a clone to prevent unintended modifications
+	clone := *order
+	return &clone, nil
+}
+
+// AddMockGetByPaymentID is a helper function to set up mock behavior for GetByPaymentID
+func (r *OrderRepository) AddMockGetByPaymentID(order *entity.Order) {
+	if order != nil && order.PaymentID != "" {
+		r.paymentIDIndex[order.PaymentID] = order
+	}
 }

@@ -202,3 +202,49 @@ func (s *StripePaymentService) RefundPayment(transactionID string, amount float6
 
 	return nil
 }
+
+// CapturePayment captures a payment
+func (s *StripePaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+	if amount <= 0 {
+		return errors.New("capture amount must be greater than zero")
+	}
+
+	// Convert amount to cents
+	amountInCents := int64(amount * 100)
+
+	// Create capture params
+	params := &stripe.PaymentIntentCaptureParams{
+		AmountToCapture: stripe.Int64(amountInCents),
+	}
+
+	// Capture the payment intent
+	_, err := paymentintent.Capture(transactionID, params)
+	if err != nil {
+		s.logger.Error("Failed to capture Stripe payment: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// CancelPayment cancels a payment
+func (s *StripePaymentService) CancelPayment(transactionID string, provider service.PaymentProviderType) error {
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+
+	// Create cancel params
+	params := &stripe.PaymentIntentCancelParams{}
+
+	// Cancel the payment intent
+	_, err := paymentintent.Cancel(transactionID, params)
+	if err != nil {
+		s.logger.Error("Failed to cancel Stripe payment: %v", err)
+		return err
+	}
+
+	return nil
+}

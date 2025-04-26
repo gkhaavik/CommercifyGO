@@ -10,4 +10,5 @@ type OrderRepository interface {
 	GetByUser(userID uint, offset, limit int) ([]*entity.Order, error)
 	ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error)
 	IsDiscountIdUsed(discountID uint) (bool, error)
+	GetByPaymentID(paymentID string) (*entity.Order, error)
 }

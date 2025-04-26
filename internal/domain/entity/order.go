@@ -14,6 +14,7 @@ const (
 	OrderStatusPending       OrderStatus = "pending"
 	OrderStatusPendingAction OrderStatus = "pending_action" // Requires user action (e.g., redirect to payment provider)
 	OrderStatusPaid          OrderStatus = "paid"
+	OrderStatusCaptured      OrderStatus = "captured" // Payment captured
 	OrderStatusShipped       OrderStatus = "shipped"
 	OrderStatusDelivered     OrderStatus = "delivered"
 	OrderStatusCancelled     OrderStatus = "cancelled"
@@ -201,8 +202,7 @@ func isValidStatusTransition(from, to OrderStatus) bool {
 			OrderStatusCancelled,
 		},
 		OrderStatusPaid: {
-			OrderStatusShipped,
-			OrderStatusCancelled,
+			OrderStatusCaptured,
 			OrderStatusRefunded,
 		},
 		OrderStatusShipped: {
@@ -211,7 +211,10 @@ func isValidStatusTransition(from, to OrderStatus) bool {
 		OrderStatusDelivered: {
 			OrderStatusRefunded,
 		},
-		// No transitions from these terminal states
+		OrderStatusCaptured: {
+			OrderStatusShipped,
+			OrderStatusRefunded,
+		},
 		OrderStatusCancelled: {},
 		OrderStatusRefunded:  {},
 	}
