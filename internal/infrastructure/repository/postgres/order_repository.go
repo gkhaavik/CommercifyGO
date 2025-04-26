@@ -643,3 +643,158 @@ func (r *OrderRepository) IsDiscountIdUsed(discountID uint) (bool, error) {
 
 	return exists, nil
 }
+
+// GetByPaymentID retrieves an order by payment ID
+func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error) {
+	if paymentID == "" {
+		return nil, errors.New("payment ID cannot be empty")
+	}
+
+	// Get order by payment_id
+	query := `
+		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
+			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
+			discount_amount, discount_id, discount_code, final_amount, action_url,
+			guest_email, guest_phone, guest_full_name, is_guest_order
+		FROM orders
+		WHERE payment_id = $1
+	`
+
+	order := &entity.Order{}
+	var shippingAddrJSON, billingAddrJSON []byte
+	var completedAt sql.NullTime
+	var paymentProvider sql.NullString
+	var orderNumber sql.NullString
+	var actionURL sql.NullString
+	var userID sql.NullInt64 // Use NullInt64 to handle NULL user_id
+	var guestEmail, guestPhone, guestFullName sql.NullString
+	var isGuestOrder sql.NullBool
+
+	var discountID sql.NullInt64
+	var discountCode sql.NullString
+
+	err := r.db.QueryRow(query, paymentID).Scan(
+		&order.ID,
+		&orderNumber,
+		&userID,
+		&order.TotalAmount,
+		&order.Status,
+		&shippingAddrJSON,
+		&billingAddrJSON,
+		&order.PaymentID,
+		&paymentProvider,
+		&order.TrackingCode,
+		&order.CreatedAt,
+		&order.UpdatedAt,
+		&completedAt,
+		&order.DiscountAmount,
+		&discountID,
+		&discountCode,
+		&order.FinalAmount,
+		&actionURL,
+		&guestEmail,
+		&guestPhone,
+		&guestFullName,
+		&isGuestOrder,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("order not found")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle user_id properly
+	if userID.Valid {
+		order.UserID = uint(userID.Int64)
+	} else {
+		order.UserID = 0 // Use 0 to represent NULL in our application
+	}
+
+	// Handle guest order fields
+	if isGuestOrder.Valid && isGuestOrder.Bool {
+		order.IsGuestOrder = true
+		if guestEmail.Valid {
+			order.GuestEmail = guestEmail.String
+		}
+		if guestPhone.Valid {
+			order.GuestPhone = guestPhone.String
+		}
+		if guestFullName.Valid {
+			order.GuestFullName = guestFullName.String
+		}
+	}
+
+	order.AppliedDiscount = &entity.AppliedDiscount{
+		DiscountID:     uint(discountID.Int64),
+		DiscountCode:   discountCode.String,
+		DiscountAmount: order.DiscountAmount,
+	}
+
+	if order.FinalAmount == 0 {
+		order.FinalAmount = order.TotalAmount
+	}
+
+	// Set order number if valid
+	if orderNumber.Valid {
+		order.OrderNumber = orderNumber.String
+	}
+
+	// Set payment provider if valid
+	if paymentProvider.Valid {
+		order.PaymentProvider = paymentProvider.String
+	}
+
+	// Set action URL if valid
+	if actionURL.Valid {
+		order.ActionURL = actionURL.String
+	}
+
+	// Unmarshal addresses
+	if err := json.Unmarshal(shippingAddrJSON, &order.ShippingAddr); err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(billingAddrJSON, &order.BillingAddr); err != nil {
+		return nil, err
+	}
+
+	// Set completed at if valid
+	if completedAt.Valid {
+		order.CompletedAt = &completedAt.Time
+	}
+
+	// Get order items
+	query = `
+		SELECT id, order_id, product_id, quantity, price, subtotal
+		FROM order_items
+		WHERE order_id = $1
+	`
+
+	rows, err := r.db.Query(query, order.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	order.Items = []entity.OrderItem{}
+	for rows.Next() {
+		item := entity.OrderItem{}
+		err := rows.Scan(
+			&item.ID,
+			&item.OrderID,
+			&item.ProductID,
+			&item.Quantity,
+			&item.Price,
+			&item.Subtotal,
+		)
+		if err != nil {
+			return nil, err
+		}
+		order.Items = append(order.Items, item)
+	}
+
+	return order, nil
+}

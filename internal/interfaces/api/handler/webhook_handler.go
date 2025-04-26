@@ -188,6 +188,18 @@ func (h *WebhookHandler) HandleMobilePayCaptured(event *models.WebhookEvent) err
 	}
 
 	h.logger.Info("MobilePay payment captured for order %d", orderID)
+
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: orderID,
+		Status:  entity.OrderStatusCaptured,
+	}
+
+	_, err = h.orderUseCase.UpdateOrderStatus(input)
+	if err != nil {
+		h.logger.Error("Failed to update order status for MobilePay payment: %v", err)
+		return err
+	}
+
 	return nil
 }
 

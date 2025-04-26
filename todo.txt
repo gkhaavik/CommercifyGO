@@ -1,7 +1,7 @@
 Features:
-+ Add capturing payments api endpoint
-+ Add cancel payments api endpoint
-+ Add refund payments api endpoint
++ Add capturing payments api endpoint DONE
++ Add cancel payments api endpoint    DONE
++ Add refund payments api endpoint    DONE
 + Add configurable currencies
 + Store money as int64 in database
 + Add GraphQL integration

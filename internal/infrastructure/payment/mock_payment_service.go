@@ -131,3 +131,32 @@ func (s *MockPaymentService) RefundPayment(transactionID string, amount float64,
 	// Always succeed for mock service
 	return nil
 }
+
+// CapturePayment captures a payment
+func (s *MockPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+	if amount <= 0 {
+		return errors.New("capture amount must be greater than zero")
+	}
+
+	// Simulate capture processing
+	time.Sleep(500 * time.Millisecond)
+
+	// Always succeed for mock service
+	return nil
+}
+
+// CancelPayment cancels a payment
+func (s *MockPaymentService) CancelPayment(transactionID string, provider service.PaymentProviderType) error {
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+
+	// Simulate cancellation processing
+	time.Sleep(500 * time.Millisecond)
+
+	// Always succeed for mock service
+	return nil
+}
