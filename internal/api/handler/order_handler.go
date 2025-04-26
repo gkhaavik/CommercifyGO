@@ -26,15 +26,8 @@ func NewOrderHandler(orderUseCase *usecase.OrderUseCase, logger logger.Logger) *
 	}
 }
 
-// CreateOrder handles order creation
+// CreateOrder handles order creation for both authenticated users and guests
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Parse request body
 	var input usecase.CreateOrderInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -42,11 +35,35 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set user ID from authenticated user
-	input.UserID = userID
+	// Check if user is authenticated
+	userID, ok := r.Context().Value("user_id").(uint)
 
-	// Create order
-	order, err := h.orderUseCase.CreateOrderFromCart(input)
+	var order *entity.Order
+	var err error
+
+	if ok && userID > 0 {
+		// Authenticated user checkout
+		input.UserID = userID
+		order, err = h.orderUseCase.CreateOrderFromCart(input)
+	} else {
+		// Guest checkout
+		// Get session ID from cookie
+		cookie, cookieErr := r.Cookie(sessionCookieName)
+		if cookieErr != nil || cookie.Value == "" {
+			http.Error(w, "No cart session found", http.StatusBadRequest)
+			return
+		}
+
+		// Validate required guest fields
+		if input.Email == "" || input.FullName == "" {
+			http.Error(w, "Email and full name are required for guest checkout", http.StatusBadRequest)
+			return
+		}
+
+		input.SessionID = cookie.Value
+		order, err = h.orderUseCase.CreateOrderFromCart(input)
+	}
+
 	if err != nil {
 		h.logger.Error("Failed to create order: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -129,18 +146,19 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 // ProcessPayment handles payment processing for an order
 func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Get order ID from URL
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the order
+	order, err := h.orderUseCase.GetOrderByID(uint(id))
+	if err != nil {
+		h.logger.Error("Failed to get order: %v", err)
+		http.Error(w, "Order not found", http.StatusNotFound)
 		return
 	}
 
@@ -159,18 +177,36 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the order to verify ownership
-	order, err := h.orderUseCase.GetOrderByID(uint(id))
-	if err != nil {
-		h.logger.Error("Failed to get order: %v", err)
-		http.Error(w, "Order not found", http.StatusNotFound)
-		return
-	}
+	// For registered users, verify authorization
+	if order.UserID > 0 {
+		// Get user ID from context
+		userID, ok := r.Context().Value("user_id").(uint)
+		if !ok || userID == 0 {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 
-	// Check if the user is authorized to process payment for this order
-	if order.UserID != userID {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
-		return
+		// Check if the user is authorized to process payment for this order
+		if order.UserID != userID {
+			http.Error(w, "Unauthorized", http.StatusForbidden)
+			return
+		}
+	} else {
+		// For guest orders, check the session cookie
+		if !order.IsGuestOrder {
+			http.Error(w, "Invalid order type", http.StatusBadRequest)
+			return
+		}
+
+		// Only allow payment processing for guest orders if they have a valid cookie
+		cookie, cookieErr := r.Cookie(sessionCookieName)
+		if cookieErr != nil || cookie.Value == "" {
+			http.Error(w, "Invalid session", http.StatusUnauthorized)
+			return
+		}
+
+		// We could add additional validation here if needed
+		// For example, match email in request with the email stored in the order
 	}
 
 	// Set up payment method based on input

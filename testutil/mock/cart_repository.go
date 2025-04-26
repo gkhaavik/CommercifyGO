@@ -2,94 +2,194 @@ package mock
 
 import (
 	"errors"
+	"sync"
+	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 )
 
-// MockCartRepository is a mock implementation of cart repository for testing
+// MockCartRepository is a mock implementation of the CartRepository interface
 type MockCartRepository struct {
-	carts      map[uint]*entity.Cart
-	cartByUser map[uint]*entity.Cart
-	lastID     uint
+	mutex sync.Mutex
+	carts map[uint]*entity.Cart
+	// Map to store carts by session ID for guest carts
+	guestCarts map[string]*entity.Cart
+	nextID     uint
 }
 
-// NewMockCartRepository creates a new instance of MockCartRepository
+// NewMockCartRepository creates a new mock cart repository
 func NewMockCartRepository() *MockCartRepository {
 	return &MockCartRepository{
 		carts:      make(map[uint]*entity.Cart),
-		cartByUser: make(map[uint]*entity.Cart),
-		lastID:     0,
+		guestCarts: make(map[string]*entity.Cart),
+		nextID:     1,
 	}
 }
 
 // Create adds a cart to the repository
 func (r *MockCartRepository) Create(cart *entity.Cart) error {
-	// Assign ID
-	r.lastID++
-	cart.ID = r.lastID
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
-	// Store cart
-	r.carts[cart.ID] = cart
-	r.cartByUser[cart.UserID] = cart
+	cart.ID = r.nextID
+	r.nextID++
+
+	// Store cart based on whether it's a user cart or guest cart
+	if cart.SessionID != "" {
+		r.guestCarts[cart.SessionID] = cart
+	} else {
+		r.carts[cart.UserID] = cart
+	}
 
 	return nil
 }
 
-// CreateWithID adds a cart to the repository with a specific ID (for testing)
+// CreateWithID adds a cart with the specified ID to the repository
 func (r *MockCartRepository) CreateWithID(cart *entity.Cart) error {
-	// Store cart
-	r.carts[cart.ID] = cart
-	r.cartByUser[cart.UserID] = cart
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
-	// Update lastID if necessary
-	if cart.ID > r.lastID {
-		r.lastID = cart.ID
+	// Update nextID if the cart's ID is greater
+	if cart.ID >= r.nextID {
+		r.nextID = cart.ID + 1
+	}
+
+	// Store cart based on whether it's a user cart or guest cart
+	if cart.SessionID != "" {
+		r.guestCarts[cart.SessionID] = cart
+	} else {
+		r.carts[cart.UserID] = cart
 	}
 
 	return nil
-}
-
-// GetByID retrieves a cart by ID
-func (r *MockCartRepository) GetByID(id uint) (*entity.Cart, error) {
-	cart, exists := r.carts[id]
-	if !exists {
-		return nil, errors.New("cart not found")
-	}
-	return cart, nil
 }
 
 // GetByUserID retrieves a cart by user ID
 func (r *MockCartRepository) GetByUserID(userID uint) (*entity.Cart, error) {
-	cart, exists := r.cartByUser[userID]
-	if !exists {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	cart, ok := r.carts[userID]
+	if !ok {
 		return nil, errors.New("cart not found")
 	}
+
 	return cart, nil
 }
 
-// Update updates a cart
-func (r *MockCartRepository) Update(cart *entity.Cart) error {
-	if _, exists := r.carts[cart.ID]; !exists {
-		return errors.New("cart not found")
+// GetBySessionID retrieves a cart by session ID
+func (r *MockCartRepository) GetBySessionID(sessionID string) (*entity.Cart, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	cart, ok := r.guestCarts[sessionID]
+	if !ok {
+		return nil, errors.New("cart not found")
 	}
 
-	// Update cart
-	r.carts[cart.ID] = cart
-	r.cartByUser[cart.UserID] = cart
+	return cart, nil
+}
+
+// Update updates a cart in the repository
+func (r *MockCartRepository) Update(cart *entity.Cart) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	// Update based on whether it's a user cart or guest cart
+	if cart.SessionID != "" {
+		_, ok := r.guestCarts[cart.SessionID]
+		if !ok {
+			return errors.New("cart not found")
+		}
+		r.guestCarts[cart.SessionID] = cart
+	} else {
+		_, ok := r.carts[cart.UserID]
+		if !ok {
+			return errors.New("cart not found")
+		}
+		r.carts[cart.UserID] = cart
+	}
 
 	return nil
 }
 
-// Delete deletes a cart
+// Delete deletes a cart from the repository
 func (r *MockCartRepository) Delete(id uint) error {
-	cart, exists := r.carts[id]
-	if !exists {
-		return errors.New("cart not found")
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	// Find and delete the cart with the given ID
+	for userID, cart := range r.carts {
+		if cart.ID == id {
+			delete(r.carts, userID)
+			return nil
+		}
 	}
 
-	// Remove cart from both maps
-	delete(r.cartByUser, cart.UserID)
-	delete(r.carts, id)
+	for sessionID, cart := range r.guestCarts {
+		if cart.ID == id {
+			delete(r.guestCarts, sessionID)
+			return nil
+		}
+	}
 
-	return nil
+	return errors.New("cart not found")
+}
+
+// ConvertGuestCartToUserCart converts a guest cart to a user cart
+func (r *MockCartRepository) ConvertGuestCartToUserCart(sessionID string, userID uint) (*entity.Cart, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	// Get guest cart
+	guestCart, ok := r.guestCarts[sessionID]
+	if !ok {
+		return nil, errors.New("cart not found")
+	}
+
+	// Check if user already has a cart
+	existingCart, userCartExists := r.carts[userID]
+
+	// If user already has a cart, merge items
+	if userCartExists {
+		// Add items from guest cart to user cart
+		for _, item := range guestCart.Items {
+			found := false
+			for i, userItem := range existingCart.Items {
+				if userItem.ProductID == item.ProductID {
+					// Update quantity if product already exists
+					existingCart.Items[i].Quantity += item.Quantity
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Add new item if product doesn't exist in user cart
+				existingCart.Items = append(existingCart.Items, entity.CartItem{
+					ID:        r.nextID,
+					CartID:    existingCart.ID,
+					ProductID: item.ProductID,
+					Quantity:  item.Quantity,
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				})
+				r.nextID++
+			}
+		}
+
+		// Delete guest cart
+		delete(r.guestCarts, sessionID)
+
+		return existingCart, nil
+	}
+
+	// Otherwise convert guest cart to user cart
+	guestCart.UserID = userID
+	guestCart.SessionID = ""
+
+	// Move from guestCarts to carts
+	r.carts[userID] = guestCart
+	delete(r.guestCarts, sessionID)
+
+	return guestCart, nil
 }

@@ -44,13 +44,31 @@ func (uc *OrderUseCase) GetAvailablePaymentProviders() []service.PaymentProvider
 
 // CreateOrderInput contains the data needed to create an order
 type CreateOrderInput struct {
-	UserID       uint           `json:"user_id"`
+	UserID       uint           `json:"user_id,omitempty"`
+	SessionID    string         `json:"session_id,omitempty"`
 	ShippingAddr entity.Address `json:"shipping_address"`
 	BillingAddr  entity.Address `json:"billing_address"`
+	Email        string         `json:"email,omitempty"`
+	PhoneNumber  string         `json:"phone_number,omitempty"`
+	FullName     string         `json:"full_name,omitempty"`
 }
 
 // CreateOrderFromCart creates an order from a user's cart
 func (uc *OrderUseCase) CreateOrderFromCart(input CreateOrderInput) (*entity.Order, error) {
+	// Check if this is a guest checkout or a user checkout
+	if input.UserID > 0 {
+		// Authenticated user checkout
+		return uc.createOrderFromUserCart(input)
+	} else if input.SessionID != "" {
+		// Guest checkout
+		return uc.createOrderFromGuestCart(input)
+	}
+
+	return nil, errors.New("either user ID or session ID must be provided")
+}
+
+// createOrderFromUserCart creates an order from an authenticated user's cart
+func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity.Order, error) {
 	// Get user's cart
 	cart, err := uc.cartRepo.GetByUserID(input.UserID)
 	if err != nil {
@@ -123,6 +141,98 @@ func (uc *OrderUseCase) CreateOrderFromCart(input CreateOrderInput) (*entity.Ord
 	// Send order notification email to admin
 	if uc.emailSvc != nil {
 		go uc.emailSvc.SendOrderNotification(order, user)
+	}
+
+	return order, nil
+}
+
+// createOrderFromGuestCart creates an order from a guest's cart
+func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entity.Order, error) {
+	// Validate guest information
+	if input.Email == "" {
+		return nil, errors.New("email is required for guest checkout")
+	}
+
+	if input.FullName == "" {
+		return nil, errors.New("full name is required for guest checkout")
+	}
+
+	// Get guest's cart
+	cart, err := uc.cartRepo.GetBySessionID(input.SessionID)
+	if err != nil {
+		return nil, errors.New("cart not found")
+	}
+
+	if len(cart.Items) == 0 {
+		return nil, errors.New("cart is empty")
+	}
+
+	// Convert cart items to order items
+	orderItems := make([]entity.OrderItem, 0, len(cart.Items))
+	for _, cartItem := range cart.Items {
+		// Get product to get current price
+		product, err := uc.productRepo.GetByID(cartItem.ProductID)
+		if err != nil {
+			return nil, errors.New("product not found")
+		}
+
+		// Check stock availability
+		if !product.IsAvailable(cartItem.Quantity) {
+			return nil, errors.New("insufficient stock for product: " + product.Name)
+		}
+
+		// Create order item
+		orderItems = append(orderItems, entity.OrderItem{
+			ProductID: cartItem.ProductID,
+			Quantity:  cartItem.Quantity,
+			Price:     product.Price,
+			Subtotal:  float64(cartItem.Quantity) * product.Price,
+		})
+
+		// Update product stock
+		if err := product.UpdateStock(-cartItem.Quantity); err != nil {
+			return nil, err
+		}
+		if err := uc.productRepo.Update(product); err != nil {
+			return nil, err
+		}
+	}
+
+	// Create guest order (0 as UserID indicates a guest order)
+	order, err := entity.NewGuestOrder(orderItems, input.ShippingAddr, input.BillingAddr, input.Email, input.PhoneNumber, input.FullName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save order
+	if err := uc.orderRepo.Create(order); err != nil {
+		return nil, err
+	}
+
+	// Clear cart after successful order creation
+	cart.Clear()
+	if err := uc.cartRepo.Update(cart); err != nil {
+		return nil, err
+	}
+
+	// Send order confirmation email to guest
+	if uc.emailSvc != nil {
+		// Create a temporary user object for the email
+		guestUser := &entity.User{
+			Email:     input.Email,
+			FirstName: input.FullName,
+		}
+		go uc.emailSvc.SendOrderConfirmation(order, guestUser)
+	}
+
+	// Send order notification email to admin
+	if uc.emailSvc != nil {
+		// Create a temporary user object for the email
+		guestUser := &entity.User{
+			Email:     input.Email,
+			FirstName: input.FullName,
+		}
+		go uc.emailSvc.SendOrderNotification(order, guestUser)
 	}
 
 	return order, nil

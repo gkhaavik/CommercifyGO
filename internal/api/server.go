@@ -98,6 +98,20 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
 	api.HandleFunc("/discounts/validate", discountHandler.ValidateDiscountCode).Methods(http.MethodPost)
 
+	// Guest cart routes (no authentication required)
+	api.HandleFunc("/guest/cart", cartHandler.GetCart).Methods(http.MethodGet)
+	api.HandleFunc("/guest/cart/items", cartHandler.AddToCart).Methods(http.MethodPost)
+	api.HandleFunc("/guest/cart/items/{productId:[0-9]+}", cartHandler.UpdateCartItem).Methods(http.MethodPut)
+	api.HandleFunc("/guest/cart/items/{productId:[0-9]+}", cartHandler.RemoveFromCart).Methods(http.MethodDelete)
+	api.HandleFunc("/guest/cart", cartHandler.ClearCart).Methods(http.MethodDelete)
+
+	// Guest checkout route
+	api.HandleFunc("/guest/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
+	api.HandleFunc("/guest/orders/{id:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
+
+	// Convert guest cart to user cart after login
+	api.HandleFunc("/guest/cart/convert", cartHandler.ConvertGuestCartToUserCart).Methods(http.MethodPost)
+
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
 	// api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)

@@ -6,6 +6,8 @@ import "github.com/zenfulcode/commercify/internal/domain/entity"
 type CartRepository interface {
 	Create(cart *entity.Cart) error
 	GetByUserID(userID uint) (*entity.Cart, error)
+	GetBySessionID(sessionID string) (*entity.Cart, error)
 	Update(cart *entity.Cart) error
 	Delete(id uint) error
+	ConvertGuestCartToUserCart(sessionID string, userID uint) (*entity.Cart, error)
 }

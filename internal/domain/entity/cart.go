@@ -8,7 +8,8 @@ import (
 // Cart represents a user's shopping cart
 type Cart struct {
 	ID        uint       `json:"id"`
-	UserID    uint       `json:"user_id"`
+	UserID    uint       `json:"user_id,omitempty"`
+	SessionID string     `json:"session_id,omitempty"`
 	Items     []CartItem `json:"items"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
@@ -33,6 +34,21 @@ func NewCart(userID uint) (*Cart, error) {
 	now := time.Now()
 	return &Cart{
 		UserID:    userID,
+		Items:     []CartItem{},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}, nil
+}
+
+// NewGuestCart creates a new cart for a guest user
+func NewGuestCart(sessionID string) (*Cart, error) {
+	if sessionID == "" {
+		return nil, errors.New("session ID cannot be empty")
+	}
+
+	now := time.Now()
+	return &Cart{
+		SessionID: sessionID,
 		Items:     []CartItem{},
 		CreatedAt: now,
 		UpdatedAt: now,

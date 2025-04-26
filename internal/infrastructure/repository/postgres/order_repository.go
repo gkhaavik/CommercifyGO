@@ -45,32 +45,70 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 	}
 
 	// Insert order
-	query := `
-		INSERT INTO orders (
-			user_id, total_amount, status, shipping_address, billing_address,
-			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING id
-	`
+	var query string
+	var err2 error
 
-	err = tx.QueryRow(
-		query,
-		order.UserID,
-		order.TotalAmount,
-		order.Status,
-		shippingAddrJSON,
-		billingAddrJSON,
-		order.PaymentID,
-		order.PaymentProvider,
-		order.TrackingCode,
-		order.CreatedAt,
-		order.UpdatedAt,
-		order.CompletedAt,
-		order.FinalAmount,
-	).Scan(&order.ID)
-	if err != nil {
-		return err
+	// For guest orders, explicitly set user_id to NULL
+	if order.IsGuestOrder {
+		// Add guest order fields
+		query = `
+			INSERT INTO orders (
+				user_id, total_amount, status, shipping_address, billing_address,
+				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount,
+				guest_email, guest_phone, guest_full_name, is_guest_order
+			)
+			VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			RETURNING id
+		`
+
+		err2 = tx.QueryRow(
+			query,
+			order.TotalAmount,
+			order.Status,
+			shippingAddrJSON,
+			billingAddrJSON,
+			order.PaymentID,
+			order.PaymentProvider,
+			order.TrackingCode,
+			order.CreatedAt,
+			order.UpdatedAt,
+			order.CompletedAt,
+			order.FinalAmount,
+			order.GuestEmail,
+			order.GuestPhone,
+			order.GuestFullName,
+			order.IsGuestOrder,
+		).Scan(&order.ID)
+	} else {
+		// Regular user order
+		query = `
+			INSERT INTO orders (
+				user_id, total_amount, status, shipping_address, billing_address,
+				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			RETURNING id
+		`
+
+		err2 = tx.QueryRow(
+			query,
+			order.UserID,
+			order.TotalAmount,
+			order.Status,
+			shippingAddrJSON,
+			billingAddrJSON,
+			order.PaymentID,
+			order.PaymentProvider,
+			order.TrackingCode,
+			order.CreatedAt,
+			order.UpdatedAt,
+			order.CompletedAt,
+			order.FinalAmount,
+		).Scan(&order.ID)
+	}
+
+	if err2 != nil {
+		return err2
 	}
 
 	// Generate and set the order number
@@ -117,7 +155,8 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
-			discount_amount, discount_id, discount_code, final_amount, action_url
+			discount_amount, discount_id, discount_code, final_amount, action_url,
+			guest_email, guest_phone, guest_full_name, is_guest_order
 		FROM orders
 		WHERE id = $1
 	`
@@ -128,6 +167,9 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	var paymentProvider sql.NullString
 	var orderNumber sql.NullString
 	var actionURL sql.NullString
+	var userID sql.NullInt64 // Use NullInt64 to handle NULL user_id
+	var guestEmail, guestPhone, guestFullName sql.NullString
+	var isGuestOrder sql.NullBool
 
 	var discountID sql.NullInt64
 	var discountCode sql.NullString
@@ -135,7 +177,7 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	err := r.db.QueryRow(query, id).Scan(
 		&order.ID,
 		&orderNumber,
-		&order.UserID,
+		&userID,
 		&order.TotalAmount,
 		&order.Status,
 		&shippingAddrJSON,
@@ -151,6 +193,10 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 		&discountCode,
 		&order.FinalAmount,
 		&actionURL,
+		&guestEmail,
+		&guestPhone,
+		&guestFullName,
+		&isGuestOrder,
 	)
 
 	if err == sql.ErrNoRows {
@@ -159,6 +205,27 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Handle user_id properly
+	if userID.Valid {
+		order.UserID = uint(userID.Int64)
+	} else {
+		order.UserID = 0 // Use 0 to represent NULL in our application
+	}
+
+	// Handle guest order fields
+	if isGuestOrder.Valid && isGuestOrder.Bool {
+		order.IsGuestOrder = true
+		if guestEmail.Valid {
+			order.GuestEmail = guestEmail.String
+		}
+		if guestPhone.Valid {
+			order.GuestPhone = guestPhone.String
+		}
+		if guestFullName.Valid {
+			order.GuestFullName = guestFullName.String
+		}
 	}
 
 	order.AppliedDiscount = &entity.AppliedDiscount{
@@ -297,7 +364,8 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.Order, error) {
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
-			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
+			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
+			guest_email, guest_phone, guest_full_name, is_guest_order
 		FROM orders
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -317,11 +385,14 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 		var completedAt sql.NullTime
 		var paymentProvider sql.NullString
 		var orderNumber sql.NullString
+		var userIDNull sql.NullInt64
+		var guestEmail, guestPhone, guestFullName sql.NullString
+		var isGuestOrder sql.NullBool
 
 		err := rows.Scan(
 			&order.ID,
 			&orderNumber,
-			&order.UserID,
+			&userIDNull,
 			&order.TotalAmount,
 			&order.Status,
 			&shippingAddrJSON,
@@ -332,9 +403,34 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 			&order.CreatedAt,
 			&order.UpdatedAt,
 			&completedAt,
+			&guestEmail,
+			&guestPhone,
+			&guestFullName,
+			&isGuestOrder,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Handle user_id properly
+		if userIDNull.Valid {
+			order.UserID = uint(userIDNull.Int64)
+		} else {
+			order.UserID = 0
+		}
+
+		// Handle guest order fields
+		if isGuestOrder.Valid && isGuestOrder.Bool {
+			order.IsGuestOrder = true
+			if guestEmail.Valid {
+				order.GuestEmail = guestEmail.String
+			}
+			if guestPhone.Valid {
+				order.GuestPhone = guestPhone.String
+			}
+			if guestFullName.Valid {
+				order.GuestFullName = guestFullName.String
+			}
 		}
 
 		// Set order number if valid
@@ -402,7 +498,8 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
-			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
+			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
+			guest_email, guest_phone, guest_full_name, is_guest_order
 		FROM orders
 		WHERE status = $1
 		ORDER BY created_at DESC
@@ -422,11 +519,14 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 		var completedAt sql.NullTime
 		var paymentProvider sql.NullString
 		var orderNumber sql.NullString
+		var userIDNull sql.NullInt64
+		var guestEmail, guestPhone, guestFullName sql.NullString
+		var isGuestOrder sql.NullBool
 
 		err := rows.Scan(
 			&order.ID,
 			&orderNumber,
-			&order.UserID,
+			&userIDNull,
 			&order.TotalAmount,
 			&order.Status,
 			&shippingAddrJSON,
@@ -437,9 +537,34 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 			&order.CreatedAt,
 			&order.UpdatedAt,
 			&completedAt,
+			&guestEmail,
+			&guestPhone,
+			&guestFullName,
+			&isGuestOrder,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Handle user_id properly
+		if userIDNull.Valid {
+			order.UserID = uint(userIDNull.Int64)
+		} else {
+			order.UserID = 0
+		}
+
+		// Handle guest order fields
+		if isGuestOrder.Valid && isGuestOrder.Bool {
+			order.IsGuestOrder = true
+			if guestEmail.Valid {
+				order.GuestEmail = guestEmail.String
+			}
+			if guestPhone.Valid {
+				order.GuestPhone = guestPhone.String
+			}
+			if guestFullName.Valid {
+				order.GuestFullName = guestFullName.String
+			}
 		}
 
 		// Set order number if valid
