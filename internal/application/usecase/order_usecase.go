@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
@@ -91,7 +92,7 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 		// Get product to get current price
 		product, err := uc.productRepo.GetByID(cartItem.ProductID)
 		if err != nil {
-			return nil, errors.New("product not found")
+			return nil, fmt.Errorf("product not found: ProductID=%d", cartItem.ProductID)
 		}
 
 		// Check stock availability
