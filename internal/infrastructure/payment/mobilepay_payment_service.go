@@ -157,7 +157,7 @@ func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount flo
 	if provider != service.PaymentProviderMobilePay {
 		return errors.New("invalid payment provider")
 	}
-
+  
 	// Convert amount to smallest currency unit (øre/cents)
 	amountInSmallestUnit := int64(amount * 100)
 
@@ -182,6 +182,10 @@ func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount flo
 func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
 	if provider != service.PaymentProviderMobilePay {
 		return errors.New("invalid payment provider")
+	}
+
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
 	}
 
 	// Convert amount to smallest currency unit (øre/cents)
