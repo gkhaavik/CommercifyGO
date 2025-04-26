@@ -11,8 +11,6 @@ import (
 	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/webhooks"
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/config"
-	"github.com/zenfulcode/commercify/internal/api/handler"
-	"github.com/zenfulcode/commercify/internal/api/middleware"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/auth"
@@ -20,6 +18,8 @@ import (
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
 	"github.com/zenfulcode/commercify/internal/infrastructure/repository/postgres"
+	"github.com/zenfulcode/commercify/internal/interfaces/api/handler"
+	"github.com/zenfulcode/commercify/internal/interfaces/api/middleware"
 )
 
 // Server represents the API server

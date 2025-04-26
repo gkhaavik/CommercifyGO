@@ -11,9 +11,9 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/zenfulcode/commercify/config"
-	"github.com/zenfulcode/commercify/internal/api"
 	"github.com/zenfulcode/commercify/internal/infrastructure/database"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
+	"github.com/zenfulcode/commercify/internal/interfaces/api"
 )
 
 func main() {
