@@ -1,6 +1,7 @@
 package payment
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
@@ -47,8 +48,26 @@ func NewWebhookService(
 	}
 }
 
+// SetMobilePayService sets the MobilePay service after initialization
+// This helps break circular dependency issues
+func (s *WebhookService) SetMobilePayService(mobilePayService *MobilePayPaymentService) {
+	s.mobilePayService = mobilePayService
+}
+
+// ensureMobilePayService ensures that MobilePay service is available
+func (s *WebhookService) ensureMobilePayService() error {
+	if s.mobilePayService == nil {
+		return errors.New("MobilePay service is not initialized")
+	}
+	return nil
+}
+
 // RegisterMobilePayWebhook registers a webhook with MobilePay
 func (s *WebhookService) RegisterMobilePayWebhook(url string, events []string) (*entity.Webhook, error) {
+	if err := s.ensureMobilePayService(); err != nil {
+		return nil, err
+	}
+
 	// Prepare webhook registration request
 	webhookRequest := models.WebhookRegistrationRequest{
 		URL:    url,
@@ -82,6 +101,10 @@ func (s *WebhookService) RegisterMobilePayWebhook(url string, events []string) (
 
 // DeleteMobilePayWebhook deletes a webhook from MobilePay
 func (s *WebhookService) DeleteMobilePayWebhook(id uint) error {
+	if err := s.ensureMobilePayService(); err != nil {
+		return err
+	}
+
 	// Get webhook from database
 	webhook, err := s.webhookRepo.GetByID(id)
 	if err != nil {
@@ -107,10 +130,18 @@ func (s *WebhookService) DeleteMobilePayWebhook(id uint) error {
 
 // deleteMobilePayWebhook deletes a webhook from MobilePay (internal method)
 func (s *WebhookService) deleteMobilePayWebhook(externalID string) error {
+	if err := s.ensureMobilePayService(); err != nil {
+		return err
+	}
+
 	return s.mobilePayService.webhookClient.Delete(externalID)
 }
 
 // GetMobilePayWebhooks returns all registered MobilePay webhooks
 func (s *WebhookService) GetMobilePayWebhooks() ([]models.WebhookRegistration, error) {
+	if err := s.ensureMobilePayService(); err != nil {
+		return nil, err
+	}
+
 	return s.mobilePayService.webhookClient.GetAll()
 }

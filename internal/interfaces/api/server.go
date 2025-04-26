@@ -11,13 +11,8 @@ import (
 	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/webhooks"
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/config"
-	"github.com/zenfulcode/commercify/internal/application/usecase"
-	"github.com/zenfulcode/commercify/internal/domain/service"
-	"github.com/zenfulcode/commercify/internal/infrastructure/auth"
-	"github.com/zenfulcode/commercify/internal/infrastructure/email"
+	"github.com/zenfulcode/commercify/internal/infrastructure/container"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
-	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
-	"github.com/zenfulcode/commercify/internal/infrastructure/repository/postgres"
 	"github.com/zenfulcode/commercify/internal/interfaces/api/handler"
 	"github.com/zenfulcode/commercify/internal/interfaces/api/middleware"
 )
@@ -28,67 +23,64 @@ type Server struct {
 	router     *mux.Router
 	httpServer *http.Server
 	logger     logger.Logger
+	container  container.Container
 }
 
 // NewServer creates a new API server
 func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
-	router := mux.NewRouter()
+	// Initialize dependency container
+	diContainer := container.NewContainer(cfg, db, logger)
 
-	// Create repositories
-	userRepo := postgres.NewUserRepository(db)
-	productRepo := postgres.NewProductRepository(db)
-	productVariantRepo := postgres.NewProductVariantRepository(db)
-	categoryRepo := postgres.NewCategoryRepository(db)
-	orderRepo := postgres.NewOrderRepository(db)
-	cartRepo := postgres.NewCartRepository(db)
-	discountRepo := postgres.NewDiscountRepository(db)
-	webhookRepo := postgres.NewWebhookRepository(db)
-
-	// Create services
-	jwtService := auth.NewJWTService(cfg.Auth)
-
-	// Create payment service with multiple providers
-	paymentService := payment.NewMultiProviderPaymentService(cfg, logger)
-
-	// Extract MobilePay service for webhook registration
-	var mobilePayService *payment.MobilePayPaymentService
-	for _, provider := range paymentService.GetProviders() {
-		if provider.Type == service.PaymentProviderMobilePay {
-			mobilePayService = provider.Service.(*payment.MobilePayPaymentService)
-			break
+	// Post-initialization to break circular dependencies
+	if cfg.MobilePay.Enabled {
+		// Connect MobilePay service to WebhookService
+		mobilePayService := diContainer.Services().MobilePayService()
+		webhookService := diContainer.Services().WebhookService()
+		if mobilePayService != nil && webhookService != nil {
+			webhookService.SetMobilePayService(mobilePayService)
 		}
 	}
 
-	// Create webhook service
-	webhookService := payment.NewWebhookService(cfg, webhookRepo, logger, mobilePayService)
+	router := mux.NewRouter()
 
-	emailService := email.NewSMTPEmailService(cfg.Email, logger)
+	server := &Server{
+		config:    cfg,
+		router:    router,
+		logger:    logger,
+		container: diContainer,
+	}
 
-	// Create use cases
-	userUseCase := usecase.NewUserUseCase(userRepo)
-	productUseCase := usecase.NewProductUseCase(productRepo, categoryRepo, productVariantRepo)
-	cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
-	orderUseCase := usecase.NewOrderUseCase(orderRepo, cartRepo, productRepo, userRepo, paymentService, emailService)
-	discountUseCase := usecase.NewDiscountUseCase(discountRepo, productRepo, categoryRepo, orderRepo)
-	webhookUseCase := usecase.NewWebhookUseCase(webhookRepo, webhookService)
+	server.setupRoutes()
 
-	// Create handlers
-	userHandler := handler.NewUserHandler(userUseCase, jwtService, logger)
-	productHandler := handler.NewProductHandler(productUseCase, logger)
-	cartHandler := handler.NewCartHandler(cartUseCase, logger)
-	orderHandler := handler.NewOrderHandler(orderUseCase, logger)
-	paymentHandler := handler.NewPaymentHandler(orderUseCase, logger)
-	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, webhookUseCase, logger)
-	discountHandler := handler.NewDiscountHandler(discountUseCase, orderUseCase, logger)
+	// Create HTTP server
+	server.httpServer = &http.Server{
+		Addr:         ":" + cfg.Server.Port,
+		Handler:      router,
+		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
+	}
 
-	// Create middleware
-	authMiddleware := middleware.NewAuthMiddleware(jwtService, logger)
+	return server
+}
+
+// setupRoutes configures all routes for the API
+func (s *Server) setupRoutes() {
+	// Extract handlers from container
+	userHandler := s.container.Handlers().UserHandler()
+	productHandler := s.container.Handlers().ProductHandler()
+	cartHandler := s.container.Handlers().CartHandler()
+	orderHandler := s.container.Handlers().OrderHandler()
+	paymentHandler := s.container.Handlers().PaymentHandler()
+	webhookHandler := s.container.Handlers().WebhookHandler()
+	discountHandler := s.container.Handlers().DiscountHandler()
+
+	// Extract middleware from container
+	authMiddleware := s.container.Middlewares().AuthMiddleware()
 
 	// Register routes
-	api := router.PathPrefix("/api").Subrouter()
+	api := s.router.PathPrefix("/api").Subrouter()
 
 	// Public routes
-	// api.HandleFunc("/health", handler.HealthCheck).Methods(http.MethodGet)
 	api.HandleFunc("/users/register", userHandler.Register).Methods(http.MethodPost)
 	api.HandleFunc("/users/login", userHandler.Login).Methods(http.MethodPost)
 	api.HandleFunc("/products", productHandler.ListProducts).Methods(http.MethodGet)
@@ -114,57 +106,9 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
-	// api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)
-	if cfg.MobilePay.Enabled {
-		result, err := webhookUseCase.GetAllWebhooks()
-		if err != nil {
-			logger.Error("Failed to get MobilePay webhooks: %v", err)
-		} else {
-			if len(result) == 0 {
-				webhook, err := webhookService.RegisterMobilePayWebhook(cfg.MobilePay.WebhookURL, []string{
-					string(models.WebhookEventPaymentAborted),
-					string(models.WebhookEventPaymentCancelled),
-					string(models.WebhookEventPaymentCaptured),
-					string(models.WebhookEventPaymentRefunded),
-					string(models.WebhookEventPaymentExpired),
-					string(models.WebhookEventPaymentAuthorized),
-				})
 
-				if err != nil {
-					logger.Error("Failed to register MobilePay webhook: %v", err)
-				} else {
-					logger.Info("Registered MobilePay webhook: %s", webhook.URL)
-					result = append(result, webhook)
-				}
-
-			} else {
-				logger.Info("Found %d MobilePay webhooks", len(result))
-			}
-
-			for _, webhook := range result {
-				if webhook.IsActive && webhook.Provider == "mobilepay" {
-					handler := webhooks.NewHandler(webhook.Secret)
-					router := webhooks.NewRouter()
-
-					router.HandleFunc(models.EventAuthorized, webhookHandler.HandleMobilePayAuthorized)
-					router.HandleFunc(models.EventAborted, webhookHandler.HandleMobilePayAborted)
-					router.HandleFunc(models.EventCancelled, webhookHandler.HandleMobilePayCancelled)
-					router.HandleFunc(models.EventCaptured, webhookHandler.HandleMobilePayCaptured)
-					router.HandleFunc(models.EventRefunded, webhookHandler.HandleMobilePayRefunded)
-					router.HandleFunc(models.EventExpired, webhookHandler.HandleMobilePayExpired)
-
-					router.HandleDefault(func(event *models.WebhookEvent) error {
-						fmt.Printf("Received unhandled event: %s\n", event.Name)
-						return nil
-					})
-
-					api.HandleFunc("/webhooks/mobilepay", handler.HandleHTTP(router.Process))
-
-					logger.Info("Registered MobilePay webhook: %s", webhook.URL)
-				}
-			}
-		}
-	}
+	// Setup MobilePay webhooks if enabled
+	s.setupMobilePayWebhooks(api, webhookHandler)
 
 	// Protected routes
 	protected := api.PathPrefix("").Subrouter()
@@ -222,20 +166,65 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
 	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
 	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.GetMobilePayWebhooks).Methods(http.MethodGet)
+}
 
-	// Create HTTP server
-	httpServer := &http.Server{
-		Addr:         ":" + cfg.Server.Port,
-		Handler:      router,
-		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
+// setupMobilePayWebhooks configures MobilePay webhooks if enabled
+func (s *Server) setupMobilePayWebhooks(api *mux.Router, webhookHandler *handler.WebhookHandler) {
+	if !s.config.MobilePay.Enabled {
+		return
 	}
 
-	return &Server{
-		config:     cfg,
-		router:     router,
-		httpServer: httpServer,
-		logger:     logger,
+	// Get webhooks
+	webhookUseCase := s.container.UseCases().WebhookUseCase()
+	result, err := webhookUseCase.GetAllWebhooks()
+	if err != nil {
+		s.logger.Error("Failed to get MobilePay webhooks: %v", err)
+		return
+	}
+
+	// Register webhook if none exists
+	if len(result) == 0 {
+		webhookService := s.container.Services().WebhookService()
+		webhook, err := webhookService.RegisterMobilePayWebhook(s.config.MobilePay.WebhookURL, []string{
+			string(models.WebhookEventPaymentAborted),
+			string(models.WebhookEventPaymentCancelled),
+			string(models.WebhookEventPaymentCaptured),
+			string(models.WebhookEventPaymentRefunded),
+			string(models.WebhookEventPaymentExpired),
+			string(models.WebhookEventPaymentAuthorized),
+		})
+
+		if err != nil {
+			s.logger.Error("Failed to register MobilePay webhook: %v", err)
+		} else {
+			s.logger.Info("Registered new MobilePay webhook: %s", webhook.URL)
+			result = append(result, webhook)
+		}
+	} else {
+		s.logger.Info("Found %d MobilePay webhooks", len(result))
+	}
+
+	// Configure webhook handlers
+	for _, webhook := range result {
+		if webhook.IsActive && webhook.Provider == "mobilepay" {
+			handler := webhooks.NewHandler(webhook.Secret)
+			router := webhooks.NewRouter()
+
+			router.HandleFunc(models.EventAuthorized, webhookHandler.HandleMobilePayAuthorized)
+			router.HandleFunc(models.EventAborted, webhookHandler.HandleMobilePayAborted)
+			router.HandleFunc(models.EventCancelled, webhookHandler.HandleMobilePayCancelled)
+			router.HandleFunc(models.EventCaptured, webhookHandler.HandleMobilePayCaptured)
+			router.HandleFunc(models.EventRefunded, webhookHandler.HandleMobilePayRefunded)
+			router.HandleFunc(models.EventExpired, webhookHandler.HandleMobilePayExpired)
+
+			router.HandleDefault(func(event *models.WebhookEvent) error {
+				fmt.Printf("Received unhandled event: %s\n", event.Name)
+				return nil
+			})
+
+			api.HandleFunc("/webhooks/mobilepay", handler.HandleHTTP(router.Process))
+			s.logger.Info("Registered MobilePay webhook: %s", webhook.URL)
+		}
 	}
 }
 
