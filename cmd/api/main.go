@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +19,7 @@ import (
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
+		// Using standard log since logger isn't initialized yet
 		log.Println("No .env file found, using environment variables")
 	}
 
@@ -30,19 +30,19 @@ func main() {
 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		logger.Fatal("Failed to load configuration", err)
+		logger.Fatal("Failed to load configuration: %v", err)
 	}
 
 	// Connect to database
 	db, err := database.NewPostgresConnection(cfg.Database)
 	if err != nil {
-		logger.Fatal("Failed to connect to database", err)
+		logger.Fatal("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
 	// Run database migrations
 	if err := database.RunMigrations(db, cfg.Database); err != nil {
-		logger.Fatal("Failed to run database migrations", err)
+		logger.Fatal("Failed to run database migrations: %v", err)
 	}
 
 	// Initialize API server
@@ -50,9 +50,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		logger.Info(fmt.Sprintf("Starting server on port %s", cfg.Server.Port))
+		logger.Info("Starting server on port %s", cfg.Server.Port)
 		if err := server.Start(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("Failed to start server", err)
+			logger.Fatal("Failed to start server: %v", err)
 		}
 	}()
 
@@ -68,7 +68,7 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		logger.Fatal("Server forced to shutdown", err)
+		logger.Fatal("Server forced to shutdown: %v", err)
 	}
 
 	logger.Info("Server exited properly")
