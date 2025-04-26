@@ -109,12 +109,10 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 
 	if ok && userID > 0 {
 		// User is authenticated, add to user cart
-		h.logger.Debug("User ID: %d", userID)
 		cart, err = h.cartUseCase.AddToCart(userID, input)
 	} else {
 		// User is a guest, add to guest cart
 		sessionID := h.getSessionID(w, r)
-		h.logger.Debug("Guest user, session ID: %s", sessionID)
 		cart, err = h.cartUseCase.AddToGuestCart(sessionID, input)
 	}
 

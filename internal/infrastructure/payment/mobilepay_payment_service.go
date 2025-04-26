@@ -91,8 +91,6 @@ func (s *MobilePayPaymentService) ProcessPayment(request service.PaymentRequest)
 	// Generate a unique reference for this payment
 	reference := fmt.Sprintf("order-%d-%s", request.OrderID, uuid.New().String())
 
-	s.logger.Debug("amount: %f", request.Amount)
-
 	// Convert amount to smallest currency unit (øre/cents)
 	amountInSmallestUnit := int64(request.Amount * 100)
 
