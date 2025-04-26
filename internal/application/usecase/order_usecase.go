@@ -173,7 +173,7 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 		// Get product to get current price
 		product, err := uc.productRepo.GetByID(cartItem.ProductID)
 		if err != nil {
-			return nil, errors.New("product not found")
+			return nil, fmt.Errorf("product not found: ProductID=%d", cartItem.ProductID)
 		}
 
 		// Check stock availability
