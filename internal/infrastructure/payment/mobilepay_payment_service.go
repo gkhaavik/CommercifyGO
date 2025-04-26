@@ -184,6 +184,10 @@ func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount fl
 		return errors.New("invalid payment provider")
 	}
 
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+
 	// Convert amount to smallest currency unit (øre/cents)
 	amountInSmallestUnit := int64(amount * 100)
 
