@@ -6,7 +6,7 @@ import (
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 )
 
-// MockCategoryRepository is a mock implementation of category repository for testing
+// MockCategoryRepository is a mock implementation of the category repository
 type MockCategoryRepository struct {
 	categories map[uint]*entity.Category
 	lastID     uint
@@ -53,7 +53,7 @@ func (r *MockCategoryRepository) Update(category *entity.Category) error {
 	return nil
 }
 
-// Delete removes a category
+// Delete deletes a category
 func (r *MockCategoryRepository) Delete(id uint) error {
 	if _, exists := r.categories[id]; !exists {
 		return errors.New("category not found")
@@ -65,23 +65,43 @@ func (r *MockCategoryRepository) Delete(id uint) error {
 
 // List retrieves all categories
 func (r *MockCategoryRepository) List() ([]*entity.Category, error) {
-	result := make([]*entity.Category, 0, len(r.categories))
-
+	categories := make([]*entity.Category, 0, len(r.categories))
 	for _, category := range r.categories {
-		result = append(result, category)
+		categories = append(categories, category)
 	}
-
-	return result, nil
+	return categories, nil
 }
 
-// GetChildren retrieves child categories for a parent category
-func (r *MockCategoryRepository) GetChildren(parentID uint) ([]*entity.Category, error) {
-	result := make([]*entity.Category, 0)
-
+// GetByParent retrieves categories by parent ID
+func (r *MockCategoryRepository) GetByParent(parentID uint) ([]*entity.Category, error) {
+	categories := make([]*entity.Category, 0)
 	for _, category := range r.categories {
 		if category.ParentID != nil && *category.ParentID == parentID {
-			result = append(result, category)
+			categories = append(categories, category)
 		}
+	}
+	return categories, nil
+}
+
+// GetChildren recursively retrieves all child categories for a category
+func (r *MockCategoryRepository) GetChildren(categoryID uint) ([]*entity.Category, error) {
+	result := make([]*entity.Category, 0)
+
+	// First, get direct children
+	directChildren, err := r.GetByParent(categoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, directChildren...)
+
+	// Then recursively get children of children
+	for _, child := range directChildren {
+		childrenOfChild, err := r.GetChildren(child.ID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, childrenOfChild...)
 	}
 
 	return result, nil

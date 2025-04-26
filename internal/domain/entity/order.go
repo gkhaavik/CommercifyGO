@@ -3,6 +3,7 @@ package entity
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -110,6 +111,12 @@ func (o *Order) UpdateStatus(status OrderStatus) error {
 		return errors.New("status cannot be empty")
 	}
 
+	// Validate status transitions
+	currentStatus := OrderStatus(o.Status)
+	if !isValidStatusTransition(currentStatus, status) {
+		return fmt.Errorf("invalid status transition: %s -> %s", currentStatus, status)
+	}
+
 	o.Status = string(status)
 	o.UpdatedAt = time.Now()
 
@@ -119,6 +126,49 @@ func (o *Order) UpdateStatus(status OrderStatus) error {
 	}
 
 	return nil
+}
+
+// isValidStatusTransition checks if a status transition is valid
+func isValidStatusTransition(from, to OrderStatus) bool {
+	// Define valid transitions
+	validTransitions := map[OrderStatus][]OrderStatus{
+		OrderStatusPending: {
+			OrderStatusPaid,
+			OrderStatusCancelled,
+			OrderStatusPendingAction,
+		},
+		OrderStatusPendingAction: {
+			OrderStatusPaid,
+			OrderStatusCancelled,
+		},
+		OrderStatusPaid: {
+			OrderStatusShipped,
+			OrderStatusCancelled,
+			OrderStatusRefunded,
+		},
+		OrderStatusShipped: {
+			OrderStatusDelivered,
+		},
+		OrderStatusDelivered: {
+			OrderStatusRefunded,
+		},
+		// No transitions from these terminal states
+		OrderStatusCancelled: {},
+		OrderStatusRefunded:  {},
+	}
+
+	// If it's the same status, always allow
+	if from == to {
+		return true
+	}
+
+	// Check if the transition is valid
+	validNextStates, exists := validTransitions[from]
+	if !exists {
+		return false
+	}
+
+	return slices.Contains(validNextStates, to)
 }
 
 // SetPaymentID sets the payment ID for the order
