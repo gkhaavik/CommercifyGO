@@ -152,6 +152,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		PayPalDetails   *service.PayPalDetails `json:"paypal_details,omitempty"`
 		BankDetails     *service.BankDetails   `json:"bank_details,omitempty"`
 		CustomerEmail   string                 `json:"customer_email,omitempty"`
+		PhoneNumber     string                 `json:"phone_number,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&paymentInput); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -181,6 +182,8 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		paymentMethod = service.PaymentMethodPayPal
 	case "bank_transfer":
 		paymentMethod = service.PaymentMethodBankTransfer
+	case "wallet":
+		paymentMethod = service.PaymentMethodWallet
 	default:
 		http.Error(w, "Invalid payment method", http.StatusBadRequest)
 		return
@@ -195,6 +198,8 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		paymentProvider = service.PaymentProviderPayPal
 	case "mock":
 		paymentProvider = service.PaymentProviderMock
+	case "mobilepay":
+		paymentProvider = service.PaymentProviderMobilePay
 	default:
 		http.Error(w, "Invalid payment provider", http.StatusBadRequest)
 		return
@@ -209,6 +214,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		PayPalDetails:   paymentInput.PayPalDetails,
 		BankDetails:     paymentInput.BankDetails,
 		CustomerEmail:   paymentInput.CustomerEmail,
+		PhoneNumber:     paymentInput.PhoneNumber,
 	}
 
 	updatedOrder, err := h.orderUseCase.ProcessPayment(input)

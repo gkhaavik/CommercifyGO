@@ -8,13 +8,14 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Auth     AuthConfig
-	Payment  PaymentConfig
-	Email    EmailConfig
-	Stripe   StripeConfig
-	PayPal   PayPalConfig
+	Server    ServerConfig
+	Database  DatabaseConfig
+	Auth      AuthConfig
+	Payment   PaymentConfig
+	Email     EmailConfig
+	Stripe    StripeConfig
+	PayPal    PayPalConfig
+	MobilePay MobilePayConfig
 }
 
 // ServerConfig holds server-specific configuration
@@ -74,6 +75,20 @@ type PayPalConfig struct {
 	Enabled      bool
 }
 
+// MobilePayConfig holds MobilePay-specific configuration
+type MobilePayConfig struct {
+	MerchantSerialNumber string
+	SubscriptionKey      string
+	ClientID             string
+	ClientSecret         string
+	ReturnURL            string
+	WebhookURL           string
+	PaymentDescription   string
+	Market               string // NOK, DKK, EUR
+	Enabled              bool
+	IsTestMode           bool
+}
+
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
 	readTimeout, err := strconv.Atoi(getEnv("SERVER_READ_TIMEOUT", "15"))
@@ -116,6 +131,16 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid PAYPAL_SANDBOX: %w", err)
 	}
 
+	mobilePayEnabled, err := strconv.ParseBool(getEnv("MOBILEPAY_ENABLED", "false"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid MOBILEPAY_ENABLED: %w", err)
+	}
+
+	mobilePayTestMode, err := strconv.ParseBool(getEnv("MOBILEPAY_TEST_MODE", "true"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid MOBILEPAY_TEST_MODE: %w", err)
+	}
+
 	// Parse enabled payment providers
 	enabledProviders := []string{"mock"} // Always enable mock provider for testing
 	if stripeEnabled {
@@ -124,10 +149,13 @@ func LoadConfig() (*Config, error) {
 	if paypalEnabled {
 		enabledProviders = append(enabledProviders, "paypal")
 	}
+	if mobilePayEnabled {
+		enabledProviders = append(enabledProviders, "mobilepay")
+	}
 
 	return &Config{
 		Server: ServerConfig{
-			Port:         getEnv("SERVER_PORT", "8080"),
+			Port:         getEnv("SERVER_PORT", "6091"),
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
 		},
@@ -168,6 +196,18 @@ func LoadConfig() (*Config, error) {
 			ClientSecret: getEnv("PAYPAL_CLIENT_SECRET", ""),
 			Sandbox:      paypalSandbox,
 			Enabled:      paypalEnabled,
+		},
+		MobilePay: MobilePayConfig{
+			MerchantSerialNumber: getEnv("MOBILEPAY_MERCHANT_SERIAL_NUMBER", ""),
+			SubscriptionKey:      getEnv("MOBILEPAY_SUBSCRIPTION_KEY", ""),
+			ClientID:             getEnv("MOBILEPAY_CLIENT_ID", ""),
+			ClientSecret:         getEnv("MOBILEPAY_CLIENT_SECRET", ""),
+			ReturnURL:            getEnv("MOBILEPAY_RETURN_URL", ""),
+			WebhookURL:           getEnv("MOBILEPAY_WEBHOOK_URL", ""),
+			PaymentDescription:   getEnv("MOBILEPAY_PAYMENT_DESCRIPTION", "Commercify Store Purchase"),
+			Market:               getEnv("MOBILEPAY_MARKET", "NOK"),
+			Enabled:              mobilePayEnabled,
+			IsTestMode:           mobilePayTestMode,
 		},
 	}, nil
 }

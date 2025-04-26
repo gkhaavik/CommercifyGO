@@ -3,8 +3,9 @@ module github.com/zenfulcode/commercify
 go 1.24.0
 
 require (
+	github.com/gkhaavik/vipps-mobilepay-sdk v0.0.0-20250424120819-ac67a9149777
 	github.com/golang-jwt/jwt/v5 v5.2.2
-	github.com/golang-migrate/migrate/v4 v4.18.2
+	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
@@ -22,3 +23,5 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/gkhaavik/vipps-mobilepay-sdk => ../vipps-mobilepay-sdk

@@ -2,10 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
+	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
+	"github.com/gorilla/mux"
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/webhook"
 	"github.com/zenfulcode/commercify/config"
@@ -16,18 +19,283 @@ import (
 
 // WebhookHandler handles webhook requests from payment providers
 type WebhookHandler struct {
-	cfg          *config.Config
-	orderUseCase *usecase.OrderUseCase
-	logger       logger.Logger
+	cfg            *config.Config
+	orderUseCase   *usecase.OrderUseCase
+	webhookUseCase *usecase.WebhookUseCase
+	logger         logger.Logger
 }
 
 // NewWebhookHandler creates a new WebhookHandler
-func NewWebhookHandler(cfg *config.Config, orderUseCase *usecase.OrderUseCase, logger logger.Logger) *WebhookHandler {
+func NewWebhookHandler(
+	cfg *config.Config,
+	orderUseCase *usecase.OrderUseCase,
+	webhookUseCase *usecase.WebhookUseCase,
+	logger logger.Logger,
+) *WebhookHandler {
 	return &WebhookHandler{
-		cfg:          cfg,
-		orderUseCase: orderUseCase,
-		logger:       logger,
+		cfg:            cfg,
+		orderUseCase:   orderUseCase,
+		webhookUseCase: webhookUseCase,
+		logger:         logger,
 	}
+}
+
+// RegisterWebhookRequest represents a request to register a webhook
+type RegisterWebhookRequest struct {
+	Provider string   `json:"provider"`
+	URL      string   `json:"url"`
+	Events   []string `json:"events"`
+}
+
+// RegisterWebhook handles registering a new webhook
+func (h *WebhookHandler) RegisterMobilePayWebhook(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var req RegisterWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to parse request body: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate request
+	if req.URL == "" || len(req.Events) == 0 {
+		h.logger.Error("Invalid request: missing required fields")
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Register webhook
+	input := usecase.RegisterWebhookInput{
+		URL:    req.URL,
+		Events: req.Events,
+	}
+
+	webhook, err := h.webhookUseCase.RegisterMobilePayWebhook(input)
+
+	if err != nil {
+		h.logger.Error("Failed to register webhook: %v", err)
+		http.Error(w, "Failed to register webhook", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(webhook)
+}
+
+// GetMobilePayWebhooks handles getting all webhooks for MobilePay
+func (h *WebhookHandler) GetMobilePayWebhooks(w http.ResponseWriter, r *http.Request) {
+	webhooks, err := h.webhookUseCase.GetMobilePayWebhooks()
+	if err != nil {
+		h.logger.Error("Failed to get webhooks: %v", err)
+		http.Error(w, "Failed to get webhooks", http.StatusInternalServerError)
+		return
+	}
+
+	// Return webhooks
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(webhooks)
+}
+
+// ListWebhooks handles listing all webhooks
+func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+	webhooks, err := h.webhookUseCase.GetAllWebhooks()
+	if err != nil {
+		h.logger.Error("Failed to list webhooks: %v", err)
+		http.Error(w, "Failed to list webhooks", http.StatusInternalServerError)
+		return
+	}
+
+	// Return webhooks
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(webhooks)
+}
+
+// GetWebhook handles getting a webhook by ID
+func (h *WebhookHandler) GetWebhook(w http.ResponseWriter, r *http.Request) {
+	// Get webhook ID from URL
+	vars := mux.Vars(r)
+	id, err := strconv.ParseUint(vars["webhookId"], 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid webhook ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get webhook
+	webhook, err := h.webhookUseCase.GetWebhookByID(uint(id))
+	if err != nil {
+		h.logger.Error("Failed to get webhook: %v", err)
+		http.Error(w, "Webhook not found", http.StatusNotFound)
+		return
+	}
+
+	// Return webhook
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(webhook)
+}
+
+// DeleteWebhook handles deleting a webhook
+func (h *WebhookHandler) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
+	// Get webhook ID from URL
+	vars := mux.Vars(r)
+	id, err := strconv.ParseUint(vars["webhookId"], 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid webhook ID", http.StatusBadRequest)
+		return
+	}
+
+	// Delete webhook
+	if err := h.webhookUseCase.DeleteWebhook(uint(id)); err != nil {
+		h.logger.Error("Failed to delete webhook: %v", err)
+		http.Error(w, "Failed to delete webhook", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleMobilePayAuthorized handles the AUTHORIZED event
+func (h *WebhookHandler) HandleMobilePayAuthorized(event *models.WebhookEvent) error {
+	orderID, err := extractOrderIDFromReference(event.Reference)
+	if err != nil {
+		h.logger.Error("Failed to extract order ID from reference: %v", err)
+		return err
+	}
+
+	// Update the order status to paid
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: orderID,
+		Status:  entity.OrderStatusPaid,
+	}
+
+	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	if err2 != nil {
+		h.logger.Error("Failed to update order status for MobilePay payment: %v", err2)
+		return err2
+	}
+
+	h.logger.Info("MobilePay payment authorized for order %d", orderID)
+	return nil
+}
+
+// HandleMobilePayCaptured handles the CAPTURED event
+func (h *WebhookHandler) HandleMobilePayCaptured(event *models.WebhookEvent) error {
+	orderID, err := extractOrderIDFromReference(event.Reference)
+	if err != nil {
+		h.logger.Error("Failed to extract order ID from reference: %v", err)
+		return err
+	}
+
+	h.logger.Info("MobilePay payment captured for order %d", orderID)
+	return nil
+}
+
+// HandleMobilePayCancelled handles the CANCELLED event
+func (h *WebhookHandler) HandleMobilePayCancelled(event *models.WebhookEvent) error {
+	orderID, err := extractOrderIDFromReference(event.Reference)
+	if err != nil {
+		h.logger.Error("Failed to extract order ID from reference: %v", err)
+		return err
+	}
+
+	// Update order status to cancelled
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: orderID,
+		Status:  entity.OrderStatusCancelled,
+	}
+
+	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	if err2 != nil {
+		h.logger.Error("Failed to cancel order for MobilePay payment: %v", err2)
+		return err2
+	}
+
+	h.logger.Info("MobilePay payment cancelled for order %d", orderID)
+	return nil
+}
+
+// HandleMobilePayRefunded handles the REFUNDED event
+func (h *WebhookHandler) HandleMobilePayRefunded(event *models.WebhookEvent) error {
+	orderID, err := extractOrderIDFromReference(event.Reference)
+	if err != nil {
+		h.logger.Error("Failed to extract order ID from reference: %v", err)
+		return err
+	}
+
+	// Update order status to refunded
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: orderID,
+		Status:  entity.OrderStatusRefunded,
+	}
+
+	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	if err2 != nil {
+		h.logger.Error("Failed to mark order as refunded for MobilePay payment: %v", err2)
+		return err2
+	}
+
+	h.logger.Info("MobilePay payment refunded for order %d", orderID)
+	return nil
+}
+
+// HandleMobilePayAborted handles the ABORTED event
+func (h *WebhookHandler) HandleMobilePayAborted(event *models.WebhookEvent) error {
+	orderID, err := extractOrderIDFromReference(event.Reference)
+	if err != nil {
+		h.logger.Error("Failed to extract order ID from reference: %v", err)
+		return err
+	}
+
+	// Update order status to cancelled
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: orderID,
+		Status:  entity.OrderStatusCancelled,
+	}
+
+	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	if err2 != nil {
+		h.logger.Error("Failed to cancel order for MobilePay aborted payment: %v", err2)
+		return err2
+	}
+
+	h.logger.Info("MobilePay payment aborted for order %d", orderID)
+	return nil
+}
+
+// HandleMobilePayExpired handles the EXPIRED event
+func (h *WebhookHandler) HandleMobilePayExpired(event *models.WebhookEvent) error {
+	orderID, err := extractOrderIDFromReference(event.Reference)
+	if err != nil {
+		h.logger.Error("Failed to extract order ID from reference: %v", err)
+		return err
+	}
+
+	// Update order status to cancelled
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: orderID,
+		Status:  entity.OrderStatusCancelled,
+	}
+
+	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	if err2 != nil {
+		h.logger.Error("Failed to cancel order for MobilePay expired payment: %v", err2)
+		return err2
+	}
+
+	h.logger.Info("MobilePay payment expired for order %d", orderID)
+	return nil
+}
+
+// extractOrderIDFromReference extracts the order ID from the reference
+// Reference format: "order-{orderID}-{uuid}"
+func extractOrderIDFromReference(reference string) (uint, error) {
+	var orderID uint
+	_, err := fmt.Sscanf(reference, "order-%d-", &orderID)
+	if err != nil {
+		return 0, fmt.Errorf("invalid reference format: %v", err)
+	}
+	return orderID, nil
 }
 
 // HandleStripeWebhook handles webhook events from Stripe

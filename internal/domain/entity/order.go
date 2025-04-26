@@ -10,32 +10,37 @@ import (
 type OrderStatus string
 
 const (
-	OrderStatusPending   OrderStatus = "pending"
-	OrderStatusPaid      OrderStatus = "paid"
-	OrderStatusShipped   OrderStatus = "shipped"
-	OrderStatusDelivered OrderStatus = "delivered"
-	OrderStatusCancelled OrderStatus = "cancelled"
+	OrderStatusPending       OrderStatus = "pending"
+	OrderStatusPendingAction OrderStatus = "pending_action" // Requires user action (e.g., redirect to payment provider)
+	OrderStatusPaid          OrderStatus = "paid"
+	OrderStatusShipped       OrderStatus = "shipped"
+	OrderStatusDelivered     OrderStatus = "delivered"
+	OrderStatusCancelled     OrderStatus = "cancelled"
+	OrderStatusRefunded      OrderStatus = "refunded"
 )
 
-// Order represents an order in the system
+// Order represents an order entity
 type Order struct {
-	ID              uint             `json:"id"`
-	OrderNumber     string           `json:"order_number"`
-	UserID          uint             `json:"user_id"`
-	Items           []OrderItem      `json:"items"`
-	TotalAmount     float64          `json:"total_amount"`
-	DiscountAmount  float64          `json:"discount_amount"`
-	FinalAmount     float64          `json:"final_amount"`
-	AppliedDiscount *AppliedDiscount `json:"applied_discount,omitempty"`
-	Status          string           `json:"status"`
-	ShippingAddr    Address          `json:"shipping_address"`
-	BillingAddr     Address          `json:"billing_address"`
-	PaymentID       string           `json:"payment_id"`
-	PaymentProvider string           `json:"payment_provider"`
-	TrackingCode    string           `json:"tracking_code"`
-	CreatedAt       time.Time        `json:"created_at"`
-	UpdatedAt       time.Time        `json:"updated_at"`
-	CompletedAt     *time.Time       `json:"completed_at"`
+	ID              uint
+	OrderNumber     string
+	UserID          uint
+	Items           []OrderItem
+	TotalAmount     float64
+	Status          string
+	ShippingAddr    Address
+	BillingAddr     Address
+	PaymentID       string
+	PaymentProvider string
+	TrackingCode    string
+	ActionURL       string // URL for redirect to payment provider
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	CompletedAt     *time.Time
+
+	// Discount-related fields
+	DiscountAmount  float64
+	FinalAmount     float64
+	AppliedDiscount *AppliedDiscount
 }
 
 // OrderItem represents an item in an order
@@ -194,4 +199,11 @@ func (o *Order) RemoveDiscount() {
 	o.FinalAmount = o.TotalAmount
 	o.AppliedDiscount = nil
 	o.UpdatedAt = time.Now()
+}
+
+// SetActionURL sets the action URL for the order
+func (o *Order) SetActionURL(actionURL string) error {
+	o.ActionURL = actionURL
+	o.UpdatedAt = time.Now()
+	return nil
 }

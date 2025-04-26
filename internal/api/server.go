@@ -3,14 +3,18 @@ package api
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
+	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/webhooks"
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/api/handler"
 	"github.com/zenfulcode/commercify/internal/api/middleware"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/auth"
 	"github.com/zenfulcode/commercify/internal/infrastructure/email"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -38,12 +42,25 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	orderRepo := postgres.NewOrderRepository(db)
 	cartRepo := postgres.NewCartRepository(db)
 	discountRepo := postgres.NewDiscountRepository(db)
+	webhookRepo := postgres.NewWebhookRepository(db)
 
 	// Create services
 	jwtService := auth.NewJWTService(cfg.Auth)
 
 	// Create payment service with multiple providers
 	paymentService := payment.NewMultiProviderPaymentService(cfg, logger)
+
+	// Extract MobilePay service for webhook registration
+	var mobilePayService *payment.MobilePayPaymentService
+	for _, provider := range paymentService.GetProviders() {
+		if provider.Type == service.PaymentProviderMobilePay {
+			mobilePayService = provider.Service.(*payment.MobilePayPaymentService)
+			break
+		}
+	}
+
+	// Create webhook service
+	webhookService := payment.NewWebhookService(cfg, webhookRepo, logger, mobilePayService)
 
 	emailService := email.NewSMTPEmailService(cfg.Email, logger)
 
@@ -53,6 +70,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
 	orderUseCase := usecase.NewOrderUseCase(orderRepo, cartRepo, productRepo, userRepo, paymentService, emailService)
 	discountUseCase := usecase.NewDiscountUseCase(discountRepo, productRepo, categoryRepo, orderRepo)
+	webhookUseCase := usecase.NewWebhookUseCase(webhookRepo, webhookService)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(userUseCase, jwtService, logger)
@@ -60,7 +78,7 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	cartHandler := handler.NewCartHandler(cartUseCase, logger)
 	orderHandler := handler.NewOrderHandler(orderUseCase, logger)
 	paymentHandler := handler.NewPaymentHandler(orderUseCase, logger)
-	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, logger)
+	webhookHandler := handler.NewWebhookHandler(cfg, orderUseCase, webhookUseCase, logger)
 	discountHandler := handler.NewDiscountHandler(discountUseCase, orderUseCase, logger)
 
 	// Create middleware
@@ -82,6 +100,57 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
+	// api.HandleFunc("/webhooks/mobilepay", webhookHandler.HandleMobilePayWebhook).Methods(http.MethodPost)
+	if cfg.MobilePay.Enabled {
+		result, err := webhookUseCase.GetAllWebhooks()
+		if err != nil {
+			logger.Error("Failed to get MobilePay webhooks: %v", err)
+		} else {
+			if len(result) == 0 {
+				webhook, err := webhookService.RegisterMobilePayWebhook(cfg.MobilePay.WebhookURL, []string{
+					string(models.WebhookEventPaymentAborted),
+					string(models.WebhookEventPaymentCancelled),
+					string(models.WebhookEventPaymentCaptured),
+					string(models.WebhookEventPaymentRefunded),
+					string(models.WebhookEventPaymentExpired),
+					string(models.WebhookEventPaymentAuthorized),
+				})
+
+				if err != nil {
+					logger.Error("Failed to register MobilePay webhook: %v", err)
+				} else {
+					logger.Info("Registered MobilePay webhook: %s", webhook.URL)
+					result = append(result, webhook)
+				}
+
+			} else {
+				logger.Info("Found %d MobilePay webhooks", len(result))
+			}
+
+			for _, webhook := range result {
+				if webhook.IsActive && webhook.Provider == "mobilepay" {
+					handler := webhooks.NewHandler(webhook.Secret)
+					router := webhooks.NewRouter()
+
+					router.HandleFunc(models.EventAuthorized, webhookHandler.HandleMobilePayAuthorized)
+					router.HandleFunc(models.EventAborted, webhookHandler.HandleMobilePayAborted)
+					router.HandleFunc(models.EventCancelled, webhookHandler.HandleMobilePayCancelled)
+					router.HandleFunc(models.EventCaptured, webhookHandler.HandleMobilePayCaptured)
+					router.HandleFunc(models.EventRefunded, webhookHandler.HandleMobilePayRefunded)
+					router.HandleFunc(models.EventExpired, webhookHandler.HandleMobilePayExpired)
+
+					router.HandleDefault(func(event *models.WebhookEvent) error {
+						fmt.Printf("Received unhandled event: %s\n", event.Name)
+						return nil
+					})
+
+					api.HandleFunc("/webhooks/mobilepay", handler.HandleHTTP(router.Process))
+
+					logger.Info("Registered MobilePay webhook: %s", webhook.URL)
+				}
+			}
+		}
+	}
 
 	// Protected routes
 	protected := api.PathPrefix("").Subrouter()
@@ -132,6 +201,13 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 	admin.HandleFunc("/users", userHandler.ListUsers).Methods(http.MethodGet)
 	admin.HandleFunc("/orders", orderHandler.ListAllOrders).Methods(http.MethodGet)
 	admin.HandleFunc("/orders/{id:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
+
+	// Webhook management routes (admin only)
+	admin.HandleFunc("/webhooks", webhookHandler.ListWebhooks).Methods(http.MethodGet)
+	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.GetWebhook).Methods(http.MethodGet)
+	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
+	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
+	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.GetMobilePayWebhooks).Methods(http.MethodGet)
 
 	// Create HTTP server
 	httpServer := &http.Server{

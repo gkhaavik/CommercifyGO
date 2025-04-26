@@ -8,11 +8,17 @@ import (
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
-// MultiProviderPaymentService is a payment service that supports multiple providers
+// MultiProviderPaymentService implements payment service with multiple providers
 type MultiProviderPaymentService struct {
 	providers map[service.PaymentProviderType]service.PaymentService
 	config    *config.Config
 	logger    logger.Logger
+}
+
+// ProviderWithService represents a provider type with its service implementation
+type ProviderWithService struct {
+	Type    service.PaymentProviderType
+	Service service.PaymentService
 }
 
 // NewMultiProviderPaymentService creates a new MultiProviderPaymentService
@@ -33,6 +39,11 @@ func NewMultiProviderPaymentService(cfg *config.Config, logger logger.Logger) *M
 				// For now, we'll use the mock service
 				providers[service.PaymentProviderPayPal] = NewMockPaymentService()
 				logger.Info("PayPal payment provider initialized (mock)")
+			}
+		case string(service.PaymentProviderMobilePay):
+			if cfg.MobilePay.Enabled {
+				providers[service.PaymentProviderMobilePay] = NewMobilePayPaymentService(cfg.MobilePay, logger)
+				logger.Info("MobilePay payment provider initialized")
 			}
 		case string(service.PaymentProviderMock):
 			providers[service.PaymentProviderMock] = NewMockPaymentService()
@@ -66,6 +77,14 @@ func (s *MultiProviderPaymentService) GetAvailableProviders() []service.PaymentP
 			Methods:     []service.PaymentMethod{service.PaymentMethodPayPal},
 			Enabled:     s.config.PayPal.Enabled,
 		},
+		{
+			Type:        service.PaymentProviderMobilePay,
+			Name:        "MobilePay",
+			Description: "Pay with MobilePay app",
+			IconURL:     "/assets/images/mobilepay-logo.png",
+			Methods:     []service.PaymentMethod{service.PaymentMethodWallet},
+			Enabled:     s.config.MobilePay.Enabled,
+		},
 	}
 
 	// Only return enabled providers
@@ -88,6 +107,18 @@ func (s *MultiProviderPaymentService) GetAvailableProviders() []service.PaymentP
 	}
 
 	return enabledProviders
+}
+
+// GetProviders returns all configured payment providers
+func (s *MultiProviderPaymentService) GetProviders() []ProviderWithService {
+	result := make([]ProviderWithService, 0, len(s.providers))
+	for providerType, providerService := range s.providers {
+		result = append(result, ProviderWithService{
+			Type:    providerType,
+			Service: providerService,
+		})
+	}
+	return result
 }
 
 // ProcessPayment processes a payment request

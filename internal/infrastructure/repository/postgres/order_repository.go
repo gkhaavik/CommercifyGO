@@ -48,9 +48,9 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 	query := `
 		INSERT INTO orders (
 			user_id, total_amount, status, shipping_address, billing_address,
-			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at
+			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id
 	`
 
@@ -67,6 +67,7 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 		order.CreatedAt,
 		order.UpdatedAt,
 		order.CompletedAt,
+		order.FinalAmount,
 	).Scan(&order.ID)
 	if err != nil {
 		return err
@@ -116,7 +117,7 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
-			discount_amount, discount_id, discount_code, final_amount
+			discount_amount, discount_id, discount_code, final_amount, action_url
 		FROM orders
 		WHERE id = $1
 	`
@@ -126,10 +127,10 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	var completedAt sql.NullTime
 	var paymentProvider sql.NullString
 	var orderNumber sql.NullString
+	var actionURL sql.NullString
 
 	var discountID sql.NullInt64
 	var discountCode sql.NullString
-	var finalAmount sql.NullFloat64
 
 	err := r.db.QueryRow(query, id).Scan(
 		&order.ID,
@@ -148,7 +149,8 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 		&order.DiscountAmount,
 		&discountID,
 		&discountCode,
-		&finalAmount,
+		&order.FinalAmount,
+		&actionURL,
 	)
 
 	if err == sql.ErrNoRows {
@@ -165,7 +167,9 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 		DiscountAmount: order.DiscountAmount,
 	}
 
-	order.FinalAmount = finalAmount.Float64
+	if order.FinalAmount == 0 {
+		order.FinalAmount = order.TotalAmount
+	}
 
 	// Set order number if valid
 	if orderNumber.Valid {
@@ -175,6 +179,11 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	// Set payment provider if valid
 	if paymentProvider.Valid {
 		order.PaymentProvider = paymentProvider.String
+	}
+
+	// Set action URL if valid
+	if actionURL.Valid {
+		order.ActionURL = actionURL.String
 	}
 
 	// Unmarshal addresses
@@ -245,18 +254,21 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 			final_amount = $10,
 			discount_id = $11,
 			discount_amount = $12,
-			discount_code = $13
-		WHERE id = $14
+			discount_code = $13,
+			action_url = $14
+		WHERE id = $15
 	`
 
-	var discountID any = nil
-	var discountCode any = nil
+	var discountID sql.NullInt64
+	var discountCode sql.NullString
 	discountAmount := 0.0
 
-	if order.AppliedDiscount != nil {
-		discountID = order.AppliedDiscount.DiscountID
+	if order.AppliedDiscount != nil && order.AppliedDiscount.DiscountID > 0 {
+		discountID.Int64 = int64(order.AppliedDiscount.DiscountID)
+		discountID.Valid = true
 		discountAmount = order.AppliedDiscount.DiscountAmount
-		discountCode = order.AppliedDiscount.DiscountCode
+		discountCode.String = order.AppliedDiscount.DiscountCode
+		discountCode.Valid = true
 	}
 
 	_, err = r.db.Exec(
@@ -274,6 +286,7 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 		discountID,
 		discountAmount,
 		discountCode,
+		order.ActionURL,
 		order.ID,
 	)
 

@@ -104,7 +104,7 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 		Confirm:       stripe.Bool(true), // Confirm the payment intent immediately
 		Params: stripe.Params{
 			Metadata: map[string]string{
-				"order_id": string(request.OrderID),
+				"order_id": fmt.Sprint(request.OrderID),
 				"method":   paymentMethodType,
 			},
 		},
