@@ -150,3 +150,126 @@ func (uc *CartUseCase) ClearCart(userID uint) error {
 	// Update cart in repository
 	return uc.cartRepo.Update(cart)
 }
+
+// GetOrCreateGuestCart gets a guest cart or creates one if it doesn't exist
+func (uc *CartUseCase) GetOrCreateGuestCart(sessionID string) (*entity.Cart, error) {
+	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	if err == nil {
+		return cart, nil
+	}
+
+	// Create new cart if not found
+	newCart, err := entity.NewGuestCart(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := uc.cartRepo.Create(newCart); err != nil {
+		return nil, err
+	}
+
+	return newCart, nil
+}
+
+// AddToGuestCart adds a product to a guest's cart
+func (uc *CartUseCase) AddToGuestCart(sessionID string, input AddToCartInput) (*entity.Cart, error) {
+	// Check if product exists and has enough stock
+	product, err := uc.productRepo.GetByID(input.ProductID)
+	if err != nil {
+		return nil, errors.New("product not found")
+	}
+
+	if !product.IsAvailable(input.Quantity) {
+		return nil, errors.New("insufficient stock")
+	}
+
+	// Get or create cart
+	cart, err := uc.GetOrCreateGuestCart(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add item to cart
+	if err := cart.AddItem(input.ProductID, input.Quantity); err != nil {
+		return nil, err
+	}
+
+	// Update cart in repository
+	if err := uc.cartRepo.Update(cart); err != nil {
+		return nil, err
+	}
+
+	return cart, nil
+}
+
+// UpdateGuestCartItem updates the quantity of a product in a guest's cart
+func (uc *CartUseCase) UpdateGuestCartItem(sessionID string, input UpdateCartItemInput) (*entity.Cart, error) {
+	// Check if product exists and has enough stock
+	product, err := uc.productRepo.GetByID(input.ProductID)
+	if err != nil {
+		return nil, errors.New("product not found")
+	}
+
+	if !product.IsAvailable(input.Quantity) {
+		return nil, errors.New("insufficient stock")
+	}
+
+	// Get cart
+	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	if err != nil {
+		return nil, errors.New("cart not found")
+	}
+
+	// Update item in cart
+	if err := cart.UpdateItem(input.ProductID, input.Quantity); err != nil {
+		return nil, err
+	}
+
+	// Update cart in repository
+	if err := uc.cartRepo.Update(cart); err != nil {
+		return nil, err
+	}
+
+	return cart, nil
+}
+
+// RemoveFromGuestCart removes a product from a guest's cart
+func (uc *CartUseCase) RemoveFromGuestCart(sessionID string, productID uint) (*entity.Cart, error) {
+	// Get cart
+	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	if err != nil {
+		return nil, errors.New("cart not found")
+	}
+
+	// Remove item from cart
+	if err := cart.RemoveItem(productID); err != nil {
+		return nil, err
+	}
+
+	// Update cart in repository
+	if err := uc.cartRepo.Update(cart); err != nil {
+		return nil, err
+	}
+
+	return cart, nil
+}
+
+// ClearGuestCart removes all items from a guest's cart
+func (uc *CartUseCase) ClearGuestCart(sessionID string) error {
+	// Get cart
+	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	if err != nil {
+		return errors.New("cart not found")
+	}
+
+	// Clear cart
+	cart.Clear()
+
+	// Update cart in repository
+	return uc.cartRepo.Update(cart)
+}
+
+// ConvertGuestCartToUserCart converts a guest cart to a user cart
+func (uc *CartUseCase) ConvertGuestCartToUserCart(sessionID string, userID uint) (*entity.Cart, error) {
+	return uc.cartRepo.ConvertGuestCartToUserCart(sessionID, userID)
+}

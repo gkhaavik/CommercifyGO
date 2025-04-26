@@ -133,6 +133,120 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		assert.Equal(t, 98, updatedProduct.Stock)
 	})
 
+	t.Run("Create guest order successfully", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+
+		// Simple mock payment service that always succeeds
+		paymentSvc := &mockPaymentService{
+			availableProviders: []service.PaymentProvider{
+				{
+					Type:    service.PaymentProviderStripe,
+					Name:    "Stripe",
+					Enabled: true,
+				},
+			},
+		}
+
+		// Simple mock email service
+		emailSvc := &mockEmailService{}
+
+		// Create a test product
+		product := &entity.Product{
+			ID:          1,
+			Name:        "Test Product",
+			Description: "This is a test product",
+			Price:       99.99,
+			Stock:       100,
+			CategoryID:  1,
+			SellerID:    2,
+			Images:      []string{"image1.jpg", "image2.jpg"},
+			HasVariants: false,
+		}
+		productRepo.Create(product)
+
+		// Create a test guest cart with one item
+		sessionID := "test-session-123"
+		cart := &entity.Cart{
+			ID:        1,
+			SessionID: sessionID,
+			Items: []entity.CartItem{
+				{
+					ID:        1,
+					ProductID: 1,
+					Quantity:  2,
+					CartID:    1,
+				},
+			},
+		}
+		cartRepo.Create(cart)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			paymentSvc,
+			emailSvc,
+		)
+
+		// Create order input for guest
+		input := usecase.CreateOrderInput{
+			SessionID:   sessionID,
+			Email:       "guest@example.com",
+			FullName:    "Guest User",
+			PhoneNumber: "555-1234",
+			ShippingAddr: entity.Address{
+				Street:     "123 Main St",
+				City:       "Anytown",
+				State:      "CA",
+				PostalCode: "12345",
+				Country:    "USA",
+			},
+			BillingAddr: entity.Address{
+				Street:     "123 Main St",
+				City:       "Anytown",
+				State:      "CA",
+				PostalCode: "12345",
+				Country:    "USA",
+			},
+		}
+
+		// Execute
+		order, err := orderUseCase.CreateOrderFromCart(input)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, order)
+		assert.Equal(t, uint(0), order.UserID) // Guest order has UserID = 0
+		assert.True(t, order.IsGuestOrder)
+		assert.Equal(t, input.Email, order.GuestEmail)
+		assert.Equal(t, input.FullName, order.GuestFullName)
+		assert.Equal(t, input.PhoneNumber, order.GuestPhone)
+		assert.Equal(t, input.ShippingAddr, order.ShippingAddr)
+		assert.Equal(t, input.BillingAddr, order.BillingAddr)
+		assert.Len(t, order.Items, 1)
+		assert.Equal(t, uint(1), order.Items[0].ProductID)
+		assert.Equal(t, 2, order.Items[0].Quantity)
+		assert.Equal(t, 99.99, order.Items[0].Price)
+		assert.Equal(t, 99.99*2, order.Items[0].Subtotal)
+		assert.Equal(t, 99.99*2, order.TotalAmount)
+		assert.Equal(t, 99.99*2, order.FinalAmount) // No discount applied
+		assert.Equal(t, string(entity.OrderStatusPending), order.Status)
+
+		// Verify cart is emptied
+		updatedCart, _ := cartRepo.GetBySessionID(sessionID)
+		assert.Len(t, updatedCart.Items, 0)
+
+		// Verify product stock is updated
+		updatedProduct, _ := productRepo.GetByID(1)
+		assert.Equal(t, 98, updatedProduct.Stock)
+	})
+
 	t.Run("Create order with empty cart", func(t *testing.T) {
 		// Setup mocks
 		orderRepo := mock.NewMockOrderRepository()

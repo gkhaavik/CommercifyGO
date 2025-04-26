@@ -24,7 +24,7 @@ const (
 type Order struct {
 	ID              uint
 	OrderNumber     string
-	UserID          uint
+	UserID          uint // 0 for guest orders
 	Items           []OrderItem
 	TotalAmount     float64
 	Status          string
@@ -37,6 +37,12 @@ type Order struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	CompletedAt     *time.Time
+
+	// Guest information (only used for guest orders where UserID is 0)
+	GuestEmail    string
+	GuestPhone    string
+	GuestFullName string
+	IsGuestOrder  bool
 
 	// Discount-related fields
 	DiscountAmount  float64
@@ -102,6 +108,59 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		BillingAddr:    billingAddr,
 		CreatedAt:      now,
 		UpdatedAt:      now,
+	}, nil
+}
+
+// NewGuestOrder creates a new order for a guest user
+func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, phoneNumber, fullName string) (*Order, error) {
+	if len(items) == 0 {
+		return nil, errors.New("order must have at least one item")
+	}
+
+	if email == "" {
+		return nil, errors.New("guest email cannot be empty")
+	}
+
+	if fullName == "" {
+		return nil, errors.New("guest full name cannot be empty")
+	}
+
+	totalAmount := 0.0
+	for _, item := range items {
+		if item.Quantity <= 0 {
+			return nil, errors.New("item quantity must be greater than zero")
+		}
+		if item.Price <= 0 {
+			return nil, errors.New("item price must be greater than zero")
+		}
+		item.Subtotal = float64(item.Quantity) * item.Price
+		totalAmount += item.Subtotal
+	}
+
+	now := time.Now()
+
+	// Generate a friendly order number (will be replaced with actual ID after creation)
+	// Format: GS-YYYYMMDD-TEMP (GS prefix for guest orders)
+	orderNumber := fmt.Sprintf("GS-%s-TEMP", now.Format("20060102"))
+
+	return &Order{
+		UserID:         0, // Using 0 to indicate it should be NULL in the database
+		OrderNumber:    orderNumber,
+		Items:          items,
+		TotalAmount:    totalAmount,
+		DiscountAmount: 0,
+		FinalAmount:    totalAmount, // Initially same as total amount
+		Status:         string(OrderStatusPending),
+		ShippingAddr:   shippingAddr,
+		BillingAddr:    billingAddr,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+
+		// Guest-specific information
+		GuestEmail:    email,
+		GuestPhone:    phoneNumber,
+		GuestFullName: fullName,
+		IsGuestOrder:  true,
 	}, nil
 }
 
