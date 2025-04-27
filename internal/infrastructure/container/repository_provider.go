@@ -17,6 +17,7 @@ type RepositoryProvider interface {
 	CartRepository() repository.CartRepository
 	DiscountRepository() repository.DiscountRepository
 	WebhookRepository() repository.WebhookRepository
+	PaymentTransactionRepository() repository.PaymentTransactionRepository
 }
 
 // repositoryProvider is the concrete implementation of RepositoryProvider
@@ -32,6 +33,7 @@ type repositoryProvider struct {
 	cartRepo           repository.CartRepository
 	discountRepo       repository.DiscountRepository
 	webhookRepo        repository.WebhookRepository
+	paymentTrxRepo     repository.PaymentTransactionRepository
 }
 
 // NewRepositoryProvider creates a new repository provider
@@ -127,4 +129,15 @@ func (p *repositoryProvider) WebhookRepository() repository.WebhookRepository {
 		p.webhookRepo = postgres.NewWebhookRepository(p.container.DB())
 	}
 	return p.webhookRepo
+}
+
+// PaymentTransactionRepository returns the payment transaction repository
+func (p *repositoryProvider) PaymentTransactionRepository() repository.PaymentTransactionRepository {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.paymentTrxRepo == nil {
+		p.paymentTrxRepo = postgres.NewPaymentTransactionRepository(p.container.DB())
+	}
+	return p.paymentTrxRepo
 }
