@@ -19,6 +19,7 @@ type ProductVariant struct {
 	Price        float64            `json:"price"`
 	ComparePrice float64            `json:"compare_price,omitempty"`
 	Stock        int                `json:"stock"`
+	Weight       float64            `json:"weight"` // Weight in kg
 	Attributes   []VariantAttribute `json:"attributes"`
 	Images       []string           `json:"images,omitempty"`
 	IsDefault    bool               `json:"is_default"`
@@ -27,7 +28,7 @@ type ProductVariant struct {
 }
 
 // NewProductVariant creates a new product variant
-func NewProductVariant(productID uint, sku string, price float64, stock int, attributes []VariantAttribute, images []string, isDefault bool) (*ProductVariant, error) {
+func NewProductVariant(productID uint, sku string, price float64, stock int, weight float64, attributes []VariantAttribute, images []string, isDefault bool) (*ProductVariant, error) {
 	if productID == 0 {
 		return nil, errors.New("product ID cannot be empty")
 	}
@@ -40,6 +41,9 @@ func NewProductVariant(productID uint, sku string, price float64, stock int, att
 	if stock < 0 {
 		return nil, errors.New("stock cannot be negative")
 	}
+	if weight < 0 {
+		return nil, errors.New("weight cannot be negative")
+	}
 	if len(attributes) == 0 {
 		return nil, errors.New("variant must have at least one attribute")
 	}
@@ -50,6 +54,7 @@ func NewProductVariant(productID uint, sku string, price float64, stock int, att
 		SKU:        sku,
 		Price:      price,
 		Stock:      stock,
+		Weight:     weight,
 		Attributes: attributes,
 		Images:     images,
 		IsDefault:  isDefault,
@@ -58,12 +63,24 @@ func NewProductVariant(productID uint, sku string, price float64, stock int, att
 	}, nil
 }
 
+// SetComparePrice sets the compare price for the variant
+func (v *ProductVariant) SetComparePrice(comparePrice float64) error {
+	if comparePrice <= 0 {
+		return errors.New("compare price must be greater than zero")
+	}
+
+	v.ComparePrice = comparePrice
+	v.UpdatedAt = time.Now()
+	return nil
+}
+
 // UpdateStock updates the variant's stock
 func (v *ProductVariant) UpdateStock(quantity int) error {
 	newStock := v.Stock + quantity
 	if newStock < 0 {
 		return errors.New("insufficient stock")
 	}
+
 	v.Stock = newStock
 	v.UpdatedAt = time.Now()
 	return nil
@@ -74,12 +91,10 @@ func (v *ProductVariant) IsAvailable(quantity int) bool {
 	return v.Stock >= quantity
 }
 
-// SetComparePrice sets a compare-at price for the variant
-func (v *ProductVariant) SetComparePrice(comparePrice float64) error {
-	if comparePrice <= 0 {
-		return errors.New("compare price must be greater than zero")
+// GetTotalWeight calculates the total weight for a quantity of this variant
+func (v *ProductVariant) GetTotalWeight(quantity int) float64 {
+	if quantity <= 0 {
+		return 0
 	}
-	v.ComparePrice = comparePrice
-	v.UpdatedAt = time.Now()
-	return nil
+	return v.Weight * float64(quantity)
 }

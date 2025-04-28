@@ -1,0 +1,153 @@
+package entity
+
+import (
+	"errors"
+	"time"
+)
+
+// ShippingRate connects shipping methods to zones with pricing
+type ShippingRate struct {
+	ID                    uint              `json:"id"`
+	ShippingMethodID      uint              `json:"shipping_method_id"`
+	ShippingMethod        *ShippingMethod   `json:"shipping_method,omitempty"`
+	ShippingZoneID        uint              `json:"shipping_zone_id"`
+	ShippingZone          *ShippingZone     `json:"shipping_zone,omitempty"`
+	BaseRate              float64           `json:"base_rate"`
+	MinOrderValue         float64           `json:"min_order_value"`
+	FreeShippingThreshold *float64          `json:"free_shipping_threshold"`
+	WeightBasedRates      []WeightBasedRate `json:"weight_based_rates,omitempty"`
+	ValueBasedRates       []ValueBasedRate  `json:"value_based_rates,omitempty"`
+	Active                bool              `json:"active"`
+	CreatedAt             time.Time         `json:"created_at"`
+	UpdatedAt             time.Time         `json:"updated_at"`
+}
+
+// WeightBasedRate represents additional costs based on order weight
+type WeightBasedRate struct {
+	ID             uint    `json:"id"`
+	ShippingRateID uint    `json:"shipping_rate_id"`
+	MinWeight      float64 `json:"min_weight"`
+	MaxWeight      float64 `json:"max_weight"`
+	Rate           float64 `json:"rate"` // Can be flat fee or percentage
+}
+
+// ValueBasedRate represents additional costs/discounts based on order value
+type ValueBasedRate struct {
+	ID             uint    `json:"id"`
+	ShippingRateID uint    `json:"shipping_rate_id"`
+	MinOrderValue  float64 `json:"min_order_value"`
+	MaxOrderValue  float64 `json:"max_order_value"`
+	Rate           float64 `json:"rate"` // Can be flat fee or percentage
+}
+
+// NewShippingRate creates a new shipping rate
+func NewShippingRate(
+	shippingMethodID uint,
+	shippingZoneID uint,
+	baseRate float64,
+	minOrderValue float64,
+) (*ShippingRate, error) {
+	if shippingMethodID == 0 {
+		return nil, errors.New("shipping method ID cannot be empty")
+	}
+
+	if shippingZoneID == 0 {
+		return nil, errors.New("shipping zone ID cannot be empty")
+	}
+
+	if baseRate < 0 {
+		return nil, errors.New("base rate cannot be negative")
+	}
+
+	if minOrderValue < 0 {
+		return nil, errors.New("minimum order value cannot be negative")
+	}
+
+	now := time.Now()
+	return &ShippingRate{
+		ShippingMethodID: shippingMethodID,
+		ShippingZoneID:   shippingZoneID,
+		BaseRate:         baseRate,
+		MinOrderValue:    minOrderValue,
+		Active:           true,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}, nil
+}
+
+// Update updates a shipping rate's details
+func (r *ShippingRate) Update(baseRate float64, minOrderValue float64) error {
+	if baseRate < 0 {
+		return errors.New("base rate cannot be negative")
+	}
+
+	if minOrderValue < 0 {
+		return errors.New("minimum order value cannot be negative")
+	}
+
+	r.BaseRate = baseRate
+	r.MinOrderValue = minOrderValue
+	r.UpdatedAt = time.Now()
+	return nil
+}
+
+// SetFreeShippingThreshold sets the free shipping threshold
+func (r *ShippingRate) SetFreeShippingThreshold(threshold *float64) {
+	// Validate that threshold is either nil or positive
+	if threshold != nil && *threshold < 0 {
+		return
+	}
+
+	r.FreeShippingThreshold = threshold
+	r.UpdatedAt = time.Now()
+}
+
+// CalculateShippingCost calculates the shipping cost for an order
+func (r *ShippingRate) CalculateShippingCost(orderValue float64, weight float64) float64 {
+	// Check if order qualifies for free shipping
+	if r.FreeShippingThreshold != nil && orderValue >= *r.FreeShippingThreshold {
+		return 0
+	}
+
+	// Start with the base rate
+	cost := r.BaseRate
+
+	// Check if order meets minimum value
+	if orderValue < r.MinOrderValue {
+		return 0 // Order does not qualify for shipping with this rate
+	}
+
+	// Apply weight-based rates
+	for _, wbr := range r.WeightBasedRates {
+		if weight >= wbr.MinWeight && weight <= wbr.MaxWeight {
+			cost += wbr.Rate
+			break // Only apply the first matching weight rate
+		}
+	}
+
+	// Apply value-based rates
+	for _, vbr := range r.ValueBasedRates {
+		if orderValue >= vbr.MinOrderValue && orderValue <= vbr.MaxOrderValue {
+			cost += vbr.Rate
+			break // Only apply the first matching value rate
+		}
+	}
+
+	return cost
+}
+
+// Activate activates a shipping rate
+func (r *ShippingRate) Activate() {
+	if !r.Active {
+		r.Active = true
+		r.UpdatedAt = time.Now()
+	}
+}
+
+// Deactivate deactivates a shipping rate
+func (r *ShippingRate) Deactivate() {
+	if r.Active {
+		r.Active = false
+		r.UpdatedAt = time.Now()
+	}
+}

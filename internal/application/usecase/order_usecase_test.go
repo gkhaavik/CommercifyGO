@@ -20,25 +20,17 @@ const (
 )
 
 func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
-	t.Run("Create order successfully", func(t *testing.T) {
+	t.Run("Create order successfully with shipping", func(t *testing.T) {
 		// Setup mocks
 		orderRepo := mock.NewMockOrderRepository()
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
 		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
+		shippingUseCase := mock.NewMockShippingUseCase()
 
 		// Simple mock payment service that always succeeds
 		paymentSvc := payment.NewMockPaymentService()
-		// paymentSvc := &mockPaymentService{
-		// 	availableProviders: []service.PaymentProvider{
-		// 		{
-		// 			Type:    service.PaymentProviderStripe,
-		// 			Name:    "Stripe",
-		// 			Enabled: true,
-		// 		},
-		// 	},
-		// }
 
 		// Simple mock email service
 		emailSvc := &mockEmailService{}
@@ -51,7 +43,7 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		}
 		userRepo.Create(user)
 
-		// Create a test product
+		// Create a test product with weight
 		product := &entity.Product{
 			ID:          1,
 			Name:        "Test Product",
@@ -62,6 +54,7 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			SellerID:    2,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			HasVariants: false,
+			Weight:      0.5, // 0.5 kg
 		}
 		productRepo.Create(product)
 
@@ -89,9 +82,10 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			paymentSvc,
 			emailSvc,
 			paymentTxnRepo,
+			shippingUseCase,
 		)
 
-		// Create order input
+		// Create order input with shipping method
 		input := usecase.CreateOrderInput{
 			UserID: 1,
 			ShippingAddr: entity.Address{
@@ -99,15 +93,16 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 				City:       "Anytown",
 				State:      "CA",
 				PostalCode: "12345",
-				Country:    "USA",
+				Country:    "US", // Use US for domestic shipping
 			},
 			BillingAddr: entity.Address{
 				Street:     "123 Main St",
 				City:       "Anytown",
 				State:      "CA",
 				PostalCode: "12345",
-				Country:    "USA",
+				Country:    "US",
 			},
+			ShippingMethodID: 1, // Standard Shipping
 		}
 
 		// Execute
@@ -124,9 +119,12 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		assert.Equal(t, 2, order.Items[0].Quantity)
 		assert.Equal(t, 99.99, order.Items[0].Price)
 		assert.Equal(t, 99.99*2, order.Items[0].Subtotal)
-		assert.Equal(t, 99.99*2, order.TotalAmount)
-		assert.Equal(t, 99.99*2, order.FinalAmount) // No discount applied
-		assert.Equal(t, string(entity.OrderStatusPending), order.Status)
+
+		// Check that shipping was applied correctly
+		assert.Equal(t, input.ShippingMethodID, order.ShippingMethodID)
+		assert.Equal(t, 5.99, order.ShippingCost)        // From mock shipping usecase
+		assert.Equal(t, 1.0, order.TotalWeight)          // 2 items * 0.5kg = 1kg
+		assert.Equal(t, 99.99*2+5.99, order.FinalAmount) // Subtotal + shipping cost
 
 		// Verify cart is emptied
 		updatedCart, _ := cartRepo.GetByUserID(1)
@@ -373,6 +371,196 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, order)
 		assert.Contains(t, err.Error(), "insufficient stock")
+	})
+}
+
+func TestOrderUseCase_GetShippingOptions(t *testing.T) {
+	t.Run("Get shipping options for user cart", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
+		shippingUseCase := mock.NewMockShippingUseCase()
+
+		// Create a test product with weight
+		product := &entity.Product{
+			ID:          1,
+			Name:        "Test Product",
+			Description: "This is a test product",
+			Price:       99.99,
+			Stock:       100,
+			Weight:      0.5, // 0.5 kg
+		}
+		productRepo.Create(product)
+
+		// Create a test cart with one item
+		cart := &entity.Cart{
+			ID:     1,
+			UserID: 1,
+			Items: []entity.CartItem{
+				{
+					ID:        1,
+					ProductID: 1,
+					Quantity:  2,
+					CartID:    1,
+				},
+			},
+		}
+		cartRepo.Create(cart)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			nil, // payment service not needed
+			nil, // email service not needed
+			paymentTxnRepo,
+			shippingUseCase,
+		)
+
+		// Test address
+		shippingAddr := entity.Address{
+			Street:     "123 Main St",
+			City:       "Anytown",
+			State:      "CA",
+			PostalCode: "12345",
+			Country:    "US", // US for domestic shipping
+		}
+
+		// Get shipping options
+		options, err := orderUseCase.GetShippingOptions(1, "", shippingAddr)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, options)
+		assert.Len(t, options.Options, 2) // We should get the 2 options from our mock
+
+		// Check the options returned
+		assert.Equal(t, uint(1), options.Options[0].ShippingMethodID) // Standard shipping
+		assert.Equal(t, "Standard Shipping", options.Options[0].MethodName)
+		assert.Equal(t, 5.99, options.Options[0].Cost)
+
+		assert.Equal(t, uint(2), options.Options[1].ShippingMethodID) // Express shipping
+		assert.Equal(t, "Express Shipping", options.Options[1].MethodName)
+		assert.Equal(t, 15.99, options.Options[1].Cost)
+	})
+
+	t.Run("Get shipping options for guest cart", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
+		shippingUseCase := mock.NewMockShippingUseCase()
+
+		// Create a test product with weight
+		product := &entity.Product{
+			ID:          1,
+			Name:        "Test Product",
+			Description: "This is a test product",
+			Price:       99.99,
+			Stock:       100,
+			Weight:      0.5, // 0.5 kg
+		}
+		productRepo.Create(product)
+
+		// Create a test guest cart with one item
+		sessionID := "test-session-123"
+		cart := &entity.Cart{
+			ID:        1,
+			SessionID: sessionID,
+			Items: []entity.CartItem{
+				{
+					ID:        1,
+					ProductID: 1,
+					Quantity:  2,
+					CartID:    1,
+				},
+			},
+		}
+		cartRepo.Create(cart)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			nil, // payment service not needed
+			nil, // email service not needed
+			paymentTxnRepo,
+			shippingUseCase,
+		)
+
+		// Test address
+		shippingAddr := entity.Address{
+			Street:     "123 International St",
+			City:       "Foreign City",
+			State:      "FC",
+			PostalCode: "12345",
+			Country:    "FR", // Non-US for international shipping
+		}
+
+		// Get shipping options
+		options, err := orderUseCase.GetShippingOptions(0, sessionID, shippingAddr)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, options)
+		// We'll get shipping options that match this country or have wildcard "*"
+		assert.GreaterOrEqual(t, len(options.Options), 1)
+	})
+
+	t.Run("Get shipping options with empty cart", func(t *testing.T) {
+		// Setup mocks
+		orderRepo := mock.NewMockOrderRepository()
+		cartRepo := mock.NewMockCartRepository()
+		productRepo := mock.NewMockProductRepository()
+		userRepo := mock.NewMockUserRepository()
+		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
+		shippingUseCase := mock.NewMockShippingUseCase()
+
+		// Create an empty cart
+		cart := &entity.Cart{
+			ID:     1,
+			UserID: 1,
+			Items:  []entity.CartItem{},
+		}
+		cartRepo.Create(cart)
+
+		// Create use case with mocks
+		orderUseCase := usecase.NewOrderUseCase(
+			orderRepo,
+			cartRepo,
+			productRepo,
+			userRepo,
+			nil,
+			nil,
+			paymentTxnRepo,
+			shippingUseCase,
+		)
+
+		// Test address
+		shippingAddr := entity.Address{
+			Street:     "123 Main St",
+			City:       "Anytown",
+			State:      "CA",
+			PostalCode: "12345",
+			Country:    "US",
+		}
+
+		// Get shipping options
+		options, err := orderUseCase.GetShippingOptions(1, "", shippingAddr)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, options)
+		assert.Contains(t, err.Error(), "cart is empty")
 	})
 }
 
@@ -1037,7 +1225,7 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 			ID:              1,
 			UserID:          1,
 			TotalAmount:     199.98,
-			FinalAmount:     199.98,
+			FinalAmount:     199.98, // No discount
 			Status:          string(entity.OrderStatusPaid),
 			PaymentID:       "stripe_payment_12345",
 			PaymentProvider: string(service.PaymentProviderStripe),

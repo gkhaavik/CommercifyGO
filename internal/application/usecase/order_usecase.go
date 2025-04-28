@@ -11,13 +11,14 @@ import (
 
 // OrderUseCase implements order-related use cases
 type OrderUseCase struct {
-	orderRepo      repository.OrderRepository
-	cartRepo       repository.CartRepository
-	productRepo    repository.ProductRepository
-	userRepo       repository.UserRepository
-	paymentSvc     service.PaymentService
-	emailSvc       service.EmailService
-	paymentTxnRepo repository.PaymentTransactionRepository
+	orderRepo       repository.OrderRepository
+	cartRepo        repository.CartRepository
+	productRepo     repository.ProductRepository
+	userRepo        repository.UserRepository
+	paymentSvc      service.PaymentService
+	emailSvc        service.EmailService
+	paymentTxnRepo  repository.PaymentTransactionRepository
+	shippingUseCase *ShippingUseCase
 }
 
 // NewOrderUseCase creates a new OrderUseCase
@@ -29,15 +30,17 @@ func NewOrderUseCase(
 	paymentSvc service.PaymentService,
 	emailSvc service.EmailService,
 	paymentTxnRepo repository.PaymentTransactionRepository,
+	shippingUseCase *ShippingUseCase,
 ) *OrderUseCase {
 	return &OrderUseCase{
-		orderRepo:      orderRepo,
-		cartRepo:       cartRepo,
-		productRepo:    productRepo,
-		userRepo:       userRepo,
-		paymentSvc:     paymentSvc,
-		emailSvc:       emailSvc,
-		paymentTxnRepo: paymentTxnRepo,
+		orderRepo:       orderRepo,
+		cartRepo:        cartRepo,
+		productRepo:     productRepo,
+		userRepo:        userRepo,
+		paymentSvc:      paymentSvc,
+		emailSvc:        emailSvc,
+		paymentTxnRepo:  paymentTxnRepo,
+		shippingUseCase: shippingUseCase,
 	}
 }
 
@@ -48,13 +51,14 @@ func (uc *OrderUseCase) GetAvailablePaymentProviders() []service.PaymentProvider
 
 // CreateOrderInput contains the data needed to create an order
 type CreateOrderInput struct {
-	UserID       uint           `json:"user_id,omitempty"`
-	SessionID    string         `json:"session_id,omitempty"`
-	ShippingAddr entity.Address `json:"shipping_address"`
-	BillingAddr  entity.Address `json:"billing_address"`
-	Email        string         `json:"email,omitempty"`
-	PhoneNumber  string         `json:"phone_number,omitempty"`
-	FullName     string         `json:"full_name,omitempty"`
+	UserID           uint           `json:"user_id,omitempty"`
+	SessionID        string         `json:"session_id,omitempty"`
+	ShippingAddr     entity.Address `json:"shipping_address"`
+	BillingAddr      entity.Address `json:"billing_address"`
+	Email            string         `json:"email,omitempty"`
+	PhoneNumber      string         `json:"phone_number,omitempty"`
+	FullName         string         `json:"full_name,omitempty"`
+	ShippingMethodID uint           `json:"shipping_method_id,omitempty"`
 }
 
 // CreateOrderFromCart creates an order from a user's cart
@@ -91,6 +95,8 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 
 	// Convert cart items to order items
 	orderItems := make([]entity.OrderItem, 0, len(cart.Items))
+	totalWeight := 0.0
+
 	for _, cartItem := range cart.Items {
 		// Get product to get current price
 		product, err := uc.productRepo.GetByID(cartItem.ProductID)
@@ -103,13 +109,35 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 			return nil, errors.New("insufficient stock for product: " + product.Name)
 		}
 
-		// Create order item
-		orderItems = append(orderItems, entity.OrderItem{
+		// Calculate item weight
+		itemWeight := 0.0
+		if product.HasVariants && cartItem.VariantID > 0 {
+			for _, variant := range product.Variants {
+				if variant.ID == cartItem.VariantID {
+					itemWeight = variant.Weight
+					break
+				}
+			}
+		} else {
+			itemWeight = product.Weight
+		}
+
+		// Create order item with weight
+		orderItem := entity.OrderItem{
 			ProductID: cartItem.ProductID,
 			Quantity:  cartItem.Quantity,
 			Price:     product.Price,
 			Subtotal:  float64(cartItem.Quantity) * product.Price,
-		})
+			Weight:    itemWeight,
+		}
+
+		// If this is a variant, store the variant ID
+		if product.HasVariants && cartItem.VariantID > 0 {
+			orderItem.VariantID = cartItem.VariantID
+		}
+
+		orderItems = append(orderItems, orderItem)
+		totalWeight += itemWeight * float64(cartItem.Quantity)
 
 		// Update product stock
 		if err := product.UpdateStock(-cartItem.Quantity); err != nil {
@@ -124,6 +152,28 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 	order, err := entity.NewOrder(input.UserID, orderItems, input.ShippingAddr, input.BillingAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	// Set the total weight
+	order.TotalWeight = totalWeight
+
+	// Apply shipping method if specified
+	if input.ShippingMethodID > 0 && uc.shippingUseCase != nil {
+		shippingMethod, err := uc.shippingUseCase.GetShippingMethodByID(input.ShippingMethodID)
+		if err != nil {
+			return nil, errors.New("shipping method not found")
+		}
+
+		// Calculate shipping cost
+		shippingCost, err := uc.shippingUseCase.GetShippingCost(input.ShippingMethodID, order.TotalAmount, order.TotalWeight)
+		if err != nil {
+			return nil, fmt.Errorf("error calculating shipping cost: %v", err)
+		}
+
+		// Apply shipping method and cost to order
+		if err := order.SetShippingMethod(shippingMethod, shippingCost); err != nil {
+			return nil, err
+		}
 	}
 
 	// Save order
@@ -173,6 +223,8 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 
 	// Convert cart items to order items
 	orderItems := make([]entity.OrderItem, 0, len(cart.Items))
+	totalWeight := 0.0
+
 	for _, cartItem := range cart.Items {
 		// Get product to get current price
 		product, err := uc.productRepo.GetByID(cartItem.ProductID)
@@ -185,13 +237,35 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 			return nil, errors.New("insufficient stock for product: " + product.Name)
 		}
 
-		// Create order item
-		orderItems = append(orderItems, entity.OrderItem{
+		// Calculate item weight
+		itemWeight := 0.0
+		if product.HasVariants && cartItem.VariantID > 0 {
+			for _, variant := range product.Variants {
+				if variant.ID == cartItem.VariantID {
+					itemWeight = variant.Weight
+					break
+				}
+			}
+		} else {
+			itemWeight = product.Weight
+		}
+
+		// Create order item with weight
+		orderItem := entity.OrderItem{
 			ProductID: cartItem.ProductID,
 			Quantity:  cartItem.Quantity,
 			Price:     product.Price,
 			Subtotal:  float64(cartItem.Quantity) * product.Price,
-		})
+			Weight:    itemWeight,
+		}
+
+		// If this is a variant, store the variant ID
+		if product.HasVariants && cartItem.VariantID > 0 {
+			orderItem.VariantID = cartItem.VariantID
+		}
+
+		orderItems = append(orderItems, orderItem)
+		totalWeight += itemWeight * float64(cartItem.Quantity)
 
 		// Update product stock
 		if err := product.UpdateStock(-cartItem.Quantity); err != nil {
@@ -206,6 +280,28 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 	order, err := entity.NewGuestOrder(orderItems, input.ShippingAddr, input.BillingAddr, input.Email, input.PhoneNumber, input.FullName)
 	if err != nil {
 		return nil, err
+	}
+
+	// Set the total weight
+	order.TotalWeight = totalWeight
+
+	// Apply shipping method if specified
+	if input.ShippingMethodID > 0 && uc.shippingUseCase != nil {
+		shippingMethod, err := uc.shippingUseCase.GetShippingMethodByID(input.ShippingMethodID)
+		if err != nil {
+			return nil, errors.New("shipping method not found")
+		}
+
+		// Calculate shipping cost
+		shippingCost, err := uc.shippingUseCase.GetShippingCost(input.ShippingMethodID, order.TotalAmount, order.TotalWeight)
+		if err != nil {
+			return nil, fmt.Errorf("error calculating shipping cost: %v", err)
+		}
+
+		// Apply shipping method and cost to order
+		if err := order.SetShippingMethod(shippingMethod, shippingCost); err != nil {
+			return nil, err
+		}
 	}
 
 	// Save order
@@ -368,7 +464,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 				txn.AddMetadata("error_message", paymentResult.ErrorMessage)
 
 				if err := uc.paymentTxnRepo.Create(txn); err != nil {
-					// Log error but don't fail the process
+					// Log error but don't fail the payment process
 					fmt.Printf("Failed to save failed payment transaction: %v\n", err)
 				}
 			}
@@ -743,4 +839,60 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 	}
 
 	return nil
+}
+
+// GetShippingOptions calculates available shipping options for an order based on the cart
+func (uc *OrderUseCase) GetShippingOptions(userID uint, sessionID string, shippingAddr entity.Address) (*ShippingOptions, error) {
+	var cart *entity.Cart
+	var err error
+
+	// Get the appropriate cart
+	if userID > 0 {
+		cart, err = uc.cartRepo.GetByUserID(userID)
+	} else if sessionID != "" {
+		cart, err = uc.cartRepo.GetBySessionID(sessionID)
+	} else {
+		return nil, errors.New("either user ID or session ID must be provided")
+	}
+
+	if err != nil {
+		return nil, errors.New("cart not found")
+	}
+
+	if len(cart.Items) == 0 {
+		return nil, errors.New("cart is empty")
+	}
+
+	// Calculate cart's total value and weight
+	totalValue := 0.0
+	totalWeight := 0.0
+
+	for _, item := range cart.Items {
+		product, err := uc.productRepo.GetByID(item.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("product not found: ProductID=%d", item.ProductID)
+		}
+
+		totalValue += float64(item.Quantity) * product.Price
+
+		// Calculate weight based on product or product variant
+		if product.HasVariants && item.VariantID > 0 {
+			for _, variant := range product.Variants {
+				if variant.ID == item.VariantID {
+					totalWeight += float64(item.Quantity) * variant.Weight
+					break
+				}
+			}
+		} else {
+			// Use product weight directly if no variant is specified
+			totalWeight += float64(item.Quantity) * product.Weight
+		}
+	}
+
+	// Call shipping use case to calculate options
+	if uc.shippingUseCase == nil {
+		return nil, errors.New("shipping use case not initialized")
+	}
+
+	return uc.shippingUseCase.CalculateShippingOptions(shippingAddr, totalValue, totalWeight)
 }

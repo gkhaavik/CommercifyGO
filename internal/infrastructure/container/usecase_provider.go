@@ -14,6 +14,7 @@ type UseCaseProvider interface {
 	OrderUseCase() *usecase.OrderUseCase
 	DiscountUseCase() *usecase.DiscountUseCase
 	WebhookUseCase() *usecase.WebhookUseCase
+	ShippingUseCase() *usecase.ShippingUseCase
 }
 
 // useCaseProvider is the concrete implementation of UseCaseProvider
@@ -27,6 +28,7 @@ type useCaseProvider struct {
 	orderUseCase    *usecase.OrderUseCase
 	discountUseCase *usecase.DiscountUseCase
 	webhookUseCase  *usecase.WebhookUseCase
+	shippingUseCase *usecase.ShippingUseCase
 }
 
 // NewUseCaseProvider creates a new use case provider
@@ -92,6 +94,7 @@ func (p *useCaseProvider) OrderUseCase() *usecase.OrderUseCase {
 			p.container.Services().PaymentService(),
 			p.container.Services().EmailService(),
 			p.container.Repositories().PaymentTransactionRepository(),
+			p.ShippingUseCase(),
 		)
 	}
 	return p.orderUseCase
@@ -125,4 +128,19 @@ func (p *useCaseProvider) WebhookUseCase() *usecase.WebhookUseCase {
 		)
 	}
 	return p.webhookUseCase
+}
+
+// ShippingUseCase returns the shipping use case
+func (p *useCaseProvider) ShippingUseCase() *usecase.ShippingUseCase {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.shippingUseCase == nil {
+		p.shippingUseCase = usecase.NewShippingUseCase(
+			p.container.Repositories().ShippingMethodRepository(),
+			p.container.Repositories().ShippingZoneRepository(),
+			p.container.Repositories().ShippingRateRepository(),
+		)
+	}
+	return p.shippingUseCase
 }
