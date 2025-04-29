@@ -40,6 +40,17 @@ type ValueBasedRate struct {
 	Rate           float64 `json:"rate"` // Can be flat fee or percentage
 }
 
+// ShippingOption represents a single shipping option with its cost
+type ShippingOption struct {
+	ShippingRateID        uint    `json:"shipping_rate_id"`
+	ShippingMethodID      uint    `json:"shipping_method_id"`
+	Name                  string  `json:"name"`
+	Description           string  `json:"description"`
+	EstimatedDeliveryDays int     `json:"estimated_delivery_days"`
+	Cost                  float64 `json:"cost"`
+	FreeShipping          bool    `json:"free_shipping"`
+}
+
 // NewShippingRate creates a new shipping rate
 func NewShippingRate(
 	shippingMethodID uint,

@@ -27,7 +27,8 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
 		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
-		shippingUseCase := mock.NewMockShippingUseCase()
+		// TODO CREATE MOCK REPOS FOR SHIPPING SHIT
+		// shippingMethodRepo := mock.NewShippingMethodRepository()
 
 		// Simple mock payment service that always succeeds
 		paymentSvc := payment.NewMockPaymentService()
@@ -72,6 +73,9 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			},
 		}
 		cartRepo.Create(cart)
+
+		// Create shipping usecase
+		shippingUseCase := usecase.NewShippingUseCase()
 
 		// Create use case with mocks
 		orderUseCase := usecase.NewOrderUseCase(

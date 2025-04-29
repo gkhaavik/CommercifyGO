@@ -30,8 +30,8 @@ func NewShippingUseCase(
 
 // CreateShippingMethodInput contains the data needed to create a shipping method
 type CreateShippingMethodInput struct {
-	Name                 string `json:"name"`
-	Description          string `json:"description"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
 	EstimatedDeliveryDays int    `json:"estimated_delivery_days"`
 }
 
@@ -63,11 +63,11 @@ func (uc *ShippingUseCase) ListShippingMethods(activeOnly bool) ([]*entity.Shipp
 
 // UpdateShippingMethodInput contains the data needed to update a shipping method
 type UpdateShippingMethodInput struct {
-	ID                   uint   `json:"id"`
-	Name                 string `json:"name"`
-	Description          string `json:"description"`
+	ID                    uint   `json:"id"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
 	EstimatedDeliveryDays int    `json:"estimated_delivery_days"`
-	Active               bool   `json:"active"`
+	Active                bool   `json:"active"`
 }
 
 // UpdateShippingMethod updates a shipping method
@@ -105,7 +105,7 @@ type CreateShippingZoneInput struct {
 // CreateShippingZone creates a new shipping zone
 func (uc *ShippingUseCase) CreateShippingZone(input CreateShippingZoneInput) (*entity.ShippingZone, error) {
 	// Create shipping zone
-	zone, err := entity.NewShippingZone(input.Name, input.Description, input.Countries, input.States, input.ZipCodes)
+	zone, err := entity.NewShippingZone(input.Name, input.Description)
 	if err != nil {
 		return nil, err
 	}
@@ -166,12 +166,12 @@ func (uc *ShippingUseCase) UpdateShippingZone(input UpdateShippingZoneInput) (*e
 
 // CreateShippingRateInput contains the data needed to create a shipping rate
 type CreateShippingRateInput struct {
-	ShippingMethodID    uint     `json:"shipping_method_id"`
-	ShippingZoneID      uint     `json:"shipping_zone_id"`
-	BaseRate            float64  `json:"base_rate"`
-	MinOrderValue       float64  `json:"min_order_value"`
+	ShippingMethodID      uint     `json:"shipping_method_id"`
+	ShippingZoneID        uint     `json:"shipping_zone_id"`
+	BaseRate              float64  `json:"base_rate"`
+	MinOrderValue         float64  `json:"min_order_value"`
 	FreeShippingThreshold *float64 `json:"free_shipping_threshold"`
-	Active              bool     `json:"active"`
+	Active                bool     `json:"active"`
 }
 
 // CreateShippingRate creates a new shipping rate
@@ -190,16 +190,16 @@ func (uc *ShippingUseCase) CreateShippingRate(input CreateShippingRateInput) (*e
 
 	// Create shipping rate
 	rate := &entity.ShippingRate{
-		ShippingMethodID:    input.ShippingMethodID,
-		ShippingZoneID:      input.ShippingZoneID,
-		ShippingMethod:      method,
-		ShippingZone:        zone,
-		BaseRate:            input.BaseRate,
-		MinOrderValue:       input.MinOrderValue,
+		ShippingMethodID:      input.ShippingMethodID,
+		ShippingZoneID:        input.ShippingZoneID,
+		ShippingMethod:        method,
+		ShippingZone:          zone,
+		BaseRate:              input.BaseRate,
+		MinOrderValue:         input.MinOrderValue,
 		FreeShippingThreshold: input.FreeShippingThreshold,
-		Active:              input.Active,
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		Active:                input.Active,
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
 	}
 
 	// Save to repository
@@ -232,8 +232,6 @@ func (uc *ShippingUseCase) CreateWeightBasedRate(input CreateWeightBasedRateInpu
 		MinWeight:      input.MinWeight,
 		MaxWeight:      input.MaxWeight,
 		Rate:           input.Rate,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
 	}
 
 	// Save to repository
@@ -266,8 +264,6 @@ func (uc *ShippingUseCase) CreateValueBasedRate(input CreateValueBasedRateInput)
 		MinOrderValue:  input.MinOrderValue,
 		MaxOrderValue:  input.MaxOrderValue,
 		Rate:           input.Rate,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
 	}
 
 	// Save to repository
@@ -285,11 +281,11 @@ func (uc *ShippingUseCase) GetShippingRateByID(id uint) (*entity.ShippingRate, e
 
 // UpdateShippingRateInput contains the data needed to update a shipping rate
 type UpdateShippingRateInput struct {
-	ID                   uint     `json:"id"`
-	BaseRate             float64  `json:"base_rate"`
-	MinOrderValue        float64  `json:"min_order_value"`
+	ID                    uint     `json:"id"`
+	BaseRate              float64  `json:"base_rate"`
+	MinOrderValue         float64  `json:"min_order_value"`
 	FreeShippingThreshold *float64 `json:"free_shipping_threshold"`
-	Active               bool     `json:"active"`
+	Active                bool     `json:"active"`
 }
 
 // UpdateShippingRate updates a shipping rate
@@ -317,18 +313,7 @@ func (uc *ShippingUseCase) UpdateShippingRate(input UpdateShippingRateInput) (*e
 
 // ShippingOptions represents available shipping options for an order
 type ShippingOptions struct {
-	Options []*ShippingOption `json:"options"`
-}
-
-// ShippingOption represents a single shipping option with its cost
-type ShippingOption struct {
-	ShippingRateID      uint    `json:"shipping_rate_id"`
-	ShippingMethodID    uint    `json:"shipping_method_id"`
-	Name                string  `json:"name"`
-	Description         string  `json:"description"`
-	EstimatedDeliveryDays int    `json:"estimated_delivery_days"`
-	Cost                float64 `json:"cost"`
-	FreeShipping        bool    `json:"free_shipping"`
+	Options []*entity.ShippingOption `json:"options"`
 }
 
 // CalculateShippingOptions calculates available shipping options for an order
@@ -340,7 +325,7 @@ func (uc *ShippingUseCase) CalculateShippingOptions(address entity.Address, orde
 	}
 
 	options := &ShippingOptions{
-		Options: make([]*ShippingOption, 0, len(rates)),
+		Options: make([]*entity.ShippingOption, 0, len(rates)),
 	}
 
 	for _, rate := range rates {
@@ -373,14 +358,14 @@ func (uc *ShippingUseCase) CalculateShippingOptions(address entity.Address, orde
 			freeShipping = true
 		}
 
-		option := &ShippingOption{
-			ShippingRateID:      rate.ID,
-			ShippingMethodID:    rate.ShippingMethodID,
-			Name:                rate.ShippingMethod.Name,
-			Description:         rate.ShippingMethod.Description,
+		option := &entity.ShippingOption{
+			ShippingRateID:        rate.ID,
+			ShippingMethodID:      rate.ShippingMethodID,
+			Name:                  rate.ShippingMethod.Name,
+			Description:           rate.ShippingMethod.Description,
 			EstimatedDeliveryDays: rate.ShippingMethod.EstimatedDeliveryDays,
-			Cost:                cost,
-			FreeShipping:        freeShipping,
+			Cost:                  cost,
+			FreeShipping:          freeShipping,
 		}
 
 		options.Options = append(options.Options, option)

@@ -111,9 +111,9 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 
 		// Calculate item weight
 		itemWeight := 0.0
-		if product.HasVariants && cartItem.VariantID > 0 {
+		if product.HasVariants {
 			for _, variant := range product.Variants {
-				if variant.ID == cartItem.VariantID {
+				if variant.ID == cartItem.ProductID {
 					itemWeight = variant.Weight
 					break
 				}
@@ -131,10 +131,9 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 			Weight:    itemWeight,
 		}
 
+		// TODO: Check for variant and assign variant ID
 		// If this is a variant, store the variant ID
-		if product.HasVariants && cartItem.VariantID > 0 {
-			orderItem.VariantID = cartItem.VariantID
-		}
+		orderItem.ProductID = cartItem.ProductID
 
 		orderItems = append(orderItems, orderItem)
 		totalWeight += itemWeight * float64(cartItem.Quantity)
@@ -239,9 +238,9 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 
 		// Calculate item weight
 		itemWeight := 0.0
-		if product.HasVariants && cartItem.VariantID > 0 {
+		if product.HasVariants {
 			for _, variant := range product.Variants {
-				if variant.ID == cartItem.VariantID {
+				if variant.ID == cartItem.ProductID {
 					itemWeight = variant.Weight
 					break
 				}
@@ -260,9 +259,7 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 		}
 
 		// If this is a variant, store the variant ID
-		if product.HasVariants && cartItem.VariantID > 0 {
-			orderItem.VariantID = cartItem.VariantID
-		}
+		orderItem.ProductID = cartItem.ProductID
 
 		orderItems = append(orderItems, orderItem)
 		totalWeight += itemWeight * float64(cartItem.Quantity)
@@ -876,9 +873,9 @@ func (uc *OrderUseCase) GetShippingOptions(userID uint, sessionID string, shippi
 		totalValue += float64(item.Quantity) * product.Price
 
 		// Calculate weight based on product or product variant
-		if product.HasVariants && item.VariantID > 0 {
+		if product.HasVariants {
 			for _, variant := range product.Variants {
-				if variant.ID == item.VariantID {
+				if variant.ID == item.ProductID {
 					totalWeight += float64(item.Quantity) * variant.Weight
 					break
 				}
