@@ -9,6 +9,7 @@ Features:
 
 Chores:
 * Remove debug messages from vipps sdk
+* Fix price formatting (too many decimals)
 
 
 Stores v1.2.0:
