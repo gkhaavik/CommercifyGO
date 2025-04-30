@@ -129,9 +129,14 @@ func (d *Discount) IsApplicableToOrder(order *Order) bool {
 			if slices.Contains(d.ProductIDs, item.ProductID) {
 				return true
 			}
-
-			// We would check categories here, but we need product details
-			// This would be handled in the discount service
+			// Note: Category check is handled separately in the CalculateDiscount method
+			// since we need product details from the repository
+		}
+		// If we have category IDs but no direct product matches,
+		// we still need to check if any product belongs to those categories
+		// This is handled in the use case layer
+		if len(d.CategoryIDs) > 0 {
+			return true
 		}
 		return false
 	}

@@ -110,6 +110,58 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		assert.Equal(t, input.ProductIDs, discount.ProductIDs)
 	})
 
+	t.Run("Create category percentage discount successfully", func(t *testing.T) {
+		// Setup mocks
+		discountRepo := mock.NewMockDiscountRepository()
+		productRepo := mock.NewMockProductRepository()
+		categoryRepo := mock.NewMockCategoryRepository()
+		orderRepo := mock.NewMockOrderRepository()
+
+		// Create a test category
+		category := &entity.Category{
+			ID:   1,
+			Name: "Test Category",
+		}
+		categoryRepo.Create(category)
+
+		// Create use case with mocks
+		discountUseCase := usecase.NewDiscountUseCase(
+			discountRepo,
+			productRepo,
+			categoryRepo,
+			orderRepo,
+		)
+
+		now := time.Now()
+		startDate := now.Add(-24 * time.Hour)
+		endDate := now.Add(30 * 24 * time.Hour)
+
+		// Create discount input with category
+		input := usecase.CreateDiscountInput{
+			Code:        "CATEGORY20",
+			Type:        string(entity.DiscountTypeProduct),
+			Method:      string(entity.DiscountMethodPercentage),
+			Value:       20.0,
+			CategoryIDs: []uint{1},
+			StartDate:   startDate,
+			EndDate:     endDate,
+		}
+
+		// Execute
+		discount, err := discountUseCase.CreateDiscount(input)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, discount)
+		assert.Equal(t, input.Code, discount.Code)
+		assert.Equal(t, entity.DiscountTypeProduct, discount.Type)
+		assert.Equal(t, entity.DiscountMethodPercentage, discount.Method)
+		assert.Equal(t, input.Value, discount.Value)
+		assert.Equal(t, input.CategoryIDs, discount.CategoryIDs)
+		assert.Empty(t, discount.ProductIDs)
+		assert.True(t, discount.Active)
+	})
+
 	t.Run("Create discount with duplicate code", func(t *testing.T) {
 		// Setup mocks
 		discountRepo := mock.NewMockDiscountRepository()
@@ -241,6 +293,45 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, discount)
 		assert.Contains(t, err.Error(), "invalid product ID")
+	})
+
+	t.Run("Create discount with invalid category ID", func(t *testing.T) {
+		// Setup mocks
+		discountRepo := mock.NewMockDiscountRepository()
+		productRepo := mock.NewMockProductRepository()
+		categoryRepo := mock.NewMockCategoryRepository()
+		orderRepo := mock.NewMockOrderRepository()
+
+		// Create use case with mocks
+		discountUseCase := usecase.NewDiscountUseCase(
+			discountRepo,
+			productRepo,
+			categoryRepo,
+			orderRepo,
+		)
+
+		now := time.Now()
+		startDate := now.Add(-24 * time.Hour)
+		endDate := now.Add(30 * 24 * time.Hour)
+
+		// Create discount input with non-existent category ID
+		input := usecase.CreateDiscountInput{
+			Code:        "INVALID_CATEGORY",
+			Type:        string(entity.DiscountTypeProduct),
+			Method:      string(entity.DiscountMethodPercentage),
+			Value:       10.0,
+			CategoryIDs: []uint{999}, // Non-existent category
+			StartDate:   startDate,
+			EndDate:     endDate,
+		}
+
+		// Execute
+		discount, err := discountUseCase.CreateDiscount(input)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, discount)
+		assert.Contains(t, err.Error(), "invalid category ID")
 	})
 }
 
@@ -686,7 +777,7 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 			[]uint{},
 			time.Now().Add(-24*time.Hour),
 			time.Now().Add(30*24*time.Hour),
-			0,
+			1,
 		)
 		discountRepo.Create(discount)
 
@@ -697,6 +788,12 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 				Quantity:  2,
 				Price:     50.0,
 				Subtotal:  100.0,
+			},
+			{
+				ProductID: 2,
+				Quantity:  1,
+				Price:     10.0,
+				Subtotal:  10.0,
 			},
 		}
 
@@ -728,12 +825,127 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, updatedOrder)
-		assert.Equal(t, 10.0, updatedOrder.DiscountAmount) // 10% of 100 = 10
-		assert.Equal(t, 90.0, updatedOrder.FinalAmount)    // 100 - 10 = 90
+		assert.Equal(t, 11.0, updatedOrder.DiscountAmount) // 10% of 110 = 11
+		assert.Equal(t, 99.0, updatedOrder.FinalAmount)    // 110 - 11 = 10
 		assert.NotNil(t, updatedOrder.AppliedDiscount)
 		assert.Equal(t, discount.ID, updatedOrder.AppliedDiscount.DiscountID)
 		assert.Equal(t, discount.Code, updatedOrder.AppliedDiscount.DiscountCode)
-		assert.Equal(t, 10.0, updatedOrder.AppliedDiscount.DiscountAmount)
+		assert.Equal(t, 11.0, updatedOrder.AppliedDiscount.DiscountAmount)
+	})
+
+	t.Run("Apply category-specific discount to order", func(t *testing.T) {
+		// Setup mocks
+		discountRepo := mock.NewMockDiscountRepository()
+		productRepo := mock.NewMockProductRepository()
+		categoryRepo := mock.NewMockCategoryRepository()
+		orderRepo := mock.NewMockOrderRepository()
+
+		// Create a test category
+		category := &entity.Category{
+			ID:   1,
+			Name: "Electronics",
+		}
+		categoryRepo.Create(category)
+
+		// Create some test products in that category
+		product1 := &entity.Product{
+			ID:         1,
+			Name:       "Phone",
+			CategoryID: 1,
+			Price:      100.0,
+		}
+		product2 := &entity.Product{
+			ID:         2,
+			Name:       "Laptop",
+			CategoryID: 1,
+			Price:      1000.0,
+		}
+		productRepo.Create(product1)
+		productRepo.Create(product2)
+
+		// Create a test discount for the Electronics category
+		discount, _ := entity.NewDiscount(
+			"ELECTRONICS25",
+			entity.DiscountTypeProduct,
+			entity.DiscountMethodPercentage,
+			25.0,
+			0,
+			0,
+			[]uint{},  // No specific products
+			[]uint{1}, // Category ID 1 (Electronics)
+			time.Now().Add(-24*time.Hour),
+			time.Now().Add(30*24*time.Hour),
+			0,
+		)
+		discountRepo.Create(discount)
+
+		// Set up product repo mock search behavior
+		productRepo.MockSearch = func(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error) {
+			if categoryID == 1 {
+				return []*entity.Product{product1, product2}, nil
+			}
+			return []*entity.Product{}, nil
+		}
+
+		// Create test order items including products from the category
+		items := []entity.OrderItem{
+			{
+				ProductID: 1, // Phone (in Electronics category)
+				Quantity:  1,
+				Price:     100.0,
+				Subtotal:  100.0,
+			},
+			{
+				ProductID: 2, // Laptop (in Electronics category)
+				Quantity:  1,
+				Price:     1000.0,
+				Subtotal:  1000.0,
+			},
+			{
+				ProductID: 3, // Some other product not in Electronics
+				Quantity:  1,
+				Price:     50.0,
+				Subtotal:  50.0,
+			},
+		}
+
+		// Create test order
+		order, _ := entity.NewOrder(
+			1,
+			items,
+			entity.Address{Street: "123 Main St"},
+			entity.Address{Street: "123 Main St"},
+		)
+
+		// Create use case with mocks
+		discountUseCase := usecase.NewDiscountUseCase(
+			discountRepo,
+			productRepo,
+			categoryRepo,
+			orderRepo,
+		)
+
+		// Apply discount input
+		input := usecase.ApplyDiscountToOrderInput{
+			OrderID:      order.ID,
+			DiscountCode: "ELECTRONICS25",
+		}
+
+		// Execute
+		updatedOrder, err := discountUseCase.ApplyDiscountToOrder(input, order)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, updatedOrder)
+		// Should apply 25% discount to the products in Electronics category
+		// 25% of (100 + 1000) = 275
+		assert.Equal(t, 275.0, updatedOrder.DiscountAmount)
+		// Final amount should be: 100 + 1000 + 50 - 275 = 875
+		assert.Equal(t, 875.0, updatedOrder.FinalAmount)
+		assert.NotNil(t, updatedOrder.AppliedDiscount)
+		assert.Equal(t, discount.ID, updatedOrder.AppliedDiscount.DiscountID)
+		assert.Equal(t, discount.Code, updatedOrder.AppliedDiscount.DiscountCode)
+		assert.Equal(t, 275.0, updatedOrder.AppliedDiscount.DiscountAmount)
 	})
 
 	t.Run("Apply invalid discount code", func(t *testing.T) {

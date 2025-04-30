@@ -258,24 +258,22 @@ func (o *Order) ApplyDiscount(discount *Discount) error {
 	// Calculate discount amount based on type
 	discountAmount := 0.0
 
-	switch discount.Type {
-	case DiscountType(DiscountMethodPercentage):
+	switch discount.Method {
+	case DiscountMethodPercentage:
 		discountAmount = o.TotalAmount * (discount.Value / 100.0)
-	case DiscountType(DiscountMethodFixed):
-		discountAmount = discount.Value
-		if discountAmount > o.TotalAmount {
-			discountAmount = o.TotalAmount
-		}
+	case DiscountMethodFixed:
+		discountAmount = min(discount.Value, o.TotalAmount)
 	default:
 		return errors.New("unsupported discount type")
 	}
 
 	// Apply discount
 	o.DiscountAmount = discountAmount
-	o.FinalAmount = o.TotalAmount + o.ShippingCost - discountAmount
+	o.FinalAmount -= discountAmount + o.ShippingCost
 
 	// Record the applied discount
 	o.AppliedDiscount = &AppliedDiscount{
+		DiscountID:     discount.ID,
 		DiscountCode:   discount.Code,
 		DiscountAmount: discountAmount,
 	}

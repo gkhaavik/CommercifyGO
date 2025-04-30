@@ -281,7 +281,7 @@ func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Addr
 			return nil, err
 		}
 		zoneIDs = append(zoneIDs, zoneID)
-		params = append(params, "$"+string(i))
+		params = append(params, "$"+fmt.Sprint(i))
 		i++
 	}
 
