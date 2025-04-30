@@ -24,20 +24,24 @@ type ShippingRate struct {
 
 // WeightBasedRate represents additional costs based on order weight
 type WeightBasedRate struct {
-	ID             uint    `json:"id"`
-	ShippingRateID uint    `json:"shipping_rate_id"`
-	MinWeight      float64 `json:"min_weight"`
-	MaxWeight      float64 `json:"max_weight"`
-	Rate           float64 `json:"rate"` // Can be flat fee or percentage
+	ID             uint      `json:"id"`
+	ShippingRateID uint      `json:"shipping_rate_id"`
+	MinWeight      float64   `json:"min_weight"`
+	MaxWeight      float64   `json:"max_weight"`
+	Rate           float64   `json:"rate"` // Can be flat fee or percentage
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ValueBasedRate represents additional costs/discounts based on order value
 type ValueBasedRate struct {
-	ID             uint    `json:"id"`
-	ShippingRateID uint    `json:"shipping_rate_id"`
-	MinOrderValue  float64 `json:"min_order_value"`
-	MaxOrderValue  float64 `json:"max_order_value"`
-	Rate           float64 `json:"rate"` // Can be flat fee or percentage
+	ID             uint      `json:"id"`
+	ShippingRateID uint      `json:"shipping_rate_id"`
+	MinOrderValue  float64   `json:"min_order_value"`
+	MaxOrderValue  float64   `json:"max_order_value"`
+	Rate           float64   `json:"rate"` // Can be flat fee or percentage
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ShippingOption represents a single shipping option with its cost

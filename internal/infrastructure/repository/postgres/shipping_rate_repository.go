@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 )
 
@@ -297,7 +299,7 @@ func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Addr
 		WHERE sr.shipping_zone_id IN (` + strings.Join(params, ",") + `)
 		AND sr.active = true
 		AND sm.active = true
-		AND sr.min_order_value <= $` + string(i) + `
+		AND sr.min_order_value <= $` + fmt.Sprint(i) + `
 		ORDER BY sr.base_rate
 	`
 
@@ -365,6 +367,11 @@ func (r *ShippingRateRepository) CreateWeightBasedRate(weightRate *entity.Weight
 		RETURNING id
 	`
 
+	// Initialize timestamp fields
+	now := time.Now()
+	weightRate.CreatedAt = now
+	weightRate.UpdatedAt = now
+
 	err := r.db.QueryRow(
 		query,
 		weightRate.ShippingRateID,
@@ -385,6 +392,11 @@ func (r *ShippingRateRepository) CreateValueBasedRate(valueRate *entity.ValueBas
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
 	`
+
+	// Initialize timestamp fields
+	now := time.Now()
+	valueRate.CreatedAt = now
+	valueRate.UpdatedAt = now
 
 	err := r.db.QueryRow(
 		query,
