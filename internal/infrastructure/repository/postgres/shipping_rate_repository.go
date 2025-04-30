@@ -54,20 +54,15 @@ func (r *ShippingRateRepository) Create(rate *entity.ShippingRate) error {
 
 // GetByID retrieves a shipping rate by ID
 func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) {
+	// First, get the basic shipping rate data
 	query := `
-		SELECT sr.id, sr.shipping_method_id, sr.shipping_zone_id, sr.base_rate, sr.min_order_value, 
-			sr.free_shipping_threshold, sr.active, sr.created_at, sr.updated_at,
-			sm.name, sm.description, sm.estimated_delivery_days, sm.active,
-			sz.name, sz.description, sz.countries, sz.states, sz.zip_codes, sz.active
-		FROM shipping_rates sr
-		JOIN shipping_methods sm ON sr.shipping_method_id = sm.id
-		JOIN shipping_zones sz ON sr.shipping_zone_id = sz.id
-		WHERE sr.id = $1
+		SELECT id, shipping_method_id, shipping_zone_id, base_rate, min_order_value, 
+			free_shipping_threshold, active, created_at, updated_at
+		FROM shipping_rates
+		WHERE id = $1
 	`
 
 	var freeShippingThresholdSQL sql.NullFloat64
-	var countriesJSON, statesJSON, zipCodesJSON []byte
-
 	rate := &entity.ShippingRate{
 		ShippingMethod: &entity.ShippingMethod{},
 		ShippingZone:   &entity.ShippingZone{},
@@ -83,10 +78,53 @@ func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) 
 		&rate.Active,
 		&rate.CreatedAt,
 		&rate.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("shipping rate not found")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("database error fetching shipping rate: %w", err)
+	}
+
+	// Set free shipping threshold if available
+	if freeShippingThresholdSQL.Valid {
+		value := freeShippingThresholdSQL.Float64
+		rate.FreeShippingThreshold = &value
+	}
+
+	// Now try to get the shipping method data (if it exists)
+	methodQuery := `
+		SELECT name, description, estimated_delivery_days, active
+		FROM shipping_methods
+		WHERE id = $1
+	`
+
+	err = r.db.QueryRow(methodQuery, rate.ShippingMethodID).Scan(
 		&rate.ShippingMethod.Name,
 		&rate.ShippingMethod.Description,
 		&rate.ShippingMethod.EstimatedDeliveryDays,
 		&rate.ShippingMethod.Active,
+	)
+
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("error fetching shipping method: %w", err)
+	}
+
+	// Set shipping method ID
+	rate.ShippingMethod.ID = rate.ShippingMethodID
+
+	// Try to get the shipping zone data (if it exists)
+	zoneQuery := `
+		SELECT name, description, countries, states, zip_codes, active
+		FROM shipping_zones
+		WHERE id = $1
+	`
+
+	var countriesJSON, statesJSON, zipCodesJSON []byte
+
+	err = r.db.QueryRow(zoneQuery, rate.ShippingZoneID).Scan(
 		&rate.ShippingZone.Name,
 		&rate.ShippingZone.Description,
 		&countriesJSON,
@@ -95,37 +133,32 @@ func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) 
 		&rate.ShippingZone.Active,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, errors.New("shipping rate not found")
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("error fetching shipping zone: %w", err)
 	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Set shipping method ID
-	rate.ShippingMethod.ID = rate.ShippingMethodID
 
 	// Set shipping zone ID
 	rate.ShippingZone.ID = rate.ShippingZoneID
 
-	// Set free shipping threshold if available
-	if freeShippingThresholdSQL.Valid {
-		value := freeShippingThresholdSQL.Float64
-		rate.FreeShippingThreshold = &value
-	}
+	// Only try to unmarshal zone JSON fields if we got them
+	if err != sql.ErrNoRows {
+		// Unmarshal shipping zone JSON fields
+		if err := json.Unmarshal(countriesJSON, &rate.ShippingZone.Countries); err != nil {
+			return nil, err
+		}
 
-	// Unmarshal shipping zone JSON fields
-	if err := json.Unmarshal(countriesJSON, &rate.ShippingZone.Countries); err != nil {
-		return nil, err
-	}
+		if err := json.Unmarshal(statesJSON, &rate.ShippingZone.States); err != nil {
+			return nil, err
+		}
 
-	if err := json.Unmarshal(statesJSON, &rate.ShippingZone.States); err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(zipCodesJSON, &rate.ShippingZone.ZipCodes); err != nil {
-		return nil, err
+		if err := json.Unmarshal(zipCodesJSON, &rate.ShippingZone.ZipCodes); err != nil {
+			return nil, err
+		}
+	} else {
+		// Initialize empty slices
+		rate.ShippingZone.Countries = []string{}
+		rate.ShippingZone.States = []string{}
+		rate.ShippingZone.ZipCodes = []string{}
 	}
 
 	// Get weight-based rates
@@ -362,15 +395,10 @@ func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Addr
 // CreateWeightBasedRate creates a new weight-based rate
 func (r *ShippingRateRepository) CreateWeightBasedRate(weightRate *entity.WeightBasedRate) error {
 	query := `
-		INSERT INTO weight_based_rates (shipping_rate_id, min_weight, max_weight, rate, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO weight_based_rates (shipping_rate_id, min_weight, max_weight, rate)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`
-
-	// Initialize timestamp fields
-	now := time.Now()
-	weightRate.CreatedAt = now
-	weightRate.UpdatedAt = now
 
 	err := r.db.QueryRow(
 		query,
@@ -378,9 +406,11 @@ func (r *ShippingRateRepository) CreateWeightBasedRate(weightRate *entity.Weight
 		weightRate.MinWeight,
 		weightRate.MaxWeight,
 		weightRate.Rate,
-		weightRate.CreatedAt,
-		weightRate.UpdatedAt,
 	).Scan(&weightRate.ID)
+
+	// Set default timestamps
+	weightRate.CreatedAt = time.Now()
+	weightRate.UpdatedAt = time.Now()
 
 	return err
 }
@@ -388,15 +418,10 @@ func (r *ShippingRateRepository) CreateWeightBasedRate(weightRate *entity.Weight
 // CreateValueBasedRate creates a new value-based rate
 func (r *ShippingRateRepository) CreateValueBasedRate(valueRate *entity.ValueBasedRate) error {
 	query := `
-		INSERT INTO value_based_rates (shipping_rate_id, min_order_value, max_order_value, rate, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO value_based_rates (shipping_rate_id, min_order_value, max_order_value, rate)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`
-
-	// Initialize timestamp fields
-	now := time.Now()
-	valueRate.CreatedAt = now
-	valueRate.UpdatedAt = now
 
 	err := r.db.QueryRow(
 		query,
@@ -404,9 +429,11 @@ func (r *ShippingRateRepository) CreateValueBasedRate(valueRate *entity.ValueBas
 		valueRate.MinOrderValue,
 		valueRate.MaxOrderValue,
 		valueRate.Rate,
-		valueRate.CreatedAt,
-		valueRate.UpdatedAt,
 	).Scan(&valueRate.ID)
+
+	// Set default timestamps
+	valueRate.CreatedAt = time.Now()
+	valueRate.UpdatedAt = time.Now()
 
 	return err
 }
@@ -414,7 +441,7 @@ func (r *ShippingRateRepository) CreateValueBasedRate(valueRate *entity.ValueBas
 // GetWeightBasedRates retrieves weight-based rates for a shipping rate
 func (r *ShippingRateRepository) GetWeightBasedRates(rateID uint) ([]entity.WeightBasedRate, error) {
 	query := `
-		SELECT id, shipping_rate_id, min_weight, max_weight, rate, created_at, updated_at
+		SELECT id, shipping_rate_id, min_weight, max_weight, rate
 		FROM weight_based_rates
 		WHERE shipping_rate_id = $1
 		ORDER BY min_weight
@@ -435,12 +462,15 @@ func (r *ShippingRateRepository) GetWeightBasedRates(rateID uint) ([]entity.Weig
 			&rate.MinWeight,
 			&rate.MaxWeight,
 			&rate.Rate,
-			&rate.CreatedAt,
-			&rate.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Set default timestamps since they're not in the DB
+		rate.CreatedAt = time.Now()
+		rate.UpdatedAt = time.Now()
+
 		rates = append(rates, rate)
 	}
 
@@ -450,7 +480,7 @@ func (r *ShippingRateRepository) GetWeightBasedRates(rateID uint) ([]entity.Weig
 // GetValueBasedRates retrieves value-based rates for a shipping rate
 func (r *ShippingRateRepository) GetValueBasedRates(rateID uint) ([]entity.ValueBasedRate, error) {
 	query := `
-		SELECT id, shipping_rate_id, min_order_value, max_order_value, rate, created_at, updated_at
+		SELECT id, shipping_rate_id, min_order_value, max_order_value, rate
 		FROM value_based_rates
 		WHERE shipping_rate_id = $1
 		ORDER BY min_order_value
@@ -471,12 +501,15 @@ func (r *ShippingRateRepository) GetValueBasedRates(rateID uint) ([]entity.Value
 			&rate.MinOrderValue,
 			&rate.MaxOrderValue,
 			&rate.Rate,
-			&rate.CreatedAt,
-			&rate.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Set default timestamps since they're not in the DB
+		rate.CreatedAt = time.Now()
+		rate.UpdatedAt = time.Now()
+
 		rates = append(rates, rate)
 	}
 
