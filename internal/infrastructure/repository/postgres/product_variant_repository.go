@@ -23,9 +23,9 @@ func NewProductVariantRepository(db *sql.DB) *ProductVariantRepository {
 func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error {
 	query := `
 		INSERT INTO product_variants (
-			product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+			product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
 
@@ -46,6 +46,7 @@ func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error 
 		variant.Price,
 		variant.ComparePrice,
 		variant.Stock,
+		variant.Weight,
 		attributesJSON,
 		imagesJSON,
 		variant.IsDefault,
@@ -59,7 +60,7 @@ func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error 
 // GetByID retrieves a product variant by ID
 func (r *ProductVariantRepository) GetByID(id uint) (*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE id = $1
 	`
@@ -73,6 +74,7 @@ func (r *ProductVariantRepository) GetByID(id uint) (*entity.ProductVariant, err
 		&variant.Price,
 		&variant.ComparePrice,
 		&variant.Stock,
+		&variant.Weight,
 		&attributesJSON,
 		&imagesJSON,
 		&variant.IsDefault,
@@ -104,7 +106,7 @@ func (r *ProductVariantRepository) GetByID(id uint) (*entity.ProductVariant, err
 // GetBySKU retrieves a product variant by SKU
 func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE sku = $1
 	`
@@ -118,6 +120,7 @@ func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant,
 		&variant.Price,
 		&variant.ComparePrice,
 		&variant.Stock,
+		&variant.Weight,
 		&attributesJSON,
 		&imagesJSON,
 		&variant.IsDefault,
@@ -149,7 +152,7 @@ func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant,
 // GetByProduct retrieves all variants for a product
 func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE product_id = $1
 		ORDER BY is_default DESC, id ASC
@@ -172,6 +175,7 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 			&variant.Price,
 			&variant.ComparePrice,
 			&variant.Stock,
+			&variant.Weight,
 			&attributesJSON,
 			&imagesJSON,
 			&variant.IsDefault,
@@ -202,8 +206,8 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error {
 	query := `
 		UPDATE product_variants
-		SET sku = $1, price = $2, compare_price = $3, stock = $4, attributes = $5, images = $6, is_default = $7, updated_at = $8
-		WHERE id = $9
+		SET sku = $1, price = $2, compare_price = $3, stock = $4, weight = $5, attributes = $6, images = $7, is_default = $8, updated_at = $9
+		WHERE id = $10
 	`
 
 	attributesJSON, err := json.Marshal(variant.Attributes)
@@ -222,6 +226,7 @@ func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error 
 		variant.Price,
 		variant.ComparePrice,
 		variant.Stock,
+		variant.Weight,
 		attributesJSON,
 		imagesJSON,
 		variant.IsDefault,
@@ -255,9 +260,9 @@ func (r *ProductVariantRepository) BatchCreate(variants []*entity.ProductVariant
 
 	query := `
 		INSERT INTO product_variants (
-			product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+			product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
 
@@ -284,6 +289,7 @@ func (r *ProductVariantRepository) BatchCreate(variants []*entity.ProductVariant
 			variant.Price,
 			variant.ComparePrice,
 			variant.Stock,
+			variant.Weight,
 			attributesJSON,
 			imagesJSON,
 			variant.IsDefault,

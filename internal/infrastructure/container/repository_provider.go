@@ -18,6 +18,11 @@ type RepositoryProvider interface {
 	DiscountRepository() repository.DiscountRepository
 	WebhookRepository() repository.WebhookRepository
 	PaymentTransactionRepository() repository.PaymentTransactionRepository
+
+	// Shipping related repository
+	ShippingMethodRepository() repository.ShippingMethodRepository
+	ShippingZoneRepository() repository.ShippingZoneRepository
+	ShippingRateRepository() repository.ShippingRateRepository
 }
 
 // repositoryProvider is the concrete implementation of RepositoryProvider
@@ -34,6 +39,10 @@ type repositoryProvider struct {
 	discountRepo       repository.DiscountRepository
 	webhookRepo        repository.WebhookRepository
 	paymentTrxRepo     repository.PaymentTransactionRepository
+
+	shippingMethodRepo repository.ShippingMethodRepository
+	shippingZoneRepo   repository.ShippingZoneRepository
+	shippingRateRepo   repository.ShippingRateRepository
 }
 
 // NewRepositoryProvider creates a new repository provider
@@ -140,4 +149,37 @@ func (p *repositoryProvider) PaymentTransactionRepository() repository.PaymentTr
 		p.paymentTrxRepo = postgres.NewPaymentTransactionRepository(p.container.DB())
 	}
 	return p.paymentTrxRepo
+}
+
+// ShippingMethodRepository returns the shipping method repository
+func (p *repositoryProvider) ShippingMethodRepository() repository.ShippingMethodRepository {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.shippingMethodRepo == nil {
+		p.shippingMethodRepo = postgres.NewShippingMethodRepository(p.container.DB())
+	}
+	return p.shippingMethodRepo
+}
+
+// ShippingZoneRepository returns the shipping zone repository
+func (p *repositoryProvider) ShippingZoneRepository() repository.ShippingZoneRepository {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.shippingZoneRepo == nil {
+		p.shippingZoneRepo = postgres.NewShippingZoneRepository(p.container.DB())
+	}
+	return p.shippingZoneRepo
+}
+
+// ShippingRateRepository returns the shipping rate repository
+func (p *repositoryProvider) ShippingRateRepository() repository.ShippingRateRepository {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.shippingRateRepo == nil {
+		p.shippingRateRepo = postgres.NewShippingRateRepository(p.container.DB())
+	}
+	return p.shippingRateRepo
 }

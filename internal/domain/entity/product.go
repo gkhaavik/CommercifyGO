@@ -14,6 +14,7 @@ type Product struct {
 	Description   string            `json:"description"`
 	Price         float64           `json:"price"`
 	Stock         int               `json:"stock"`
+	Weight        float64           `json:"weight"` // Weight in kg
 	CategoryID    uint              `json:"category_id"`
 	SellerID      uint              `json:"seller_id"`
 	Images        []string          `json:"images"`
@@ -24,7 +25,7 @@ type Product struct {
 }
 
 // NewProduct creates a new product with the given details
-func NewProduct(name, description string, price float64, stock int, categoryID, sellerID uint, images []string) (*Product, error) {
+func NewProduct(name, description string, price float64, stock int, weight float64, categoryID, sellerID uint, images []string) (*Product, error) {
 	if name == "" {
 		return nil, errors.New("product name cannot be empty")
 	}
@@ -33,6 +34,9 @@ func NewProduct(name, description string, price float64, stock int, categoryID, 
 	}
 	if stock < 0 {
 		return nil, errors.New("stock cannot be negative")
+	}
+	if weight < 0 {
+		return nil, errors.New("weight cannot be negative")
 	}
 
 	now := time.Now()
@@ -46,6 +50,7 @@ func NewProduct(name, description string, price float64, stock int, categoryID, 
 		Description:   description,
 		Price:         price,
 		Stock:         stock,
+		Weight:        weight,
 		CategoryID:    categoryID,
 		SellerID:      sellerID,
 		Images:        images,
@@ -57,11 +62,6 @@ func NewProduct(name, description string, price float64, stock int, categoryID, 
 
 // UpdateStock updates the product's stock
 func (p *Product) UpdateStock(quantity int) error {
-	// If product has variants, stock should be managed at variant level
-	if p.HasVariants {
-		return errors.New("product has variants, stock should be updated at variant level")
-	}
-
 	newStock := p.Stock + quantity
 	if newStock < 0 {
 		return errors.New("insufficient stock")
@@ -73,9 +73,9 @@ func (p *Product) UpdateStock(quantity int) error {
 
 // IsAvailable checks if the product is available in the requested quantity
 func (p *Product) IsAvailable(quantity int) bool {
-	// If product has variants, availability should be checked at variant level
 	if p.HasVariants {
-		return false
+		// For products with variants, availability depends on variants
+		return true
 	}
 	return p.Stock >= quantity
 }
@@ -97,6 +97,7 @@ func (p *Product) AddVariant(variant *ProductVariant) error {
 	// If this is the first variant and it's the default, set product price to match
 	if len(p.Variants) == 0 && variant.IsDefault {
 		p.Price = variant.Price
+		p.Weight = variant.Weight
 	}
 
 	// Add variant to product
@@ -156,6 +157,14 @@ func (p *Product) GetVariantBySKU(sku string) *ProductVariant {
 func (p *Product) SetProductNumber(id uint) {
 	// Format: PROD-000001
 	p.ProductNumber = fmt.Sprintf("PROD-%06d", id)
+}
+
+// GetTotalWeight calculates the total weight for a quantity of this product
+func (p *Product) GetTotalWeight(quantity int) float64 {
+	if quantity <= 0 {
+		return 0
+	}
+	return p.Weight * float64(quantity)
 }
 
 // Category represents a product category

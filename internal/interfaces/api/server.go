@@ -73,6 +73,7 @@ func (s *Server) setupRoutes() {
 	paymentHandler := s.container.Handlers().PaymentHandler()
 	webhookHandler := s.container.Handlers().WebhookHandler()
 	discountHandler := s.container.Handlers().DiscountHandler()
+	shippingHandler := s.container.Handlers().ShippingHandler()
 
 	// Extract middleware from container
 	authMiddleware := s.container.Middlewares().AuthMiddleware()
@@ -89,6 +90,12 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/categories", productHandler.ListCategories).Methods(http.MethodGet)
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
 	api.HandleFunc("/discounts/validate", discountHandler.ValidateDiscountCode).Methods(http.MethodPost)
+
+	// Public shipping routes
+	api.HandleFunc("/shipping/methods", shippingHandler.ListShippingMethods).Methods(http.MethodGet)
+	api.HandleFunc("/shipping/methods/{id:[0-9]+}", shippingHandler.GetShippingMethodByID).Methods(http.MethodGet)
+	api.HandleFunc("/shipping/options", shippingHandler.CalculateShippingOptions).Methods(http.MethodPost)
+	api.HandleFunc("/shipping/rates/{id:[0-9]+}/cost", shippingHandler.GetShippingCost).Methods(http.MethodPost)
 
 	// Guest cart routes (no authentication required)
 	api.HandleFunc("/guest/cart", cartHandler.GetCart).Methods(http.MethodGet)
@@ -159,6 +166,19 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/users", userHandler.ListUsers).Methods(http.MethodGet)
 	admin.HandleFunc("/orders", orderHandler.ListAllOrders).Methods(http.MethodGet)
 	admin.HandleFunc("/orders/{id:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
+
+	// Shipping management routes (admin only)
+	admin.HandleFunc("/shipping/methods", shippingHandler.CreateShippingMethod).Methods(http.MethodPost)
+	admin.HandleFunc("/shipping/methods/{id:[0-9]+}", shippingHandler.UpdateShippingMethod).Methods(http.MethodPut)
+	admin.HandleFunc("/shipping/zones", shippingHandler.CreateShippingZone).Methods(http.MethodPost)
+	admin.HandleFunc("/shipping/zones", shippingHandler.ListShippingZones).Methods(http.MethodGet)
+	admin.HandleFunc("/shipping/zones/{id:[0-9]+}", shippingHandler.GetShippingZoneByID).Methods(http.MethodGet)
+	admin.HandleFunc("/shipping/zones/{id:[0-9]+}", shippingHandler.UpdateShippingZone).Methods(http.MethodPut)
+	admin.HandleFunc("/shipping/rates", shippingHandler.CreateShippingRate).Methods(http.MethodPost)
+	admin.HandleFunc("/shipping/rates/{id:[0-9]+}", shippingHandler.GetShippingRateByID).Methods(http.MethodGet)
+	admin.HandleFunc("/shipping/rates/{id:[0-9]+}", shippingHandler.UpdateShippingRate).Methods(http.MethodPut)
+	admin.HandleFunc("/shipping/rates/weight", shippingHandler.CreateWeightBasedRate).Methods(http.MethodPost)
+	admin.HandleFunc("/shipping/rates/value", shippingHandler.CreateValueBasedRate).Methods(http.MethodPost)
 
 	// Payment management routes (admin only)
 	admin.HandleFunc("/payments/{paymentId}/capture", paymentHandler.CapturePayment).Methods(http.MethodPost)

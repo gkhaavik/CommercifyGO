@@ -33,6 +33,7 @@ type CreateProductInput struct {
 	Description string               `json:"description"`
 	Price       float64              `json:"price"`
 	Stock       int                  `json:"stock"`
+	Weight      float64              `json:"weight"`
 	CategoryID  uint                 `json:"category_id"`
 	SellerID    uint                 `json:"seller_id"`
 	Images      []string             `json:"images"`
@@ -46,6 +47,7 @@ type CreateVariantInput struct {
 	Price        float64                   `json:"price"`
 	ComparePrice float64                   `json:"compare_price"`
 	Stock        int                       `json:"stock"`
+	Weight       float64                   `json:"weight"`
 	Attributes   []entity.VariantAttribute `json:"attributes"`
 	Images       []string                  `json:"images"`
 	IsDefault    bool                      `json:"is_default"`
@@ -65,6 +67,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 		input.Description,
 		input.Price,
 		input.Stock,
+		input.Weight, // Added weight parameter
 		input.CategoryID,
 		input.SellerID,
 		input.Images,
@@ -91,6 +94,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 				variantInput.SKU,
 				variantInput.Price,
 				variantInput.Stock,
+				variantInput.Weight, // Added weight parameter
 				variantInput.Attributes,
 				variantInput.Images,
 				variantInput.IsDefault,
@@ -292,6 +296,7 @@ type AddVariantInput struct {
 	Price        float64                   `json:"price"`
 	ComparePrice float64                   `json:"compare_price"`
 	Stock        int                       `json:"stock"`
+	Weight       float64                   `json:"weight"`
 	Attributes   []entity.VariantAttribute `json:"attributes"`
 	Images       []string                  `json:"images"`
 	IsDefault    bool                      `json:"is_default"`
@@ -316,6 +321,7 @@ func (uc *ProductUseCase) AddVariant(sellerID uint, input AddVariantInput) (*ent
 		input.SKU,
 		input.Price,
 		input.Stock,
+		input.Weight, // Added weight parameter
 		input.Attributes,
 		input.Images,
 		input.IsDefault,
@@ -338,9 +344,10 @@ func (uc *ProductUseCase) AddVariant(sellerID uint, input AddVariantInput) (*ent
 			product.HasVariants = true
 		}
 
-		// If this is the default variant, update product price
+		// If this is the default variant, update product price and weight
 		if input.IsDefault {
 			product.Price = input.Price
+			product.Weight = input.Weight // Also update product weight from variant
 
 			// If there are other variants, unset their default status
 			if !isFirstVariant {
@@ -437,7 +444,6 @@ func (uc *ProductUseCase) DeleteVariant(productID uint, variantID uint, sellerID
 
 // DeleteProduct deletes a product
 func (uc *ProductUseCase) DeleteProduct(id uint, sellerID uint) error {
-	// Get product
 	product, err := uc.productRepo.GetByID(id)
 	if err != nil {
 		return err

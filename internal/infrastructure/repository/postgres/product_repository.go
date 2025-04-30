@@ -24,8 +24,8 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 // Create creates a new product
 func (r *ProductRepository) Create(product *entity.Product) error {
 	query := `
-		INSERT INTO products (name, description, price, stock, category_id, seller_id, images, has_variants, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO products (name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
 
@@ -40,6 +40,7 @@ func (r *ProductRepository) Create(product *entity.Product) error {
 		product.Description,
 		product.Price,
 		product.Stock,
+		product.Weight,
 		product.CategoryID,
 		product.SellerID,
 		imagesJSON,
@@ -67,7 +68,7 @@ func (r *ProductRepository) Create(product *entity.Product) error {
 // GetByID retrieves a product by ID
 func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 	query := `
-		SELECT id, product_number, name, description, price, stock, category_id, seller_id, images, has_variants, created_at, updated_at
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
 		FROM products
 		WHERE id = $1
 	`
@@ -83,6 +84,7 @@ func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 		&product.Description,
 		&product.Price,
 		&product.Stock,
+		&product.Weight,
 		&product.CategoryID,
 		&product.SellerID,
 		&imagesJSON,
@@ -123,7 +125,7 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 	// If product has variants, fetch them
 	if product.HasVariants {
 		query := `
-			SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+			SELECT id, product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
 			FROM product_variants
 			WHERE product_id = $1
 			ORDER BY is_default DESC, id ASC
@@ -146,6 +148,7 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 				&variant.Price,
 				&variant.ComparePrice,
 				&variant.Stock,
+				&variant.Weight,
 				&attributesJSON,
 				&imagesJSON,
 				&variant.IsDefault,
@@ -177,7 +180,8 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 func (r *ProductRepository) Update(product *entity.Product) error {
 	query := `
 		UPDATE products
-		SET name = $1, description = $2, price = $3, stock = $4, category_id = $5, images = $6, has_variants = $7, updated_at = $8, product_number = $9
+		SET name = $1, description = $2, price = $3, stock = $4, weight = $5, category_id = $6, 
+		    images = $7, has_variants = $8, updated_at = $9
 		WHERE id = $10
 	`
 
@@ -192,11 +196,11 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 		product.Description,
 		product.Price,
 		product.Stock,
+		product.Weight,
 		product.CategoryID,
 		imagesJSON,
 		product.HasVariants,
 		time.Now(),
-		product.ProductNumber,
 		product.ID,
 	)
 
@@ -205,7 +209,7 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 
 // Delete deletes a product
 func (r *ProductRepository) Delete(id uint) error {
-	// Start a transaction to delete product and its variants
+	// Start a transaction to delete variants as well
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -213,12 +217,10 @@ func (r *ProductRepository) Delete(id uint) error {
 	defer func() {
 		if err != nil {
 			tx.Rollback()
-			return
 		}
-		err = tx.Commit()
 	}()
 
-	// Delete variants first (if any)
+	// Delete variants first
 	_, err = tx.Exec("DELETE FROM product_variants WHERE product_id = $1", id)
 	if err != nil {
 		return err
@@ -230,15 +232,15 @@ func (r *ProductRepository) Delete(id uint) error {
 		return err
 	}
 
-	return nil
+	return tx.Commit()
 }
 
-// List retrieves a list of products with pagination
+// List retrieves all products with pagination
 func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 	query := `
-		SELECT id, product_number, name, description, price, stock, category_id, seller_id, images, has_variants, created_at, updated_at
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
 		FROM products
-		ORDER BY id
+		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
 	`
 
@@ -261,6 +263,7 @@ func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 			&product.Description,
 			&product.Price,
 			&product.Stock,
+			&product.Weight,
 			&product.CategoryID,
 			&product.SellerID,
 			&imagesJSON,
@@ -290,51 +293,51 @@ func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 
 // Search searches for products based on criteria
 func (r *ProductRepository) Search(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error) {
-	// Build the SQL query dynamically based on search criteria
-	sqlQuery := `
-		SELECT id, product_number, name, description, price, stock, category_id, seller_id, images, has_variants, created_at, updated_at
+	// Build dynamic query parts
+	searchQuery := `
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
 		FROM products
 		WHERE 1=1
 	`
-	args := []interface{}{}
-	argCount := 1
+	queryParams := []interface{}{}
+	paramCounter := 1
 
-	// Add search conditions
 	if query != "" {
-		sqlQuery += fmt.Sprintf(" AND (name ILIKE $%d OR description ILIKE $%d)", argCount, argCount)
-		args = append(args, "%"+query+"%")
-		argCount++
+		searchQuery += fmt.Sprintf(" AND (name ILIKE $%d OR description ILIKE $%d)", paramCounter, paramCounter)
+		queryParams = append(queryParams, "%"+query+"%")
+		paramCounter++
 	}
 
 	if categoryID > 0 {
-		sqlQuery += fmt.Sprintf(" AND category_id = $%d", argCount)
-		args = append(args, categoryID)
-		argCount++
+		searchQuery += fmt.Sprintf(" AND category_id = $%d", paramCounter)
+		queryParams = append(queryParams, categoryID)
+		paramCounter++
 	}
 
 	if minPrice > 0 {
-		sqlQuery += fmt.Sprintf(" AND price >= $%d", argCount)
-		args = append(args, minPrice)
-		argCount++
+		searchQuery += fmt.Sprintf(" AND price >= $%d", paramCounter)
+		queryParams = append(queryParams, minPrice)
+		paramCounter++
 	}
 
 	if maxPrice > 0 {
-		sqlQuery += fmt.Sprintf(" AND price <= $%d", argCount)
-		args = append(args, maxPrice)
-		argCount++
+		searchQuery += fmt.Sprintf(" AND price <= $%d", paramCounter)
+		queryParams = append(queryParams, maxPrice)
+		paramCounter++
 	}
 
 	// Add pagination
-	sqlQuery += " ORDER BY id LIMIT $" + strconv.Itoa(argCount) + " OFFSET $" + strconv.Itoa(argCount+1)
-	args = append(args, limit, offset)
+	searchQuery += " ORDER BY created_at DESC LIMIT $" + strconv.Itoa(paramCounter) + " OFFSET $" + strconv.Itoa(paramCounter+1)
+	queryParams = append(queryParams, limit, offset)
 
 	// Execute query
-	rows, err := r.db.Query(sqlQuery, args...)
+	rows, err := r.db.Query(searchQuery, queryParams...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	// Parse results
 	products := []*entity.Product{}
 	for rows.Next() {
 		var imagesJSON []byte
@@ -348,6 +351,7 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPrice, maxP
 			&product.Description,
 			&product.Price,
 			&product.Stock,
+			&product.Weight,
 			&product.CategoryID,
 			&product.SellerID,
 			&imagesJSON,
@@ -378,10 +382,10 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPrice, maxP
 // GetBySeller retrieves products by seller ID
 func (r *ProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error) {
 	query := `
-		SELECT id, product_number, name, description, price, stock, category_id, seller_id, images, has_variants, created_at, updated_at
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
 		FROM products
 		WHERE seller_id = $1
-		ORDER BY id
+		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
 
@@ -404,6 +408,7 @@ func (r *ProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*en
 			&product.Description,
 			&product.Price,
 			&product.Stock,
+			&product.Weight,
 			&product.CategoryID,
 			&product.SellerID,
 			&imagesJSON,
