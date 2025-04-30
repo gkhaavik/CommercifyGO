@@ -497,7 +497,9 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) err
 			)
 			if txErr == nil {
 				txn.AddMetadata("error", err.Error())
-				uc.paymentTxnRepo.Create(txn)
+				if createErr := uc.paymentTxnRepo.Create(txn); createErr != nil {
+					txn.AddMetadata("create_error", createErr.Error())
+				}
 			}
 		}
 
