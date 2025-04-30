@@ -80,7 +80,10 @@ if err != nil {
 
 ### Migrations
 
-To create new migrations run the following in cli `migrate create -ext sql -dir migrations -seq <name>` where `name` "add_friendly_numbers"
+To create new migrations, run the following command in the CLI:  
+`migrate create -ext sql -dir migrations -seq "<name>"`  
+ 
+Note: Replace `<name>` with the desired migration name. Use quotes around the name if it contains spaces or special characters. For example: `"add_friendly_numbers"`.
 
 ### Queries
 
