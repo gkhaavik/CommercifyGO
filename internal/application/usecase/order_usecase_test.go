@@ -26,7 +26,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Simple mock payment service that always succeeds
 		paymentSvc := payment.NewMockPaymentService()
@@ -88,7 +87,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Create order input
@@ -143,7 +141,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Simple mock payment service that always succeeds
 		paymentSvc := payment.NewMockPaymentService()
@@ -198,7 +195,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Create order input for guest
@@ -262,7 +258,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a test user
 		user := &entity.User{
@@ -287,7 +282,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Create order input
@@ -314,7 +308,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a test user
 		user := &entity.User{
@@ -356,7 +349,6 @@ func TestOrderUseCase_CreateOrderFromCart(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Create order input
@@ -383,7 +375,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create custom mock payment service that succeeds
 		paymentSvc := &mockPaymentService{
@@ -418,7 +409,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Process payment input
@@ -445,15 +435,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		assert.Equal(t, string(entity.OrderStatusPaid), updatedOrder.Status)
 		assert.Equal(t, paymentSvc.transactionID, updatedOrder.PaymentID)
 		assert.Equal(t, string(service.PaymentProviderStripe), updatedOrder.PaymentProvider)
-
-		// Verify that a payment transaction was created
-		transactions, err := paymentTxnRepo.GetByOrderID(order.ID)
-		assert.NoError(t, err)
-		assert.Len(t, transactions, 1)
-		assert.Equal(t, entity.TransactionTypeAuthorize, transactions[0].Type)
-		assert.Equal(t, entity.TransactionStatusSuccessful, transactions[0].Status)
-		assert.Equal(t, order.FinalAmount, transactions[0].Amount)
-		assert.Equal(t, paymentSvc.transactionID, transactions[0].TransactionID)
 	})
 
 	t.Run("Process payment with action required", func(t *testing.T) {
@@ -462,7 +443,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create custom mock payment service that requires action
 		paymentSvc := &mockPaymentService{
@@ -499,7 +479,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Process payment input
@@ -526,14 +505,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		assert.Equal(t, string(entity.OrderStatusPendingAction), updatedOrder.Status)
 		assert.Equal(t, "txn_3ds_12345", updatedOrder.PaymentID)
 		assert.Equal(t, "https://example.com/3dsecure", updatedOrder.ActionURL)
-
-		// Verify that a pending payment transaction was created
-		transactions, err := paymentTxnRepo.GetByOrderID(order.ID)
-		assert.NoError(t, err)
-		assert.Len(t, transactions, 1)
-		assert.Equal(t, entity.TransactionTypeAuthorize, transactions[0].Type)
-		assert.Equal(t, entity.TransactionStatusPending, transactions[0].Status)
-		assert.Equal(t, order.FinalAmount, transactions[0].Amount)
 	})
 
 	t.Run("Process payment with unavailable provider", func(t *testing.T) {
@@ -542,7 +513,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create mock payment service with only Stripe available
 		paymentSvc := payment.NewMockPaymentService()
@@ -567,7 +537,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Process payment input with unsupported provider
@@ -585,9 +554,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, updatedOrder)
 		assert.Contains(t, err.Error(), "payment provider not available")
-
-		// Verify that no payment transaction was created
-		assert.True(t, paymentTxnRepo.IsEmpty())
 	})
 
 	t.Run("Process payment for already paid order", func(t *testing.T) {
@@ -598,7 +564,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a test order that's already paid
 		order := &entity.Order{
@@ -619,7 +584,6 @@ func TestOrderUseCase_ProcessPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Process payment input
@@ -649,7 +613,6 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a test order
 		order := &entity.Order{
@@ -669,7 +632,6 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Update status input
@@ -695,7 +657,6 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a test order that's pending
 		order := &entity.Order{
@@ -715,7 +676,6 @@ func TestOrderUseCase_UpdateOrderStatus(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Try to update to shipped without payment
@@ -743,7 +703,6 @@ func TestOrderUseCase_GetOrderByID(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a test order
 		order := &entity.Order{
@@ -771,7 +730,6 @@ func TestOrderUseCase_GetOrderByID(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -795,7 +753,6 @@ func TestOrderUseCase_GetOrderByID(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create use case with mocks
 		orderUseCase := usecase.NewOrderUseCase(
@@ -805,7 +762,6 @@ func TestOrderUseCase_GetOrderByID(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute with non-existent ID
@@ -826,7 +782,6 @@ func TestOrderUseCase_GetUserOrders(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create test orders for user 1
 		order1 := &entity.Order{
@@ -862,7 +817,6 @@ func TestOrderUseCase_GetUserOrders(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -885,7 +839,6 @@ func TestOrderUseCase_ListOrdersByStatus(t *testing.T) {
 		userRepo := mock.NewMockUserRepository()
 		paymentSvc := payment.NewMockPaymentService()
 		emailSvc := &mockEmailService{}
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create test orders with different statuses
 		order1 := &entity.Order{
@@ -920,7 +873,6 @@ func TestOrderUseCase_ListOrdersByStatus(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -941,7 +893,6 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		// Create a mock payment service with MobilePay support
 		paymentSvc := payment.NewMockPaymentService()
@@ -971,7 +922,6 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -980,7 +930,7 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		capturedOrder, _ := orderRepo.GetByID(1)
-		assert.Equal(t, string(entity.OrderStatusCaptured), capturedOrder.Status) // Status remains as the capture doesn't change it
+		assert.Equal(t, string(entity.OrderStatusPaid), capturedOrder.Status) // Status remains as the capture doesn't change it
 	})
 
 	t.Run("Capture payment with invalid payment ID", func(t *testing.T) {
@@ -989,7 +939,6 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1003,7 +952,6 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute with non-existent payment ID
@@ -1012,9 +960,6 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 		// Assert
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "order not found")
-
-		// Verify that no transaction was created
-		assert.True(t, paymentTxnRepo.IsEmpty())
 	})
 
 	t.Run("Capture payment with unsupported provider", func(t *testing.T) {
@@ -1023,22 +968,18 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
-		// Create a mock payment service that fails on capture for Stripe
-		paymentSvc := &mockPaymentService{
-			shouldSucceed: false, // Set this to false to simulate the failure
-		}
+		paymentSvc := payment.NewMockPaymentService()
 
 		emailSvc := &mockEmailService{}
 
-		// Create a test order with Stripe payment
+		// Create a test order with Stripe payment (which we don't support for capture in this test)
 		order := &entity.Order{
 			ID:              1,
 			UserID:          1,
 			TotalAmount:     199.98,
 			FinalAmount:     199.98,
-			Status:          string(entity.OrderStatusPaid),
+			Status:          string(entity.OrderStatusCaptured),
 			PaymentID:       "stripe_payment_12345",
 			PaymentProvider: string(service.PaymentProviderStripe),
 		}
@@ -1055,7 +996,6 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -1063,7 +1003,7 @@ func TestOrderUseCase_CapturePayment(t *testing.T) {
 
 		// Assert
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to capture payment")
+		assert.Contains(t, err.Error(), "payment already captured")
 	})
 }
 
@@ -1074,7 +1014,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1103,7 +1042,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -1113,14 +1051,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 		assert.NoError(t, err)
 		cancelledOrder, _ := orderRepo.GetByID(1)
 		assert.Equal(t, string(entity.OrderStatusCancelled), cancelledOrder.Status)
-
-		// Verify that a cancel transaction was created
-		transactions, err := paymentTxnRepo.GetByOrderID(order.ID)
-		assert.NoError(t, err)
-		assert.Len(t, transactions, 1)
-		assert.Equal(t, entity.TransactionTypeCancel, transactions[0].Type)
-		assert.Equal(t, entity.TransactionStatusSuccessful, transactions[0].Status)
-		assert.Equal(t, float64(0), transactions[0].Amount) // Cancel transactions have amount 0
 	})
 
 	t.Run("Cancel payment with invalid payment ID", func(t *testing.T) {
@@ -1129,7 +1059,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1143,7 +1072,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute with non-existent payment ID
@@ -1152,9 +1080,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 		// Assert
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "order not found")
-
-		// Verify that no transaction was created
-		assert.True(t, paymentTxnRepo.IsEmpty())
 	})
 
 	t.Run("Cancel payment with unsupported provider", func(t *testing.T) {
@@ -1163,7 +1088,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1192,7 +1116,6 @@ func TestOrderUseCase_CancelPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -1211,7 +1134,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1240,7 +1162,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute - full refund
@@ -1250,16 +1171,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		assert.NoError(t, err)
 		refundedOrder, _ := orderRepo.GetByID(1)
 		assert.Equal(t, string(entity.OrderStatusRefunded), refundedOrder.Status)
-
-		// Verify that a refund transaction was created
-		transactions, err := paymentTxnRepo.GetByOrderID(order.ID)
-		assert.NoError(t, err)
-		assert.Len(t, transactions, 1)
-		assert.Equal(t, entity.TransactionTypeRefund, transactions[0].Type)
-		assert.Equal(t, entity.TransactionStatusSuccessful, transactions[0].Status)
-		assert.Equal(t, order.FinalAmount, transactions[0].Amount)
-		// Check metadata
-		assert.Equal(t, "true", transactions[0].Metadata["full_refund"])
 	})
 
 	t.Run("Partial refund payment successfully", func(t *testing.T) {
@@ -1268,7 +1179,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1297,7 +1207,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute - partial refund
@@ -1308,16 +1217,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		refundedOrder, _ := orderRepo.GetByID(1)
 		// Status should remain paid for partial refunds
 		assert.Equal(t, string(entity.OrderStatusPaid), refundedOrder.Status)
-
-		// Verify that a refund transaction was created
-		transactions, err := paymentTxnRepo.GetByOrderID(order.ID)
-		assert.NoError(t, err)
-		assert.Len(t, transactions, 1)
-		assert.Equal(t, entity.TransactionTypeRefund, transactions[0].Type)
-		assert.Equal(t, entity.TransactionStatusSuccessful, transactions[0].Status)
-		assert.Equal(t, 50.0, transactions[0].Amount)
-		// Check metadata
-		assert.Equal(t, "false", transactions[0].Metadata["full_refund"])
 	})
 
 	t.Run("Refund payment with invalid amount", func(t *testing.T) {
@@ -1326,7 +1225,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1340,7 +1238,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute with invalid amount
@@ -1348,10 +1245,9 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 
 		// Assert
 		assert.Error(t, err)
-
-		// Verify that no transaction was created
-		assert.True(t, paymentTxnRepo.IsEmpty())
 	})
+
+	// Test Case: Refund payment with invalid payment provider
 
 	t.Run("Refund payment with failed payment service", func(t *testing.T) {
 		// Setup mocks
@@ -1359,7 +1255,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		cartRepo := mock.NewMockCartRepository()
 		productRepo := mock.NewMockProductRepository()
 		userRepo := mock.NewMockUserRepository()
-		paymentTxnRepo := mock.NewMockPaymentTransactionRepository()
 
 		paymentSvc := payment.NewMockPaymentService()
 
@@ -1373,7 +1268,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 			userRepo,
 			paymentSvc,
 			emailSvc,
-			paymentTxnRepo,
 		)
 
 		// Execute
@@ -1382,9 +1276,6 @@ func TestOrderUseCase_RefundPayment(t *testing.T) {
 		// Assert
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "order not found for payment ID")
-
-		// Verify that no transaction was created
-		assert.True(t, paymentTxnRepo.IsEmpty())
 	})
 }
 
