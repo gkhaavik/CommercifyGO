@@ -323,29 +323,27 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 		}
 
 		// Record the pending authorization transaction
-		if uc.paymentTxnRepo != nil {
-			txn, err := entity.NewPaymentTransaction(
-				order.ID,
-				paymentResult.TransactionID,
-				entity.TransactionTypeAuthorize,
-				entity.TransactionStatusPending,
-				order.FinalAmount,
-				"USD",
-				string(paymentResult.Provider),
-			)
-			if err != nil {
-				// Log the error but don't fail the payment process
-				log.Printf("Failed to create payment transaction record: %v", err)
-			} else {
-				// Add metadata
-				txn.AddMetadata("payment_method", string(input.PaymentMethod))
-				txn.AddMetadata("requires_action", "true")
-				txn.AddMetadata("action_url", paymentResult.ActionURL)
+		txn, err := entity.NewPaymentTransaction(
+			order.ID,
+			paymentResult.TransactionID,
+			entity.TransactionTypeAuthorize,
+			entity.TransactionStatusPending,
+			order.FinalAmount,
+			"USD",
+			string(paymentResult.Provider),
+		)
+		if err != nil {
+			// Log the error but don't fail the payment process
+			log.Printf("Failed to create payment transaction record: %v", err)
+		} else {
+			// Add metadata
+			txn.AddMetadata("payment_method", string(input.PaymentMethod))
+			txn.AddMetadata("requires_action", "true")
+			txn.AddMetadata("action_url", paymentResult.ActionURL)
 
-				if err := uc.paymentTxnRepo.Create(txn); err != nil {
-					// Log error but don't fail the payment process
-					log.Printf("Failed to save payment transaction: %v\n", err)
-				}
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				// Log error but don't fail the payment process
+				log.Printf("Failed to save payment transaction: %v\n", err)
 			}
 		}
 
@@ -354,24 +352,22 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 
 	if !paymentResult.Success {
 		// Record the failed transaction
-		if uc.paymentTxnRepo != nil {
-			txn, err := entity.NewPaymentTransaction(
-				order.ID,
-				paymentResult.TransactionID,
-				entity.TransactionTypeAuthorize,
-				entity.TransactionStatusFailed,
-				order.FinalAmount,
-				"USD",
-				string(paymentResult.Provider),
-			)
-			if err == nil {
-				txn.AddMetadata("payment_method", string(input.PaymentMethod))
-				txn.AddMetadata("error_message", paymentResult.ErrorMessage)
+		txn, err := entity.NewPaymentTransaction(
+			order.ID,
+			paymentResult.TransactionID,
+			entity.TransactionTypeAuthorize,
+			entity.TransactionStatusFailed,
+			order.FinalAmount,
+			"USD",
+			string(paymentResult.Provider),
+		)
+		if err == nil {
+			txn.AddMetadata("payment_method", string(input.PaymentMethod))
+			txn.AddMetadata("error_message", paymentResult.ErrorMessage)
 
-				if err := uc.paymentTxnRepo.Create(txn); err != nil {
-					// Log error but don't fail the process
-					log.Printf("Failed to save failed payment transaction: %v\n", err)
-				}
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				// Log error but don't fail the process
+				log.Printf("Failed to save failed payment transaction: %v\n", err)
 			}
 		}
 
@@ -395,23 +391,21 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	}
 
 	// Record the successful authorization transaction
-	if uc.paymentTxnRepo != nil {
-		txn, err := entity.NewPaymentTransaction(
-			order.ID,
-			paymentResult.TransactionID,
-			entity.TransactionTypeAuthorize,
-			entity.TransactionStatusSuccessful,
-			order.FinalAmount,
-			"USD",
-			string(paymentResult.Provider),
-		)
-		if err == nil {
-			txn.AddMetadata("payment_method", string(input.PaymentMethod))
+	txn, err := entity.NewPaymentTransaction(
+		order.ID,
+		paymentResult.TransactionID,
+		entity.TransactionTypeAuthorize,
+		entity.TransactionStatusSuccessful,
+		order.FinalAmount,
+		"USD",
+		string(paymentResult.Provider),
+	)
+	if err == nil {
+		txn.AddMetadata("payment_method", string(input.PaymentMethod))
 
-			if err := uc.paymentTxnRepo.Create(txn); err != nil {
-				// Log error but don't fail the payment process
-				log.Printf("Failed to save payment transaction: %v\n", err)
-			}
+		if err := uc.paymentTxnRepo.Create(txn); err != nil {
+			// Log error but don't fail the payment process
+			log.Printf("Failed to save payment transaction: %v\n", err)
 		}
 	}
 
@@ -486,21 +480,19 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) err
 	err = uc.paymentSvc.CapturePayment(transactionID, amount, providerType)
 	if err != nil {
 		// Record failed capture attempt
-		if uc.paymentTxnRepo != nil {
-			txn, txErr := entity.NewPaymentTransaction(
-				order.ID,
-				transactionID,
-				entity.TransactionTypeCapture,
-				entity.TransactionStatusFailed,
-				amount,
-				"USD",
-				string(providerType),
-			)
-			if txErr == nil {
-				txn.AddMetadata("error", err.Error())
-				if createErr := uc.paymentTxnRepo.Create(txn); createErr != nil {
-					txn.AddMetadata("create_error", createErr.Error())
-				}
+		txn, txErr := entity.NewPaymentTransaction(
+			order.ID,
+			transactionID,
+			entity.TransactionTypeCapture,
+			entity.TransactionStatusFailed,
+			amount,
+			"USD",
+			string(providerType),
+		)
+		if txErr == nil {
+			txn.AddMetadata("error", err.Error())
+			if createErr := uc.paymentTxnRepo.Create(txn); createErr != nil {
+				txn.AddMetadata("create_error", createErr.Error())
 			}
 		}
 
@@ -520,34 +512,32 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) err
 	}
 
 	// Record successful capture transaction
-	if uc.paymentTxnRepo != nil {
-		// Track if this is a full or partial capture
-		isFullCapture := amount >= order.FinalAmount
+	// Track if this is a full or partial capture
+	isFullCapture := amount >= order.FinalAmount
 
-		txn, err := entity.NewPaymentTransaction(
-			order.ID,
-			transactionID,
-			entity.TransactionTypeCapture,
-			entity.TransactionStatusSuccessful,
-			amount,
-			"USD",
-			string(providerType),
-		)
-		if err == nil {
-			txn.AddMetadata("full_capture", fmt.Sprintf("%t", isFullCapture))
+	txn, err := entity.NewPaymentTransaction(
+		order.ID,
+		transactionID,
+		entity.TransactionTypeCapture,
+		entity.TransactionStatusSuccessful,
+		amount,
+		"USD",
+		string(providerType),
+	)
+	if err == nil {
+		txn.AddMetadata("full_capture", fmt.Sprintf("%t", isFullCapture))
 
-			// Record total authorized amount
-			if isFullCapture {
-				txn.AddMetadata("remaining_amount", "0")
-			} else {
-				remainingAmount := order.FinalAmount - amount
-				txn.AddMetadata("remaining_amount", fmt.Sprintf("%.2f", remainingAmount))
-			}
+		// Record total authorized amount
+		if isFullCapture {
+			txn.AddMetadata("remaining_amount", "0")
+		} else {
+			remainingAmount := order.FinalAmount - amount
+			txn.AddMetadata("remaining_amount", fmt.Sprintf("%.2f", remainingAmount))
+		}
 
-			if err := uc.paymentTxnRepo.Create(txn); err != nil {
-				// Log error but don't fail the payment process
-				log.Printf("Failed to save capture transaction: %v\n", err)
-			}
+		if err := uc.paymentTxnRepo.Create(txn); err != nil {
+			// Log error but don't fail the payment process
+			log.Printf("Failed to save capture transaction: %v\n", err)
 		}
 	}
 
@@ -580,20 +570,18 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 	err = uc.paymentSvc.CancelPayment(transactionID, providerType)
 	if err != nil {
 		// Record failed cancellation attempt
-		if uc.paymentTxnRepo != nil {
-			txn, txErr := entity.NewPaymentTransaction(
-				order.ID,
-				transactionID,
-				entity.TransactionTypeCancel,
-				entity.TransactionStatusFailed,
-				0, // No amount for cancellation
-				"USD",
-				string(providerType),
-			)
-			if txErr == nil {
-				txn.AddMetadata("error", err.Error())
-				uc.paymentTxnRepo.Create(txn)
-			}
+		txn, txErr := entity.NewPaymentTransaction(
+			order.ID,
+			transactionID,
+			entity.TransactionTypeCancel,
+			entity.TransactionStatusFailed,
+			0, // No amount for cancellation
+			"USD",
+			string(providerType),
+		)
+		if txErr == nil {
+			txn.AddMetadata("error", err.Error())
+			uc.paymentTxnRepo.Create(txn)
 		}
 
 		return fmt.Errorf("failed to cancel payment: %v", err)
@@ -610,23 +598,21 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 	}
 
 	// Record successful cancellation transaction
-	if uc.paymentTxnRepo != nil {
-		txn, err := entity.NewPaymentTransaction(
-			order.ID,
-			transactionID,
-			entity.TransactionTypeCancel,
-			entity.TransactionStatusSuccessful,
-			0, // No amount for cancellation
-			"USD",
-			string(providerType),
-		)
-		if err == nil {
-			txn.AddMetadata("previous_status", string(entity.OrderStatusPendingAction))
+	txn, err := entity.NewPaymentTransaction(
+		order.ID,
+		transactionID,
+		entity.TransactionTypeCancel,
+		entity.TransactionStatusSuccessful,
+		0, // No amount for cancellation
+		"USD",
+		string(providerType),
+	)
+	if err == nil {
+		txn.AddMetadata("previous_status", string(entity.OrderStatusPendingAction))
 
-			if err := uc.paymentTxnRepo.Create(txn); err != nil {
-				// Log error but don't fail the cancel process
-				log.Printf("Failed to save cancel transaction: %v\n", err)
-			}
+		if err := uc.paymentTxnRepo.Create(txn); err != nil {
+			// Log error but don't fail the cancel process
+			log.Printf("Failed to save cancel transaction: %v\n", err)
 		}
 	}
 
@@ -663,9 +649,7 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 
 	// Get total refunded amount so far (if any)
 	var totalRefundedSoFar float64 = 0
-	if uc.paymentTxnRepo != nil {
-		totalRefundedSoFar, _ = uc.paymentTxnRepo.SumAmountByOrderIDAndType(order.ID, entity.TransactionTypeRefund)
-	}
+	totalRefundedSoFar, _ = uc.paymentTxnRepo.SumAmountByOrderIDAndType(order.ID, entity.TransactionTypeRefund)
 
 	// Check if we're trying to refund more than the original amount when combining with previous refunds
 	if totalRefundedSoFar+amount > order.FinalAmount {
@@ -675,20 +659,18 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 	err = uc.paymentSvc.RefundPayment(transactionID, amount, providerType)
 	if err != nil {
 		// Record failed refund attempt
-		if uc.paymentTxnRepo != nil {
-			txn, txErr := entity.NewPaymentTransaction(
-				order.ID,
-				transactionID,
-				entity.TransactionTypeRefund,
-				entity.TransactionStatusFailed,
-				amount,
-				"USD",
-				string(providerType),
-			)
-			if txErr == nil {
-				txn.AddMetadata("error", err.Error())
-				uc.paymentTxnRepo.Create(txn)
-			}
+		txn, txErr := entity.NewPaymentTransaction(
+			order.ID,
+			transactionID,
+			entity.TransactionTypeRefund,
+			entity.TransactionStatusFailed,
+			amount,
+			"USD",
+			string(providerType),
+		)
+		if txErr == nil {
+			txn.AddMetadata("error", err.Error())
+			uc.paymentTxnRepo.Create(txn)
 		}
 
 		return fmt.Errorf("failed to refund payment: %v", err)
@@ -713,32 +695,30 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 	}
 
 	// Record successful refund transaction
-	if uc.paymentTxnRepo != nil {
-		txn, err := entity.NewPaymentTransaction(
-			order.ID,
-			transactionID,
-			entity.TransactionTypeRefund,
-			entity.TransactionStatusSuccessful,
-			amount,
-			"USD",
-			string(providerType),
-		)
-		if err == nil {
-			txn.AddMetadata("full_refund", fmt.Sprintf("%t", isFullRefund))
-			txn.AddMetadata("previous_status", order.Status)
+	txn, err := entity.NewPaymentTransaction(
+		order.ID,
+		transactionID,
+		entity.TransactionTypeRefund,
+		entity.TransactionStatusSuccessful,
+		amount,
+		"USD",
+		string(providerType),
+	)
+	if err == nil {
+		txn.AddMetadata("full_refund", fmt.Sprintf("%t", isFullRefund))
+		txn.AddMetadata("previous_status", order.Status)
 
-			// Record total refunded amount including this transaction
-			totalRefunded := totalRefundedSoFar + amount
-			txn.AddMetadata("total_refunded", fmt.Sprintf("%.2f", totalRefunded))
+		// Record total refunded amount including this transaction
+		totalRefunded := totalRefundedSoFar + amount
+		txn.AddMetadata("total_refunded", fmt.Sprintf("%.2f", totalRefunded))
 
-			// Record remaining amount still available for refund
-			remainingAmount := max(order.FinalAmount-totalRefunded, 0)
-			txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", remainingAmount))
+		// Record remaining amount still available for refund
+		remainingAmount := max(order.FinalAmount-totalRefunded, 0)
+		txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", remainingAmount))
 
-			if err := uc.paymentTxnRepo.Create(txn); err != nil {
-				// Log error but don't fail the refund process
-				log.Printf("Failed to save refund transaction: %v\n", err)
-			}
+		if err := uc.paymentTxnRepo.Create(txn); err != nil {
+			// Log error but don't fail the refund process
+			log.Printf("Failed to save refund transaction: %v\n", err)
 		}
 	}
 
