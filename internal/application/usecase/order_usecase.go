@@ -334,7 +334,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 			)
 			if err != nil {
 				// Log the error but don't fail the payment process
-				fmt.Printf("Failed to create payment transaction record: %v\n", err)
+				log.Printf("Failed to create payment transaction record: %v", err)
 			} else {
 				// Add metadata
 				txn.AddMetadata("payment_method", string(input.PaymentMethod))
