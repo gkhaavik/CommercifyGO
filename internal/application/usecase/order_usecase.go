@@ -3,6 +3,7 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
@@ -343,7 +344,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 
 				if err := uc.paymentTxnRepo.Create(txn); err != nil {
 					// Log error but don't fail the payment process
-					fmt.Printf("Failed to save payment transaction: %v\n", err)
+					log.Printf("Failed to save payment transaction: %v\n", err)
 				}
 			}
 		}
@@ -369,7 +370,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 
 				if err := uc.paymentTxnRepo.Create(txn); err != nil {
 					// Log error but don't fail the process
-					fmt.Printf("Failed to save failed payment transaction: %v\n", err)
+					log.Printf("Failed to save failed payment transaction: %v\n", err)
 				}
 			}
 		}
@@ -409,7 +410,7 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 
 			if err := uc.paymentTxnRepo.Create(txn); err != nil {
 				// Log error but don't fail the payment process
-				fmt.Printf("Failed to save payment transaction: %v\n", err)
+				log.Printf("Failed to save payment transaction: %v\n", err)
 			}
 		}
 	}
@@ -545,7 +546,7 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) err
 
 			if err := uc.paymentTxnRepo.Create(txn); err != nil {
 				// Log error but don't fail the payment process
-				fmt.Printf("Failed to save capture transaction: %v\n", err)
+				log.Printf("Failed to save capture transaction: %v\n", err)
 			}
 		}
 	}
@@ -624,7 +625,7 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 
 			if err := uc.paymentTxnRepo.Create(txn); err != nil {
 				// Log error but don't fail the cancel process
-				fmt.Printf("Failed to save cancel transaction: %v\n", err)
+				log.Printf("Failed to save cancel transaction: %v\n", err)
 			}
 		}
 	}
@@ -731,15 +732,12 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 			txn.AddMetadata("total_refunded", fmt.Sprintf("%.2f", totalRefunded))
 
 			// Record remaining amount still available for refund
-			remainingAmount := order.FinalAmount - totalRefunded
-			if remainingAmount < 0 {
-				remainingAmount = 0
-			}
+			remainingAmount := max(order.FinalAmount-totalRefunded, 0)
 			txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", remainingAmount))
 
 			if err := uc.paymentTxnRepo.Create(txn); err != nil {
 				// Log error but don't fail the refund process
-				fmt.Printf("Failed to save refund transaction: %v\n", err)
+				log.Printf("Failed to save refund transaction: %v\n", err)
 			}
 		}
 	}
