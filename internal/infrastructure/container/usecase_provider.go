@@ -91,6 +91,7 @@ func (p *useCaseProvider) OrderUseCase() *usecase.OrderUseCase {
 			p.container.Repositories().UserRepository(),
 			p.container.Services().PaymentService(),
 			p.container.Services().EmailService(),
+			p.container.Repositories().PaymentTransactionRepository(),
 		)
 	}
 	return p.orderUseCase
