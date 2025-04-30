@@ -94,7 +94,7 @@ func (p *useCaseProvider) OrderUseCase() *usecase.OrderUseCase {
 			p.container.Services().PaymentService(),
 			p.container.Services().EmailService(),
 			p.container.Repositories().PaymentTransactionRepository(),
-			p.ShippingUseCase(),
+			p.InitializeShippingUseCase(), // Use non-locking helper method
 		)
 	}
 	return p.orderUseCase
@@ -135,6 +135,15 @@ func (p *useCaseProvider) ShippingUseCase() *usecase.ShippingUseCase {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if p.shippingUseCase == nil {
+		p.shippingUseCase = p.InitializeShippingUseCase()
+	}
+	return p.shippingUseCase
+}
+
+// InitializeShippingUseCase initializes the shipping use case without locking
+// Used to break circular dependencies
+func (p *useCaseProvider) InitializeShippingUseCase() *usecase.ShippingUseCase {
 	if p.shippingUseCase == nil {
 		p.shippingUseCase = usecase.NewShippingUseCase(
 			p.container.Repositories().ShippingMethodRepository(),

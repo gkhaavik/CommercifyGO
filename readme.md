@@ -203,6 +203,24 @@ Authorization: Bearer <token>
 
 - `GET /api/payment/providers` - Get available payment providers
 
+#### Shipping
+
+- `GET /api/shipping/methods` - List shipping methods
+- `GET /api/shipping/methods/{id}` - Get shipping method details
+- `POST /api/shipping/options` - Calculate shipping options for address and order
+- `POST /api/shipping/rates/{id}/cost` - Calculate cost for specific shipping rate
+- `POST /api/admin/shipping/methods` - Create shipping method (admin only)
+- `PUT /api/admin/shipping/methods/{id}` - Update shipping method (admin only)
+- `POST /api/admin/shipping/zones` - Create shipping zone (admin only)
+- `GET /api/admin/shipping/zones` - List shipping zones (admin only)
+- `GET /api/admin/shipping/zones/{id}` - Get shipping zone details (admin only)
+- `PUT /api/admin/shipping/zones/{id}` - Update shipping zone (admin only)
+- `POST /api/admin/shipping/rates` - Create shipping rate (admin only)
+- `GET /api/admin/shipping/rates/{id}` - Get shipping rate details (admin only)
+- `PUT /api/admin/shipping/rates/{id}` - Update shipping rate (admin only)
+- `POST /api/admin/shipping/rates/weight` - Create weight-based rate (admin only)
+- `POST /api/admin/shipping/rates/value` - Create value-based rate (admin only)
+
 #### Admin
 
 - `GET /api/admin/users` - List all users (admin only)
