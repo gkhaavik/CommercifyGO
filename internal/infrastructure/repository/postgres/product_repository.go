@@ -291,8 +291,8 @@ func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 	return products, nil
 }
 
-// Search searches for products based on criteria
-func (r *ProductRepository) Search(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error) {
+// Search searches for products based on criteria (prices in cents)
+func (r *ProductRepository) Search(query string, categoryID uint, minPriceCents, maxPriceCents int64, offset, limit int) ([]*entity.Product, error) {
 	// Build dynamic query parts
 	searchQuery := `
 		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
@@ -314,15 +314,15 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPrice, maxP
 		paramCounter++
 	}
 
-	if minPrice > 0 {
+	if minPriceCents > 0 {
 		searchQuery += fmt.Sprintf(" AND price >= $%d", paramCounter)
-		queryParams = append(queryParams, minPrice)
+		queryParams = append(queryParams, minPriceCents) // Use cents
 		paramCounter++
 	}
 
-	if maxPrice > 0 {
+	if maxPriceCents > 0 {
 		searchQuery += fmt.Sprintf(" AND price <= $%d", paramCounter)
-		queryParams = append(queryParams, maxPrice)
+		queryParams = append(queryParams, maxPriceCents) // Use cents
 		paramCounter++
 	}
 
@@ -349,7 +349,7 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPrice, maxP
 			&productNumber,
 			&product.Name,
 			&product.Description,
-			&product.Price,
+			&product.Price, // Reads int64 directly
 			&product.Stock,
 			&product.Weight,
 			&product.CategoryID,

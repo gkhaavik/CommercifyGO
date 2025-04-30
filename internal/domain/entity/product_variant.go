@@ -3,6 +3,8 @@ package entity
 import (
 	"errors"
 	"time"
+
+	"github.com/zenfulcode/commercify/internal/domain/money"
 )
 
 // VariantAttribute represents a single attribute of a product variant
@@ -16,8 +18,8 @@ type ProductVariant struct {
 	ID           uint               `json:"id"`
 	ProductID    uint               `json:"product_id"`
 	SKU          string             `json:"sku"`
-	Price        float64            `json:"price"`
-	ComparePrice float64            `json:"compare_price,omitempty"`
+	Price        int64              `json:"price"`                   // Stored as cents
+	ComparePrice int64              `json:"compare_price,omitempty"` // Stored as cents
 	Stock        int                `json:"stock"`
 	Weight       float64            `json:"weight"` // Weight in kg
 	Attributes   []VariantAttribute `json:"attributes"`
@@ -28,14 +30,14 @@ type ProductVariant struct {
 }
 
 // NewProductVariant creates a new product variant
-func NewProductVariant(productID uint, sku string, price float64, stock int, weight float64, attributes []VariantAttribute, images []string, isDefault bool) (*ProductVariant, error) {
+func NewProductVariant(productID uint, sku string, price int64, stock int, weight float64, attributes []VariantAttribute, images []string, isDefault bool) (*ProductVariant, error) {
 	if productID == 0 {
 		return nil, errors.New("product ID cannot be empty")
 	}
 	if sku == "" {
 		return nil, errors.New("SKU cannot be empty")
 	}
-	if price <= 0 {
+	if price <= 0 { // Check cents
 		return nil, errors.New("price must be greater than zero")
 	}
 	if stock < 0 {
@@ -52,7 +54,7 @@ func NewProductVariant(productID uint, sku string, price float64, stock int, wei
 	return &ProductVariant{
 		ProductID:  productID,
 		SKU:        sku,
-		Price:      price,
+		Price:      price, // Already in cents
 		Stock:      stock,
 		Weight:     weight,
 		Attributes: attributes,
@@ -63,9 +65,9 @@ func NewProductVariant(productID uint, sku string, price float64, stock int, wei
 	}, nil
 }
 
-// SetComparePrice sets the compare price for the variant
-func (v *ProductVariant) SetComparePrice(comparePrice float64) error {
-	if comparePrice <= 0 {
+// SetComparePrice sets the compare price for the variant (input in cents)
+func (v *ProductVariant) SetComparePrice(comparePrice int64) error {
+	if comparePrice <= 0 { // Check cents
 		return errors.New("compare price must be greater than zero")
 	}
 
@@ -97,4 +99,14 @@ func (v *ProductVariant) GetTotalWeight(quantity int) float64 {
 		return 0
 	}
 	return v.Weight * float64(quantity)
+}
+
+// GetPriceDollars returns the price in dollars
+func (v *ProductVariant) GetPriceDollars() float64 {
+	return money.FromCents(v.Price)
+}
+
+// GetComparePriceDollars returns the compare price in dollars
+func (v *ProductVariant) GetComparePriceDollars() float64 {
+	return money.FromCents(v.ComparePrice)
 }

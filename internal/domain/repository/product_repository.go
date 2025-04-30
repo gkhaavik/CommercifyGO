@@ -10,7 +10,8 @@ type ProductRepository interface {
 	Update(product *entity.Product) error
 	Delete(id uint) error
 	List(offset, limit int) ([]*entity.Product, error)
-	Search(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error)
+	// Search expects minPriceCents and maxPriceCents as int64 (cents)
+	Search(query string, categoryID uint, minPriceCents, maxPriceCents int64, offset, limit int) ([]*entity.Product, error)
 	GetBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error)
 }
 

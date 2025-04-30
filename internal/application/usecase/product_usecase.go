@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
@@ -27,11 +28,11 @@ func NewProductUseCase(
 	}
 }
 
-// CreateProductInput contains the data needed to create a product
+// CreateProductInput contains the data needed to create a product (prices in dollars)
 type CreateProductInput struct {
 	Name        string               `json:"name"`
 	Description string               `json:"description"`
-	Price       float64              `json:"price"`
+	Price       float64              `json:"price"` // Price in dollars
 	Stock       int                  `json:"stock"`
 	Weight      float64              `json:"weight"`
 	CategoryID  uint                 `json:"category_id"`
@@ -41,11 +42,11 @@ type CreateProductInput struct {
 	Variants    []CreateVariantInput `json:"variants"`
 }
 
-// CreateVariantInput contains the data needed to create a product variant
+// CreateVariantInput contains the data needed to create a product variant (prices in dollars)
 type CreateVariantInput struct {
 	SKU          string                    `json:"sku"`
-	Price        float64                   `json:"price"`
-	ComparePrice float64                   `json:"compare_price"`
+	Price        float64                   `json:"price"`         // Price in dollars
+	ComparePrice float64                   `json:"compare_price"` // Price in dollars
 	Stock        int                       `json:"stock"`
 	Weight       float64                   `json:"weight"`
 	Attributes   []entity.VariantAttribute `json:"attributes"`
@@ -61,13 +62,16 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 		return nil, errors.New("category not found")
 	}
 
+	// Convert price to cents
+	priceCents := money.ToCents(input.Price)
+
 	// Create product
 	product, err := entity.NewProduct(
 		input.Name,
 		input.Description,
-		input.Price,
+		priceCents, // Use cents
 		input.Stock,
-		input.Weight, // Added weight parameter
+		input.Weight,
 		input.CategoryID,
 		input.SellerID,
 		input.Images,
@@ -89,12 +93,16 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 		variants := make([]*entity.ProductVariant, 0, len(input.Variants))
 
 		for _, variantInput := range input.Variants {
+			// Convert variant prices to cents
+			variantPriceCents := money.ToCents(variantInput.Price)
+			variantComparePriceCents := money.ToCents(variantInput.ComparePrice)
+
 			variant, err := entity.NewProductVariant(
 				product.ID,
 				variantInput.SKU,
-				variantInput.Price,
+				variantPriceCents, // Use cents
 				variantInput.Stock,
-				variantInput.Weight, // Added weight parameter
+				variantInput.Weight,
 				variantInput.Attributes,
 				variantInput.Images,
 				variantInput.IsDefault,
@@ -104,7 +112,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 			}
 
 			if variantInput.ComparePrice > 0 {
-				if err := variant.SetComparePrice(variantInput.ComparePrice); err != nil {
+				if err := variant.SetComparePrice(variantComparePriceCents); err != nil { // Use cents
 					return nil, err
 				}
 			}
@@ -130,11 +138,11 @@ func (uc *ProductUseCase) GetProductByID(id uint) (*entity.Product, error) {
 	return uc.productRepo.GetByIDWithVariants(id)
 }
 
-// UpdateProductInput contains the data needed to update a product
+// UpdateProductInput contains the data needed to update a product (prices in dollars)
 type UpdateProductInput struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
-	Price       float64  `json:"price"`
+	Price       float64  `json:"price"` // Price in dollars
 	Stock       int      `json:"stock"`
 	CategoryID  uint     `json:"category_id"`
 	Images      []string `json:"images"`
@@ -170,7 +178,7 @@ func (uc *ProductUseCase) UpdateProduct(id uint, sellerID uint, input UpdateProd
 		product.Description = input.Description
 	}
 	if input.Price > 0 && !product.HasVariants {
-		product.Price = input.Price
+		product.Price = money.ToCents(input.Price) // Convert to cents
 	}
 	if input.Stock >= 0 && !product.HasVariants {
 		product.Stock = input.Stock
@@ -196,11 +204,11 @@ func (uc *ProductUseCase) UpdateProduct(id uint, sellerID uint, input UpdateProd
 	return product, nil
 }
 
-// UpdateVariantInput contains the data needed to update a product variant
+// UpdateVariantInput contains the data needed to update a product variant (prices in dollars)
 type UpdateVariantInput struct {
 	SKU          string                    `json:"sku"`
-	Price        float64                   `json:"price"`
-	ComparePrice float64                   `json:"compare_price"`
+	Price        float64                   `json:"price"`         // Price in dollars
+	ComparePrice float64                   `json:"compare_price"` // Price in dollars
 	Stock        int                       `json:"stock"`
 	Attributes   []entity.VariantAttribute `json:"attributes"`
 	Images       []string                  `json:"images"`
@@ -236,10 +244,10 @@ func (uc *ProductUseCase) UpdateVariant(productID uint, variantID uint, sellerID
 		variant.SKU = input.SKU
 	}
 	if input.Price > 0 {
-		variant.Price = input.Price
+		variant.Price = money.ToCents(input.Price) // Convert to cents
 	}
 	if input.ComparePrice > 0 {
-		variant.ComparePrice = input.ComparePrice
+		variant.ComparePrice = money.ToCents(input.ComparePrice) // Convert to cents
 	}
 	if input.Stock >= 0 {
 		variant.Stock = input.Stock
@@ -280,7 +288,7 @@ func (uc *ProductUseCase) UpdateVariant(productID uint, variantID uint, sellerID
 
 	// If this is the default variant, update the product price
 	if variant.IsDefault {
-		product.Price = variant.Price
+		product.Price = variant.Price // Already in cents
 		if err := uc.productRepo.Update(product); err != nil {
 			return nil, err
 		}
@@ -289,12 +297,12 @@ func (uc *ProductUseCase) UpdateVariant(productID uint, variantID uint, sellerID
 	return variant, nil
 }
 
-// AddVariantInput contains the data needed to add a variant to a product
+// AddVariantInput contains the data needed to add a variant to a product (prices in dollars)
 type AddVariantInput struct {
 	ProductID    uint                      `json:"product_id"`
 	SKU          string                    `json:"sku"`
-	Price        float64                   `json:"price"`
-	ComparePrice float64                   `json:"compare_price"`
+	Price        float64                   `json:"price"`         // Price in dollars
+	ComparePrice float64                   `json:"compare_price"` // Price in dollars
 	Stock        int                       `json:"stock"`
 	Weight       float64                   `json:"weight"`
 	Attributes   []entity.VariantAttribute `json:"attributes"`
@@ -315,13 +323,17 @@ func (uc *ProductUseCase) AddVariant(sellerID uint, input AddVariantInput) (*ent
 		return nil, errors.New("unauthorized: not the seller of this product")
 	}
 
+	// Convert prices to cents
+	priceCents := money.ToCents(input.Price)
+	comparePriceCents := money.ToCents(input.ComparePrice)
+
 	// Create variant
 	variant, err := entity.NewProductVariant(
 		input.ProductID,
 		input.SKU,
-		input.Price,
+		priceCents, // Use cents
 		input.Stock,
-		input.Weight, // Added weight parameter
+		input.Weight,
 		input.Attributes,
 		input.Images,
 		input.IsDefault,
@@ -331,7 +343,7 @@ func (uc *ProductUseCase) AddVariant(sellerID uint, input AddVariantInput) (*ent
 	}
 
 	if input.ComparePrice > 0 {
-		if err := variant.SetComparePrice(input.ComparePrice); err != nil {
+		if err := variant.SetComparePrice(comparePriceCents); err != nil { // Use cents
 			return nil, err
 		}
 	}
@@ -346,7 +358,7 @@ func (uc *ProductUseCase) AddVariant(sellerID uint, input AddVariantInput) (*ent
 
 		// If this is the default variant, update product price and weight
 		if input.IsDefault {
-			product.Price = input.Price
+			product.Price = priceCents    // Update product price with cents
 			product.Weight = input.Weight // Also update product weight from variant
 
 			// If there are other variants, unset their default status
@@ -458,23 +470,27 @@ func (uc *ProductUseCase) DeleteProduct(id uint, sellerID uint) error {
 	return uc.productRepo.Delete(id)
 }
 
-// SearchProductsInput contains the data needed to search for products
+// SearchProductsInput contains the data needed to search for products (prices in dollars)
 type SearchProductsInput struct {
 	Query      string  `json:"query"`
 	CategoryID uint    `json:"category_id"`
-	MinPrice   float64 `json:"min_price"`
-	MaxPrice   float64 `json:"max_price"`
+	MinPrice   float64 `json:"min_price"` // Price in dollars
+	MaxPrice   float64 `json:"max_price"` // Price in dollars
 	Offset     int     `json:"offset"`
 	Limit      int     `json:"limit"`
 }
 
 // SearchProducts searches for products based on criteria
 func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.Product, error) {
+	// Convert min/max prices to cents for repository search
+	minPriceCents := money.ToCents(input.MinPrice)
+	maxPriceCents := money.ToCents(input.MaxPrice)
+
 	return uc.productRepo.Search(
 		input.Query,
 		input.CategoryID,
-		input.MinPrice,
-		input.MaxPrice,
+		minPriceCents, // Pass cents
+		maxPriceCents, // Pass cents
 		input.Offset,
 		input.Limit,
 	)
