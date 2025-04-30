@@ -26,7 +26,7 @@ type ShippingRateRepository interface {
 	GetByID(id uint) (*entity.ShippingRate, error)
 	GetByMethodID(methodID uint) ([]*entity.ShippingRate, error)
 	GetByZoneID(zoneID uint) ([]*entity.ShippingRate, error)
-	GetAvailableRatesForAddress(address entity.Address, orderValue float64) ([]*entity.ShippingRate, error)
+	GetAvailableRatesForAddress(address entity.Address, orderValue int64) ([]*entity.ShippingRate, error)
 	CreateWeightBasedRate(weightRate *entity.WeightBasedRate) error
 	CreateValueBasedRate(valueRate *entity.ValueBasedRate) error
 	GetWeightBasedRates(rateID uint) ([]entity.WeightBasedRate, error)

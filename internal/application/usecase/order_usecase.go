@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 )
@@ -128,7 +129,7 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 			ProductID: cartItem.ProductID,
 			Quantity:  cartItem.Quantity,
 			Price:     product.Price,
-			Subtotal:  float64(cartItem.Quantity) * product.Price,
+			Subtotal:  int64(cartItem.Quantity) * product.Price,
 			Weight:    itemWeight,
 		}
 
@@ -255,7 +256,7 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 			ProductID: cartItem.ProductID,
 			Quantity:  cartItem.Quantity,
 			Price:     product.Price,
-			Subtotal:  float64(cartItem.Quantity) * product.Price,
+			Subtotal:  int64(cartItem.Quantity) * product.Price,
 			Weight:    itemWeight,
 		}
 
@@ -547,7 +548,7 @@ func (uc *OrderUseCase) ListOrdersByStatus(status entity.OrderStatus, offset, li
 }
 
 // CapturePayment captures an authorized payment
-func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) error {
+func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error {
 	// Find the order with this payment ID
 	order, err := uc.orderRepo.GetByPaymentID(transactionID)
 	if err != nil {
@@ -625,7 +626,7 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount float64) err
 			txn.AddMetadata("remaining_amount", "0")
 		} else {
 			remainingAmount := order.FinalAmount - amount
-			txn.AddMetadata("remaining_amount", fmt.Sprintf("%.2f", remainingAmount))
+			txn.AddMetadata("remaining_amount", fmt.Sprintf("%.2f", money.FromCents(remainingAmount)))
 		}
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
@@ -713,7 +714,7 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 }
 
 // RefundPayment refunds a payment
-func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) error {
+func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error {
 	// Find the order with this payment ID
 	order, err := uc.orderRepo.GetByPaymentID(transactionID)
 	if err != nil {
@@ -741,7 +742,7 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 	providerType := service.PaymentProviderType(order.PaymentProvider)
 
 	// Get total refunded amount so far (if any)
-	var totalRefundedSoFar float64 = 0
+	var totalRefundedSoFar int64 = 0
 	totalRefundedSoFar, _ = uc.paymentTxnRepo.SumAmountByOrderIDAndType(order.ID, entity.TransactionTypeRefund)
 
 	// Check if we're trying to refund more than the original amount when combining with previous refunds
@@ -803,11 +804,11 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount float64) erro
 
 		// Record total refunded amount including this transaction
 		totalRefunded := totalRefundedSoFar + amount
-		txn.AddMetadata("total_refunded", fmt.Sprintf("%.2f", totalRefunded))
+		txn.AddMetadata("total_refunded", fmt.Sprintf("%.2f", money.FromCents(totalRefunded)))
 
 		// Record remaining amount still available for refund
 		remainingAmount := max(order.FinalAmount-totalRefunded, 0)
-		txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", remainingAmount))
+		txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", money.FromCents(remainingAmount)))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
 			// Log error but don't fail the refund process
@@ -841,8 +842,8 @@ func (uc *OrderUseCase) GetShippingOptions(userID uint, sessionID string, shippi
 	}
 
 	// Calculate cart's total value and weight
-	totalValue := 0.0
-	totalWeight := 0.0
+	var totalValue int64
+	var totalWeight float64
 
 	for _, item := range cart.Items {
 		product, err := uc.productRepo.GetByID(item.ProductID)
@@ -850,7 +851,7 @@ func (uc *OrderUseCase) GetShippingOptions(userID uint, sessionID string, shippi
 			return nil, fmt.Errorf("product not found: ProductID=%d", item.ProductID)
 		}
 
-		totalValue += float64(item.Quantity) * product.Price
+		totalValue += int64(item.Quantity) * product.Price
 
 		// Calculate weight based on product or product variant
 		if product.HasVariants {

@@ -55,3 +55,8 @@ func FormatDollars(dollars float64, symbol string) string {
 func formatDollars(dollars float64) string {
 	return fmt.Sprintf("%.2f", dollars)
 }
+
+// ApplyPercentage applies a percentage to a cents value
+func ApplyPercentage(cents int64, percentage float64) int64 {
+	return ToCents(FromCents(cents) * percentage / 100)
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
@@ -60,7 +61,7 @@ func (h *PaymentHandler) CapturePayment(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Capture payment
-	err := h.orderUseCase.CapturePayment(paymentID, input.Amount)
+	err := h.orderUseCase.CapturePayment(paymentID, money.ToCents(input.Amount))
 	if err != nil {
 		h.logger.Error("Failed to capture payment: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -127,7 +128,7 @@ func (h *PaymentHandler) RefundPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Refund payment
-	err := h.orderUseCase.RefundPayment(paymentID, input.Amount)
+	err := h.orderUseCase.RefundPayment(paymentID, money.ToCents(input.Amount))
 	if err != nil {
 		h.logger.Error("Failed to refund payment: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)

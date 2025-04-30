@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
@@ -42,7 +43,7 @@ func (h *ShippingHandler) CalculateShippingOptions(w http.ResponseWriter, r *htt
 	// Calculate shipping options
 	options, err := h.shippingUseCase.CalculateShippingOptions(
 		requestBody.Address,
-		requestBody.OrderValue,
+		money.ToCents(requestBody.OrderValue),
 		requestBody.OrderWeight,
 	)
 	if err != nil {
@@ -399,7 +400,7 @@ func (h *ShippingHandler) GetShippingCost(w http.ResponseWriter, r *http.Request
 	// Calculate shipping cost
 	cost, err := h.shippingUseCase.GetShippingCost(
 		uint(id),
-		requestBody.OrderValue,
+		money.ToCents(requestBody.OrderValue),
 		requestBody.OrderWeight,
 	)
 	if err != nil {
@@ -410,7 +411,7 @@ func (h *ShippingHandler) GetShippingCost(w http.ResponseWriter, r *http.Request
 
 	// Return shipping cost
 	response := map[string]float64{
-		"cost": cost,
+		"cost": money.FromCents(cost),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

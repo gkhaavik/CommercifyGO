@@ -27,7 +27,7 @@ type Order struct {
 	OrderNumber     string
 	UserID          uint // 0 for guest orders
 	Items           []OrderItem
-	TotalAmount     float64
+	TotalAmount     int64 // stored in cents
 	Status          string
 	ShippingAddr    Address
 	BillingAddr     Address
@@ -48,12 +48,12 @@ type Order struct {
 	// Shipping information
 	ShippingMethodID uint            `json:"shipping_method_id,omitempty"`
 	ShippingMethod   *ShippingMethod `json:"shipping_method,omitempty"`
-	ShippingCost     float64         `json:"shipping_cost"`
+	ShippingCost     int64           `json:"shipping_cost"` // stored in cents
 	TotalWeight      float64         `json:"total_weight"`
 
 	// Discount-related fields
-	DiscountAmount  float64
-	FinalAmount     float64
+	DiscountAmount  int64 // stored in cents
+	FinalAmount     int64 // stored in cents
 	AppliedDiscount *AppliedDiscount
 }
 
@@ -63,9 +63,9 @@ type OrderItem struct {
 	OrderID   uint    `json:"order_id"`
 	ProductID uint    `json:"product_id"`
 	Quantity  int     `json:"quantity"`
-	Price     float64 `json:"price"`
-	Subtotal  float64 `json:"subtotal"`
-	Weight    float64 `json:"weight"` // Weight per item
+	Price     int64   `json:"price"`    // stored in cents
+	Subtotal  int64   `json:"subtotal"` // stored in cents
+	Weight    float64 `json:"weight"`   // Weight per item
 }
 
 // Address represents a shipping or billing address
@@ -86,7 +86,7 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		return nil, errors.New("order must have at least one item")
 	}
 
-	totalAmount := 0.0
+	var totalAmount int64
 	totalWeight := 0.0
 	for _, item := range items {
 		if item.Quantity <= 0 {
@@ -95,7 +95,7 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		if item.Price <= 0 {
 			return nil, errors.New("item price must be greater than zero")
 		}
-		item.Subtotal = float64(item.Quantity) * item.Price
+		item.Subtotal = int64(item.Quantity) * item.Price
 		totalAmount += item.Subtotal
 		totalWeight += item.Weight * float64(item.Quantity)
 	}
@@ -129,7 +129,7 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		return nil, errors.New("order must have at least one item")
 	}
 
-	totalAmount := 0.0
+	totalAmount := int64(0)
 	totalWeight := 0.0
 	for _, item := range items {
 		if item.Quantity <= 0 {
@@ -138,7 +138,7 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		if item.Price <= 0 {
 			return nil, errors.New("item price must be greater than zero")
 		}
-		item.Subtotal = float64(item.Quantity) * item.Price
+		item.Subtotal = int64(item.Quantity) * item.Price
 		totalAmount += item.Subtotal
 		totalWeight += item.Weight * float64(item.Quantity)
 	}
@@ -296,7 +296,7 @@ func (o *Order) SetActionURL(actionURL string) error {
 }
 
 // SetShippingMethod sets the shipping method for the order and updates shipping cost
-func (o *Order) SetShippingMethod(method *ShippingMethod, cost float64) error {
+func (o *Order) SetShippingMethod(method *ShippingMethod, cost int64) error {
 	if method == nil {
 		return errors.New("shipping method cannot be nil")
 	}

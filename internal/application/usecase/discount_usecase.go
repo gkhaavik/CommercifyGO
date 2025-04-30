@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
@@ -102,8 +103,8 @@ func (uc *DiscountUseCase) CreateDiscount(input CreateDiscountInput) (*entity.Di
 		discountType,
 		discountMethod,
 		input.Value,
-		input.MinOrderValue,
-		input.MaxDiscountValue,
+		money.ToCents(input.MinOrderValue),
+		money.ToCents(input.MaxDiscountValue),
 		input.ProductIDs,
 		input.CategoryIDs,
 		input.StartDate,
@@ -195,11 +196,11 @@ func (uc *DiscountUseCase) UpdateDiscount(id uint, input UpdateDiscountInput) (*
 	}
 
 	if input.MinOrderValue >= 0 {
-		discount.MinOrderValue = input.MinOrderValue
+		discount.MinOrderValue = money.ToCents(input.MinOrderValue)
 	}
 
 	if input.MaxDiscountValue >= 0 {
-		discount.MaxDiscountValue = input.MaxDiscountValue
+		discount.MaxDiscountValue = money.ToCents(input.MaxDiscountValue)
 	}
 
 	if len(input.ProductIDs) > 0 {
@@ -309,19 +310,20 @@ func (uc *DiscountUseCase) ApplyDiscountToOrder(input ApplyDiscountToOrderInput,
 		}
 
 		// Now calculate the discount based on eligible products
-		discountAmount := 0.0
+		var discountAmount int64
 
 		for _, item := range order.Items {
 			if eligibleProducts[item.ProductID] {
-				itemTotal := float64(item.Quantity) * item.Price
+				itemTotal := int64(item.Quantity) * item.Price
 
 				if discount.Method == entity.DiscountMethodFixed {
 					// Apply fixed discount per item
-					itemDiscount := min(discount.Value*float64(item.Quantity), itemTotal)
+					itemDiscount := min(money.ToCents(discount.Value)*int64(item.Quantity), itemTotal)
 					discountAmount += itemDiscount
 				} else if discount.Method == entity.DiscountMethodPercentage {
 					// Apply percentage discount to the item
-					itemDiscount := itemTotal * (discount.Value / 100)
+					// itemTotal * (discount.Value / 100)
+					itemDiscount := money.ApplyPercentage(itemTotal, discount.Value)
 					discountAmount += itemDiscount
 				}
 			}

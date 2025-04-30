@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/testutil/mock"
 )
 
@@ -50,7 +51,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.NotNil(t, product)
 		assert.Equal(t, input.Name, product.Name)
 		assert.Equal(t, input.Description, product.Description)
-		assert.Equal(t, input.Price, product.Price)
+		assert.Equal(t, money.ToCents(input.Price), product.Price)
 		assert.Equal(t, input.Stock, product.Stock)
 		assert.Equal(t, input.CategoryID, product.CategoryID)
 		assert.Equal(t, input.SellerID, product.SellerID)
@@ -124,7 +125,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.Equal(t, "SKU-1", product.Variants[0].SKU)
 		assert.Equal(t, true, product.Variants[0].IsDefault)
 		assert.Equal(t, "SKU-2", product.Variants[1].SKU)
-		assert.Equal(t, 129.99, product.Variants[1].ComparePrice)
+		assert.Equal(t, money.ToCents(129.99), product.Variants[1].ComparePrice)
 	})
 
 	t.Run("Create product with invalid category", func(t *testing.T) {
@@ -279,7 +280,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, input.Name, updatedProduct.Name)
 		assert.Equal(t, input.Description, updatedProduct.Description)
-		assert.Equal(t, input.Price, updatedProduct.Price)
+		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price)
 		assert.Equal(t, input.Stock, updatedProduct.Stock)
 		assert.Equal(t, input.CategoryID, updatedProduct.CategoryID)
 		assert.Equal(t, input.Images, updatedProduct.Images)
@@ -375,8 +376,8 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		assert.NotNil(t, variant)
 		assert.Equal(t, input.ProductID, variant.ProductID)
 		assert.Equal(t, input.SKU, variant.SKU)
-		assert.Equal(t, input.Price, variant.Price)
-		assert.Equal(t, input.ComparePrice, variant.ComparePrice)
+		assert.Equal(t, money.ToCents(input.Price), variant.Price)
+		assert.Equal(t, money.ToCents(input.ComparePrice), variant.ComparePrice)
 		assert.Equal(t, input.Stock, variant.Stock)
 		assert.Equal(t, input.Attributes, variant.Attributes)
 		assert.Equal(t, input.Images, variant.Images)
@@ -385,7 +386,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		// Check that product is updated
 		updatedProduct, _ := productRepo.GetByID(1)
 		assert.True(t, updatedProduct.HasVariants)
-		assert.Equal(t, input.Price, updatedProduct.Price) // Price should be updated from default variant
+		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price) // Price should be updated from default variant
 	})
 }
 
@@ -463,8 +464,8 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.Equal(t, input.SKU, updatedVariant.SKU)
-		assert.Equal(t, input.Price, updatedVariant.Price)
-		assert.Equal(t, input.ComparePrice, updatedVariant.ComparePrice)
+		assert.Equal(t, money.ToCents(input.Price), updatedVariant.Price)
+		assert.Equal(t, money.ToCents(input.ComparePrice), updatedVariant.ComparePrice)
 		assert.Equal(t, input.Stock, updatedVariant.Stock)
 		assert.Equal(t, input.Attributes, updatedVariant.Attributes)
 		assert.Equal(t, input.Images, updatedVariant.Images)
@@ -476,7 +477,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 
 		// Check that product price is updated
 		updatedProduct, _ := productRepo.GetByID(1)
-		assert.Equal(t, input.Price, updatedProduct.Price)
+		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price)
 	})
 }
 

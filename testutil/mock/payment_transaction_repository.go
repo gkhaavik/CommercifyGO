@@ -165,13 +165,13 @@ func (m *MockPaymentTransactionRepository) CountSuccessfulByOrderIDAndType(order
 }
 
 // SumAmountByOrderIDAndType sums the amount of transactions of a specific type for an order
-func (m *MockPaymentTransactionRepository) SumAmountByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (float64, error) {
+func (m *MockPaymentTransactionRepository) SumAmountByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (int64, error) {
 	transactions, ok := m.byOrderID[orderID]
 	if !ok {
 		return 0, nil
 	}
 
-	var total float64 = 0
+	var total int64
 	for _, tx := range transactions {
 		if tx.Type == transactionType && tx.Status == entity.TransactionStatusSuccessful {
 			total += tx.Amount

@@ -31,5 +31,5 @@ type PaymentTransactionRepository interface {
 	CountSuccessfulByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (int, error)
 
 	// SumAmountByOrderIDAndType sums the amount of transactions of a specific type for an order
-	SumAmountByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (float64, error)
+	SumAmountByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (int64, error)
 }

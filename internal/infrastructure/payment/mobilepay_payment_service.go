@@ -91,14 +91,11 @@ func (s *MobilePayPaymentService) ProcessPayment(request service.PaymentRequest)
 	// Generate a unique reference for this payment
 	reference := fmt.Sprintf("order-%d-%s", request.OrderID, uuid.New().String())
 
-	// Convert amount to smallest currency unit (øre/cents)
-	amountInSmallestUnit := int64(request.Amount * 100)
-
 	// Construct the payment request
 	paymentRequest := models.CreatePaymentRequest{
 		Amount: models.Amount{
 			Currency: "DKK",
-			Value:    int(amountInSmallestUnit),
+			Value:    int(request.Amount),
 		},
 		Customer: &models.Customer{
 			PhoneNumber: &phoneNumber,
@@ -153,19 +150,16 @@ func (s *MobilePayPaymentService) VerifyPayment(transactionID string, provider s
 }
 
 // RefundPayment refunds a payment
-func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	if provider != service.PaymentProviderMobilePay {
 		return errors.New("invalid payment provider")
 	}
-  
-	// Convert amount to smallest currency unit (øre/cents)
-	amountInSmallestUnit := int64(amount * 100)
 
 	// Prepare refund request
 	refundRequest := models.ModificationRequest{
 		ModificationAmount: models.Amount{
 			Currency: "DKK",
-			Value:    int(amountInSmallestUnit),
+			Value:    int(amount),
 		},
 	}
 
@@ -179,7 +173,7 @@ func (s *MobilePayPaymentService) RefundPayment(transactionID string, amount flo
 }
 
 // CapturePayment captures an authorized payment
-func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	if provider != service.PaymentProviderMobilePay {
 		return errors.New("invalid payment provider")
 	}
@@ -188,14 +182,11 @@ func (s *MobilePayPaymentService) CapturePayment(transactionID string, amount fl
 		return errors.New("transaction ID is required")
 	}
 
-	// Convert amount to smallest currency unit (øre/cents)
-	amountInSmallestUnit := int64(amount * 100)
-
 	// Prepare capture request
 	captureRequest := models.ModificationRequest{
 		ModificationAmount: models.Amount{
 			Currency: "DKK",
-			Value:    int(amountInSmallestUnit),
+			Value:    int(amount),
 		},
 	}
 

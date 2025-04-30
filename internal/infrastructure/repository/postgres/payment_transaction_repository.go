@@ -352,14 +352,14 @@ func (r *paymentTransactionRepository) CountSuccessfulByOrderIDAndType(orderID u
 }
 
 // SumAmountByOrderIDAndType sums the amount of transactions of a specific type for an order
-func (r *paymentTransactionRepository) SumAmountByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (float64, error) {
+func (r *paymentTransactionRepository) SumAmountByOrderIDAndType(orderID uint, transactionType entity.TransactionType) (int64, error) {
 	query := `
 		SELECT COALESCE(SUM(amount), 0)
 		FROM payment_transactions
 		WHERE order_id = $1 AND type = $2 AND status = $3
 	`
 
-	var total float64
+	var total int64
 	err := r.db.QueryRow(query, orderID, string(transactionType), string(entity.TransactionStatusSuccessful)).Scan(&total)
 	if err != nil {
 		return 0, fmt.Errorf("failed to sum transaction amounts: %w", err)

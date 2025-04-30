@@ -176,7 +176,7 @@ func (s *StripePaymentService) VerifyPayment(transactionID string, provider serv
 }
 
 // RefundPayment refunds a payment
-func (s *StripePaymentService) RefundPayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *StripePaymentService) RefundPayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	if transactionID == "" {
 		return errors.New("transaction ID is required")
 	}
@@ -204,7 +204,7 @@ func (s *StripePaymentService) RefundPayment(transactionID string, amount float6
 }
 
 // CapturePayment captures a payment
-func (s *StripePaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *StripePaymentService) CapturePayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	if transactionID == "" {
 		return errors.New("transaction ID is required")
 	}

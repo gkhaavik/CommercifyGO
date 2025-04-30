@@ -117,7 +117,7 @@ func (s *MockPaymentService) VerifyPayment(transactionID string, provider servic
 }
 
 // RefundPayment refunds a payment
-func (s *MockPaymentService) RefundPayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *MockPaymentService) RefundPayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	if transactionID == "" {
 		return errors.New("transaction ID is required")
 	}
@@ -133,7 +133,7 @@ func (s *MockPaymentService) RefundPayment(transactionID string, amount float64,
 }
 
 // CapturePayment captures a payment
-func (s *MockPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *MockPaymentService) CapturePayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	if transactionID == "" {
 		return errors.New("transaction ID is required")
 	}
