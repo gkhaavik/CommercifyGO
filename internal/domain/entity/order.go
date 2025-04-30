@@ -255,21 +255,15 @@ func (o *Order) ApplyDiscount(discount *Discount) error {
 		return errors.New("discount is invalid or inactive")
 	}
 
-	// Calculate discount amount based on type
-	discountAmount := 0.0
-
-	switch discount.Method {
-	case DiscountMethodPercentage:
-		discountAmount = o.TotalAmount * (discount.Value / 100.0)
-	case DiscountMethodFixed:
-		discountAmount = min(discount.Value, o.TotalAmount)
-	default:
-		return errors.New("unsupported discount type")
+	// Use the Discount entity's CalculateDiscount method to calculate the discount amount
+	discountAmount := discount.CalculateDiscount(o)
+	if discountAmount <= 0 {
+		return errors.New("discount is not applicable to this order")
 	}
 
-	// Apply discount
+	// Apply the calculated discount
 	o.DiscountAmount = discountAmount
-	o.FinalAmount -= discountAmount + o.ShippingCost
+	o.FinalAmount = o.TotalAmount + o.ShippingCost - discountAmount
 
 	// Record the applied discount
 	o.AppliedDiscount = &AppliedDiscount{

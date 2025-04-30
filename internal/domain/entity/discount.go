@@ -167,8 +167,9 @@ func (d *Discount) CalculateDiscount(order *Order) float64 {
 			if isEligible {
 				itemTotal := float64(item.Quantity) * item.Price
 				if d.Method == DiscountMethodFixed {
-					// Apply fixed discount per item
-					itemDiscount := min(d.Value*float64(item.Quantity), itemTotal)
+					// For fixed discount, apply once per item (not per quantity)
+					// This matches with the current implementation in ApplyDiscountToOrder
+					itemDiscount := min(d.Value, itemTotal)
 					discountAmount += itemDiscount
 				} else if d.Method == DiscountMethodPercentage {
 					itemDiscount := itemTotal * (d.Value / 100)
