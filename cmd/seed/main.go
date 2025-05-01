@@ -1950,15 +1950,18 @@ func seedPaymentTransactions(db *sql.DB) error {
 
 	// Transaction statuses by provider
 	statuses := map[string][]string{
-		"stripe":    {"succeeded", "processing", "failed"},
-		"paypal":    {"COMPLETED", "PENDING", "FAILED"},
-		"mobilepay": {"captured", "reserved", "rejected"},
-		"mock":      {"success", "processing", "error"},
+		"stripe":    {"successful", "pending", "failed"},
+		"paypal":    {"successful", "pending", "failed"},
+		"mobilepay": {"successful", "pending", "failed"},
+		"mock":      {"successful", "pending", "failed"},
 	}
+
+	// Transaction types
+	transactionTypes := []string{"authorize", "capture", "refund"}
 
 	// Create payment transactions
 	for i, order := range orders {
-		// Set transaction status (mostly succeeded, with a few failures for testing)
+		// Set transaction status (mostly successful, with a few failures for testing)
 		statusList := statuses[order.paymentProvider]
 		if statusList == nil {
 			statusList = statuses["mock"] // Fallback to mock statuses
@@ -1971,61 +1974,8 @@ func seedPaymentTransactions(db *sql.DB) error {
 			status = statusList[i%len(statusList)] // Mix of statuses for the last few
 		}
 
-		// Create payment transaction data
-		reference := fmt.Sprintf("tx_%s_%d", now.Format("20060102"), i+1)
-		gatewayTransactionID := fmt.Sprintf("gw_%s_%s_%d", order.paymentProvider, now.Format("20060102"), i+1)
-
-		// Generate custom provider data based on the payment provider
-		var providerData map[string]interface{}
-		switch order.paymentProvider {
-		case "stripe":
-			providerData = map[string]interface{}{
-				"charge_id":            fmt.Sprintf("ch_%s", reference),
-				"payment_method":       "card",
-				"card_last4":           fmt.Sprintf("%04d", 1000+i),
-				"card_brand":           []string{"visa", "mastercard", "amex"}[i%3],
-				"receipt_url":          fmt.Sprintf("https://dashboard.stripe.com/receipts/%s", reference),
-				"statement_descriptor": "COMMERCIFY",
-			}
-		case "paypal":
-			providerData = map[string]interface{}{
-				"payer_id":        fmt.Sprintf("PAYERID%d", i),
-				"payer_email":     fmt.Sprintf("customer%d@example.com", i),
-				"payment_method":  "paypal",
-				"transaction_fee": fmt.Sprintf("%.2f", float64(order.totalAmount)*0.029/100+0.30),
-				"invoice_id":      order.orderNumber,
-			}
-		case "mobilepay":
-			providerData = map[string]interface{}{
-				"payment_point_id": "MPMERCHANT123",
-				"payment_point":    "Commercify Store",
-				"reference_text":   order.orderNumber,
-				"user_phone":       fmt.Sprintf("+479%07d", 1000000+i),
-			}
-		default: // mock
-			providerData = map[string]interface{}{
-				"test_mode":      true,
-				"transaction_id": reference,
-				"processor":      "MockPayment",
-			}
-		}
-
-		// Convert provider data to JSON
-		providerDataJSON, err := json.Marshal(providerData)
-		if err != nil {
-			return err
-		}
-
-		// Transaction creation time (slightly before the order for successful payments)
-		createdAt := now.Add(time.Duration(-24*(i+1)) * time.Hour)
-
-		// For successful payments, set the successful time; for others, use nil
-		var succeededAt *time.Time
-		if status == statuses[order.paymentProvider][0] ||
-			(order.paymentProvider == "mock" && status == "success") {
-			successTime := createdAt.Add(2 * time.Minute)
-			succeededAt = &successTime
-		}
+		// Determine transaction type based on index
+		transactionType := transactionTypes[i%len(transactionTypes)]
 
 		// Generate metadata
 		metadata := map[string]interface{}{
@@ -2039,28 +1989,24 @@ func seedPaymentTransactions(db *sql.DB) error {
 			return err
 		}
 
-		// Insert payment transaction
+		// Insert payment transaction using the correct column names from the schema
 		_, err = db.Exec(`
 			INSERT INTO payment_transactions (
-				order_id, payment_provider, reference, amount, currency, status,
-				gateway_transaction_id, provider_data, metadata,
-				created_at, updated_at, succeeded_at
+				order_id, transaction_id, type, status, amount, currency, provider,
+				metadata, created_at, updated_at
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-			ON CONFLICT (reference) DO NOTHING
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		`,
 			order.id,
-			order.paymentProvider,
-			reference,
+			order.paymentID,
+			transactionType,
+			status,
 			order.totalAmount,
 			"USD", // Default currency
-			status,
-			gatewayTransactionID,
-			providerDataJSON,
+			order.paymentProvider,
 			metadataJSON,
-			createdAt,
-			createdAt,
-			succeededAt,
+			now,
+			now,
 		)
 
 		if err != nil {
