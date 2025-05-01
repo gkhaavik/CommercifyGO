@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -22,8 +23,13 @@ func main() {
 	usersFlag := flag.Bool("users", false, "Seed users data")
 	categoriesFlag := flag.Bool("categories", false, "Seed categories data")
 	productsFlag := flag.Bool("products", false, "Seed products data")
+	productVariantsFlag := flag.Bool("product-variants", false, "Seed product variants data")
 	discountsFlag := flag.Bool("discounts", false, "Seed discounts data")
 	ordersFlag := flag.Bool("orders", false, "Seed orders data")
+	cartsFlag := flag.Bool("carts", false, "Seed carts data")
+	webhooksFlag := flag.Bool("webhooks", false, "Seed webhooks data")
+	paymentTransactionsFlag := flag.Bool("payment-transactions", false, "Seed payment transactions data")
+	shippingFlag := flag.Bool("shipping", false, "Seed shipping data (methods, zones, rates)")
 	clearFlag := flag.Bool("clear", false, "Clear all data before seeding")
 	flag.Parse()
 
@@ -75,11 +81,56 @@ func main() {
 		fmt.Println("Products seeded successfully")
 	}
 
+	if *allFlag || *productVariantsFlag {
+		if err := seedProductVariants(db); err != nil {
+			log.Fatalf("Failed to seed product variants: %v", err)
+		}
+		fmt.Println("Product variants seeded successfully")
+	}
+
 	if *allFlag || *discountsFlag {
 		if err := seedDiscounts(db); err != nil {
 			log.Fatalf("Failed to seed discounts: %v", err)
 		}
 		fmt.Println("Discounts seeded successfully")
+	}
+
+	if *allFlag || *shippingFlag {
+		if err := seedShippingMethods(db); err != nil {
+			log.Fatalf("Failed to seed shipping methods: %v", err)
+		}
+		fmt.Println("Shipping methods seeded successfully")
+
+		if err := seedShippingZones(db); err != nil {
+			log.Fatalf("Failed to seed shipping zones: %v", err)
+		}
+		fmt.Println("Shipping zones seeded successfully")
+
+		if err := seedShippingRates(db); err != nil {
+			log.Fatalf("Failed to seed shipping rates: %v", err)
+		}
+		fmt.Println("Shipping rates seeded successfully")
+	}
+
+	if *allFlag || *webhooksFlag {
+		if err := seedWebhooks(db); err != nil {
+			log.Fatalf("Failed to seed webhooks: %v", err)
+		}
+		fmt.Println("Webhooks seeded successfully")
+	}
+
+	// if *allFlag || *cartsFlag {
+	// 	if err := seedCarts(db); err != nil {
+	// 		log.Fatalf("Failed to seed carts: %v", err)
+	// 	}
+	// 	fmt.Println("Carts seeded successfully")
+	// }
+
+	if *allFlag || *paymentTransactionsFlag {
+		if err := seedPaymentTransactions(db); err != nil {
+			log.Fatalf("Failed to seed payment transactions: %v", err)
+		}
+		fmt.Println("Payment transactions seeded successfully")
 	}
 
 	if *allFlag || *ordersFlag {
@@ -89,7 +140,9 @@ func main() {
 		fmt.Println("Orders seeded successfully")
 	}
 
-	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*ordersFlag && !*clearFlag && !*discountsFlag {
+	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*productVariantsFlag &&
+		!*ordersFlag && !*clearFlag && !*discountsFlag && !*cartsFlag && !*webhooksFlag &&
+		!*paymentTransactionsFlag && !*shippingFlag {
 		fmt.Println("No action specified")
 		fmt.Println("\nUsage:")
 		flag.PrintDefaults()
@@ -421,13 +474,441 @@ func seedProducts(db *sql.DB) error {
 		}
 		// Generate product number
 		productNumber := fmt.Sprintf("PROD-%06d", i+1)
-		_, err := db.Exec(
-			`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at, product_number)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-			product.name, product.description, money.ToCents(product.price), product.stock, categoryID, sellerID, product.images, now, now, productNumber,
-		)
+
+		// Check if product with this product_number already exists
+		var exists bool
+		err := db.QueryRow(
+			`SELECT EXISTS(SELECT 1 FROM products WHERE product_number = $1)`,
+			productNumber,
+		).Scan(&exists)
+
 		if err != nil {
 			return err
+		}
+
+		// Only insert if product doesn't exist
+		if !exists {
+			_, err := db.Exec(
+				`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at, product_number)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+				product.name, product.description, money.ToCents(product.price), product.stock, categoryID, sellerID, product.images, now, now, productNumber,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	fmt.Printf("Seeded products successfully\n")
+	return nil
+}
+
+// seedProductVariants seeds product variant data
+func seedProductVariants(db *sql.DB) error {
+	// Get product IDs
+	rows, err := db.Query("SELECT id, name FROM products LIMIT 8")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type productInfo struct {
+		id   int
+		name string
+	}
+
+	var products []productInfo
+	for rows.Next() {
+		var p productInfo
+		if err := rows.Scan(&p.id, &p.name); err != nil {
+			return err
+		}
+		products = append(products, p)
+	}
+
+	if len(products) == 0 {
+		return fmt.Errorf("no products found to create variants for")
+	}
+
+	now := time.Now()
+
+	// Sample attributes for different product types
+	colorOptions := []string{"Black", "White", "Red", "Blue", "Green"}
+	sizeOptions := []string{"XS", "S", "M", "L", "XL", "XXL"}
+	capacityOptions := []string{"64GB", "128GB", "256GB", "512GB", "1TB"}
+	materialOptions := []string{"Cotton", "Polyester", "Leather", "Wool", "Silk"}
+
+	for _, product := range products {
+		var variants []struct {
+			sku          string
+			price        float64
+			comparePrice float64
+			stock        int
+			attributes   map[string]string
+			isDefault    bool
+			productID    int
+			images       string
+		}
+
+		// Create different variants based on product type
+		if product.name == "iPhone 13" || product.name == "Samsung Galaxy S21" {
+			// Phone variants with different colors and capacities
+			for i, color := range colorOptions[:3] {
+				for j, capacity := range capacityOptions[:3] {
+					isDefault := (i == 0 && j == 0)
+					priceAdjustment := float64(j) * 100.0 // Higher capacity costs more
+					basePrice := 999.99 + priceAdjustment
+					comparePrice := basePrice + 100.0 // Original price before discount
+
+					variants = append(variants, struct {
+						sku          string
+						price        float64
+						comparePrice float64
+						stock        int
+						attributes   map[string]string
+						isDefault    bool
+						productID    int
+						images       string
+					}{
+						sku:          fmt.Sprintf("%s-%s-%s", product.name[:3], color[:1], capacity[:3]),
+						price:        basePrice,
+						comparePrice: comparePrice,
+						stock:        50 - (i * 10) - (j * 5),
+						attributes:   map[string]string{"color": color, "capacity": capacity, "title": fmt.Sprintf("%s - %s, %s", product.name, color, capacity)},
+						isDefault:    isDefault,
+						productID:    product.id,
+						images:       fmt.Sprintf(`["%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
+					})
+				}
+			}
+		} else if product.name == "Men's Casual Shirt" || product.name == "Women's Summer Dress" {
+			// Clothing variants with different colors and sizes
+			for i, color := range colorOptions {
+				for j, size := range sizeOptions {
+					// Skip some combinations to avoid too many variants
+					if i > 3 || j > 4 {
+						continue
+					}
+
+					isDefault := (i == 0 && j == 2) // M size in first color is default
+					basePrice := 39.99
+					comparePrice := 49.99 // Original price before discount
+
+					variants = append(variants, struct {
+						sku          string
+						price        float64
+						comparePrice float64
+						stock        int
+						attributes   map[string]string
+						isDefault    bool
+						productID    int
+						images       string
+					}{
+						sku:          fmt.Sprintf("%s-%s-%s", strings.ReplaceAll(product.name, "'s", ""), color[:1], size),
+						price:        basePrice,
+						comparePrice: comparePrice,
+						stock:        20 - (i * 2) - (j * 1),
+						attributes: map[string]string{
+							"color":       color,
+							"size":        size,
+							"material":    materialOptions[i%len(materialOptions)],
+							"title":       fmt.Sprintf("%s - %s, Size %s", product.name, color, size),
+							"description": fmt.Sprintf("%s in %s, Size %s", product.name, color, size),
+						},
+						isDefault: isDefault,
+						productID: product.id,
+						images:    fmt.Sprintf(`["%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
+					})
+				}
+			}
+		} else if product.name == "MacBook Pro" || product.name == "Dell XPS 13" {
+			// Laptop variants with different specs
+			ramOptions := []string{"8GB", "16GB", "32GB"}
+			storageOptions := []string{"256GB", "512GB", "1TB"}
+
+			for i, ram := range ramOptions {
+				for j, storage := range storageOptions {
+					isDefault := (i == 1 && j == 1)                        // 16GB RAM, 512GB storage is default
+					priceAdjustment := float64(i)*200.0 + float64(j)*150.0 // Higher specs cost more
+					basePrice := 1299.99 + priceAdjustment
+					comparePrice := basePrice + 200.0 // Original price before discount
+
+					variants = append(variants, struct {
+						sku          string
+						price        float64
+						comparePrice float64
+						stock        int
+						attributes   map[string]string
+						isDefault    bool
+						productID    int
+						images       string
+					}{
+						sku:          fmt.Sprintf("%s-%s-%s", strings.ReplaceAll(product.name, " ", "")[:3], ram[:2], storage[:3]),
+						price:        basePrice,
+						comparePrice: comparePrice,
+						stock:        15 - (i * 3) - (j * 2),
+						attributes: map[string]string{
+							"ram":         ram,
+							"storage":     storage,
+							"title":       fmt.Sprintf("%s - %s RAM, %s Storage", product.name, ram, storage),
+							"description": fmt.Sprintf("%s with %s RAM and %s storage", product.name, ram, storage),
+						},
+						isDefault: isDefault,
+						productID: product.id,
+						images:    fmt.Sprintf(`["%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", ""))),
+					})
+				}
+			}
+		}
+
+		// Insert variants for this product
+		for _, variant := range variants {
+			// Check if variant with this SKU already exists
+			var exists bool
+			err := db.QueryRow(
+				`SELECT EXISTS(SELECT 1 FROM product_variants WHERE sku = $1)`,
+				variant.sku,
+			).Scan(&exists)
+
+			if err != nil {
+				return err
+			}
+
+			// Only insert if variant doesn't exist
+			if !exists {
+				attributesJSON, err := json.Marshal(variant.attributes)
+				if err != nil {
+					return err
+				}
+
+				// Set has_variants=true for the parent product
+				_, err = db.Exec(
+					`UPDATE products SET has_variants = true WHERE id = $1`,
+					variant.productID,
+				)
+				if err != nil {
+					return err
+				}
+
+				var comparePrice *int64
+				if variant.comparePrice > 0 {
+					cp := money.ToCents(variant.comparePrice)
+					comparePrice = &cp
+				}
+
+				// Insert product variant
+				_, err = db.Exec(
+					`INSERT INTO product_variants (
+						sku, price, compare_price, stock, attributes, is_default, product_id, 
+						images, created_at, updated_at
+					)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+					variant.sku,
+					money.ToCents(variant.price),
+					comparePrice,
+					variant.stock,
+					attributesJSON,
+					variant.isDefault,
+					variant.productID,
+					variant.images,
+					now,
+					now,
+				)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// Notify that variants were created for this product
+		fmt.Printf("Created %d variants for product: %s\n", len(variants), product.name)
+	}
+
+	return nil
+}
+
+// seedCarts seeds cart data
+func seedCarts(db *sql.DB) error {
+	// Get user IDs
+	userRows, err := db.Query("SELECT id FROM users WHERE role = 'user' OR role = 'admin' LIMIT 5")
+	if err != nil {
+		return err
+	}
+	defer userRows.Close()
+
+	var userIDs []int
+	for userRows.Next() {
+		var id int
+		if err := userRows.Scan(&id); err != nil {
+			return err
+		}
+		userIDs = append(userIDs, id)
+	}
+
+	if len(userIDs) == 0 {
+		return fmt.Errorf("no users found to create carts for")
+	}
+
+	// Get product data
+	productRows, err := db.Query("SELECT id, price FROM products LIMIT 10")
+	if err != nil {
+		return err
+	}
+	defer productRows.Close()
+
+	type productInfo struct {
+		id    int
+		price int64
+	}
+
+	var products []productInfo
+	for productRows.Next() {
+		var p productInfo
+		if err := productRows.Scan(&p.id, &p.price); err != nil {
+			return err
+		}
+		products = append(products, p)
+	}
+
+	if len(products) == 0 {
+		return fmt.Errorf("no products found to add to carts")
+	}
+
+	// Get product variant data if available
+	variantRows, err := db.Query("SELECT id, product_id, price FROM product_variants LIMIT 10")
+	var variants []struct {
+		id        int
+		productID int
+		price     int64
+	}
+
+	if err == nil {
+		defer variantRows.Close()
+		for variantRows.Next() {
+			var v struct {
+				id        int
+				productID int
+				price     int64
+			}
+			if err := variantRows.Scan(&v.id, &v.productID, &v.price); err != nil {
+				return err
+			}
+			variants = append(variants, v)
+		}
+	}
+
+	now := time.Now()
+
+	// Create carts with some anonymous carts (no user_id)
+	for i := 0; i < 8; i++ {
+		// Create 3 carts with users, 5 anonymous carts
+		var userID *int
+		if i < 3 && len(userIDs) > i {
+			userID = &userIDs[i]
+		}
+
+		// Generate session_id for carts without users
+		var sessionID *string
+		if userID == nil {
+			token := fmt.Sprintf("guest-session-%s-%d", time.Now().Format("20060102"), i)
+			sessionID = &token
+		}
+
+		// Start a transaction for this cart
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+
+		// Insert cart
+		var cartID int
+		err = tx.QueryRow(`
+			INSERT INTO carts (
+				user_id, session_id, created_at, updated_at
+			)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`,
+			userID,
+			sessionID,
+			now,
+			now,
+		).Scan(&cartID)
+
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Add 1-4 random products to cart
+		numItems := (i % 4) + 1
+
+		// Use variants if available, otherwise use products
+		if len(variants) > 0 {
+			for j := 0; j < numItems; j++ {
+				// Select variant
+				variant := variants[(i+j)%len(variants)]
+
+				// Random quantity between 1 and 3
+				quantity := (j % 3) + 1
+
+				_, err = tx.Exec(`
+					INSERT INTO cart_items (
+						cart_id, product_id, product_variant_id, quantity, created_at, updated_at
+					)
+					VALUES ($1, $2, $3, $4, $5, $6)
+				`,
+					cartID,
+					variant.productID,
+					variant.id,
+					quantity,
+					now,
+					now,
+				)
+
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		} else {
+			for j := 0; j < numItems; j++ {
+				// Select product
+				product := products[(i+j)%len(products)]
+
+				// Random quantity between 1 and 3
+				quantity := (j % 3) + 1
+
+				_, err = tx.Exec(`
+					INSERT INTO cart_items (
+						cart_id, product_id, quantity, created_at, updated_at
+					)
+					VALUES ($1, $2, $3, $4, $5)
+				`,
+					cartID,
+					product.id,
+					quantity,
+					now,
+					now,
+				)
+
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+
+		// Commit transaction
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+
+		// Log the cart creation
+		if userID != nil {
+			fmt.Printf("Created cart #%d for user ID %d with %d items\n", cartID, *userID, numItems)
+		} else {
+			fmt.Printf("Created guest cart #%d with session ID %s with %d items\n", cartID, *sessionID, numItems)
 		}
 	}
 
@@ -916,5 +1397,623 @@ func seedDiscounts(db *sql.DB) error {
 	}
 
 	fmt.Printf("Seeded %d discounts\n", len(discounts))
+	return nil
+}
+
+// seedShippingMethods seeds shipping method data
+func seedShippingMethods(db *sql.DB) error {
+	now := time.Now()
+
+	// Insert shipping methods
+	methods := []struct {
+		name                  string
+		description           string
+		active                bool
+		estimatedDeliveryDays int
+	}{
+		{
+			name:                  "Standard Shipping",
+			description:           "Standard delivery - 3-5 business days",
+			active:                true,
+			estimatedDeliveryDays: 4, // average of 3-5 days
+		},
+		{
+			name:                  "Express Shipping",
+			description:           "Express delivery - 1-2 business days",
+			active:                true,
+			estimatedDeliveryDays: 1, // minimum delivery time
+		},
+		{
+			name:                  "Next Day Delivery",
+			description:           "Next business day delivery (order by 2pm)",
+			active:                true,
+			estimatedDeliveryDays: 1,
+		},
+		{
+			name:                  "Economy Shipping",
+			description:           "Budget-friendly shipping - 5-8 business days",
+			active:                true,
+			estimatedDeliveryDays: 7, // average of 5-8 days
+		},
+		{
+			name:                  "International Shipping",
+			description:           "International delivery - 7-14 business days",
+			active:                true,
+			estimatedDeliveryDays: 10, // average of 7-14 days
+		},
+	}
+
+	for _, method := range methods {
+		// Check if the shipping method already exists
+		var exists bool
+		err := db.QueryRow(
+			`SELECT EXISTS(SELECT 1 FROM shipping_methods WHERE name = $1)`,
+			method.name,
+		).Scan(&exists)
+
+		if err != nil {
+			return err
+		}
+
+		// Only insert if the shipping method doesn't exist
+		if !exists {
+			_, err := db.Exec(
+				`INSERT INTO shipping_methods (
+					name, description, active, estimated_delivery_days, created_at, updated_at
+				)
+				VALUES ($1, $2, $3, $4, $5, $6)`,
+				method.name,
+				method.description,
+				method.active,
+				method.estimatedDeliveryDays,
+				now,
+				now,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	fmt.Printf("Seeded %d shipping methods\n", len(methods))
+	return nil
+}
+
+// seedShippingZones seeds shipping zone data
+func seedShippingZones(db *sql.DB) error {
+	now := time.Now()
+
+	// Insert shipping zones
+	zones := []struct {
+		name        string
+		description string
+		countries   []string
+		active      bool
+	}{
+		{
+			name:        "Domestic",
+			description: "Shipping within the United States",
+			countries:   []string{"USA"},
+			active:      true,
+		},
+		{
+			name:        "North America",
+			description: "Shipping to North American countries",
+			countries:   []string{"USA", "CAN", "MEX"},
+			active:      true,
+		},
+		{
+			name:        "Europe",
+			description: "Shipping to European countries",
+			countries:   []string{"GBR", "DEU", "FRA", "ESP", "ITA", "NLD", "SWE", "NOR", "DNK", "FIN"},
+			active:      true,
+		},
+		{
+			name:        "Asia Pacific",
+			description: "Shipping to Asia-Pacific countries",
+			countries:   []string{"JPN", "CHN", "KOR", "AUS", "NZL", "SGP", "THA", "IDN"},
+			active:      true,
+		},
+		{
+			name:        "Rest of World",
+			description: "Shipping to all other countries",
+			countries:   []string{"*"},
+			active:      true,
+		},
+	}
+
+	for _, zone := range zones {
+		// Check if the shipping zone already exists
+		var exists bool
+		err := db.QueryRow(
+			`SELECT EXISTS(SELECT 1 FROM shipping_zones WHERE name = $1)`,
+			zone.name,
+		).Scan(&exists)
+
+		if err != nil {
+			return err
+		}
+
+		// Only insert if the shipping zone doesn't exist
+		if !exists {
+			countriesJSON, err := json.Marshal(zone.countries)
+			if err != nil {
+				return err
+			}
+
+			_, err = db.Exec(
+				`INSERT INTO shipping_zones (
+					name, description, countries, active, created_at, updated_at
+				)
+				VALUES ($1, $2, $3, $4, $5, $6)`,
+				zone.name,
+				zone.description,
+				countriesJSON,
+				zone.active,
+				now,
+				now,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	fmt.Printf("Seeded %d shipping zones\n", len(zones))
+	return nil
+}
+
+// seedShippingRates seeds shipping rate data
+func seedShippingRates(db *sql.DB) error {
+	// Get shipping method IDs
+	methodRows, err := db.Query("SELECT id, name FROM shipping_methods")
+	if err != nil {
+		return err
+	}
+	defer methodRows.Close()
+
+	methodIDs := make(map[string]int)
+	for methodRows.Next() {
+		var id int
+		var name string
+		if err := methodRows.Scan(&id, &name); err != nil {
+			return err
+		}
+		methodIDs[name] = id
+	}
+
+	// Get shipping zone IDs
+	zoneRows, err := db.Query("SELECT id, name FROM shipping_zones")
+	if err != nil {
+		return err
+	}
+	defer zoneRows.Close()
+
+	zoneIDs := make(map[string]int)
+	for zoneRows.Next() {
+		var id int
+		var name string
+		if err := zoneRows.Scan(&id, &name); err != nil {
+			return err
+		}
+		zoneIDs[name] = id
+	}
+
+	now := time.Now()
+
+	// Insert base shipping rates
+	baseRates := []struct {
+		displayName           string // For logging only, not stored in DB
+		methodName            string
+		zoneName              string
+		baseRate              float64
+		minOrderValue         float64
+		freeShippingThreshold *float64
+		active                bool
+		rateType              string
+	}{
+		{
+			displayName:           "Domestic Standard",
+			methodName:            "Standard Shipping",
+			zoneName:              "Domestic",
+			baseRate:              5.99,
+			minOrderValue:         0,
+			freeShippingThreshold: nil,
+			active:                true,
+			rateType:              "flat",
+		},
+		{
+			displayName:           "Domestic Express",
+			methodName:            "Express Shipping",
+			zoneName:              "Domestic",
+			baseRate:              12.99,
+			minOrderValue:         0,
+			freeShippingThreshold: &[]float64{75.0}[0], // Free shipping over $75
+			active:                true,
+			rateType:              "flat",
+		},
+		{
+			displayName:           "North America Standard",
+			methodName:            "Standard Shipping",
+			zoneName:              "North America",
+			baseRate:              15.99,
+			minOrderValue:         0,
+			freeShippingThreshold: &[]float64{100.0}[0], // Free shipping over $100
+			active:                true,
+			rateType:              "flat",
+		},
+		{
+			displayName:           "Europe Standard",
+			methodName:            "Standard Shipping",
+			zoneName:              "Europe",
+			baseRate:              24.99,
+			minOrderValue:         0,
+			freeShippingThreshold: nil,
+			active:                true,
+			rateType:              "weight_based",
+		},
+		{
+			displayName:           "Europe Express",
+			methodName:            "Express Shipping",
+			zoneName:              "Europe",
+			baseRate:              34.99,
+			minOrderValue:         0,
+			freeShippingThreshold: nil,
+			active:                true,
+			rateType:              "weight_based",
+		},
+		{
+			displayName:           "Asia Pacific Standard",
+			methodName:            "Standard Shipping",
+			zoneName:              "Asia Pacific",
+			baseRate:              29.99,
+			minOrderValue:         0,
+			freeShippingThreshold: nil,
+			active:                true,
+			rateType:              "value_based",
+		},
+		{
+			displayName:           "Worldwide Economy",
+			methodName:            "Economy Shipping",
+			zoneName:              "Rest of World",
+			baseRate:              39.99,
+			minOrderValue:         0,
+			freeShippingThreshold: nil,
+			active:                true,
+			rateType:              "value_based",
+		},
+	}
+
+	// Start a transaction for inserting rates
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	for _, rate := range baseRates {
+		methodID, ok := methodIDs[rate.methodName]
+		if !ok {
+			tx.Rollback()
+			return fmt.Errorf("shipping method not found: %s", rate.methodName)
+		}
+
+		zoneID, ok := zoneIDs[rate.zoneName]
+		if !ok {
+			tx.Rollback()
+			return fmt.Errorf("shipping zone not found: %s", rate.zoneName)
+		}
+
+		// Insert basic shipping rate
+		var rateID int
+		var freeShippingThresholdCents *int64
+		if rate.freeShippingThreshold != nil {
+			thresholdCents := money.ToCents(*rate.freeShippingThreshold)
+			freeShippingThresholdCents = &thresholdCents
+		}
+
+		err := tx.QueryRow(
+			`INSERT INTO shipping_rates (
+				shipping_method_id, shipping_zone_id, base_rate, min_order_value, 
+				free_shipping_threshold, active, created_at, updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id`,
+			methodID,
+			zoneID,
+			money.ToCents(rate.baseRate),
+			money.ToCents(rate.minOrderValue),
+			freeShippingThresholdCents,
+			rate.active,
+			now,
+			now,
+		).Scan(&rateID)
+
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Add weight-based rules for weight-based rates
+		if rate.rateType == "weight_based" {
+			weightRules := []struct {
+				minWeight float64
+				maxWeight float64
+				rate      float64
+			}{
+				{0.0, 1.0, rate.baseRate},
+				{1.01, 2.0, rate.baseRate * 1.5},
+				{2.01, 5.0, rate.baseRate * 2.0},
+				{5.01, 10.0, rate.baseRate * 3.0},
+				{10.01, 20.0, rate.baseRate * 4.0},
+			}
+
+			for _, rule := range weightRules {
+				_, err := tx.Exec(
+					`INSERT INTO weight_based_rates (
+						shipping_rate_id, min_weight, max_weight, rate
+					)
+					VALUES ($1, $2, $3, $4)`,
+					rateID,
+					rule.minWeight,
+					rule.maxWeight,
+					money.ToCents(rule.rate),
+				)
+
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+
+		// Add value-based rules for value-based rates
+		if rate.rateType == "value_based" {
+			valueRules := []struct {
+				minValue float64
+				maxValue float64
+				rate     float64
+			}{
+				{0.0, 50.0, rate.baseRate},
+				{50.01, 100.0, rate.baseRate * 1.25},
+				{100.01, 250.0, rate.baseRate * 1.5},
+				{250.01, 500.0, rate.baseRate * 1.75},
+				{500.01, 1000.0, rate.baseRate * 2.0},
+				{1000.01, 9999999.0, rate.baseRate * 2.5},
+			}
+
+			for _, rule := range valueRules {
+				_, err := tx.Exec(
+					`INSERT INTO value_based_rates (
+						shipping_rate_id, min_order_value, max_order_value, rate
+					)
+					VALUES ($1, $2, $3, $4)`,
+					rateID,
+					money.ToCents(rule.minValue),
+					money.ToCents(rule.maxValue),
+					money.ToCents(rule.rate),
+				)
+
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+
+		fmt.Printf("Created shipping rate: %s (%s to %s)\n", rate.displayName, rate.methodName, rate.zoneName)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	fmt.Printf("Seeded %d shipping rates with associated rules\n", len(baseRates))
+	return nil
+}
+
+// seedWebhooks seeds webhook data
+func seedWebhooks(db *sql.DB) error {
+	now := time.Now()
+
+	// Insert webhooks
+	webhooks := []struct {
+		provider   string
+		externalID string
+		url        string
+		events     []string
+		secret     string
+		isActive   bool
+	}{
+		{
+			provider:   "stripe",
+			externalID: "evt_stripe_orders_001",
+			url:        "https://example.com/webhooks/stripe/orders",
+			events:     []string{"order.created", "order.updated", "order.paid"},
+			secret:     "whsec_stripe_secret_token_123",
+			isActive:   true,
+		},
+		{
+			provider:   "paypal",
+			externalID: "evt_paypal_payments_001",
+			url:        "https://example.com/webhooks/paypal/payments",
+			events:     []string{"payment.succeeded", "payment.failed", "payment.refunded"},
+			secret:     "whsec_paypal_secret_token_456",
+			isActive:   true,
+		},
+		{
+			provider:   "mobilepay",
+			externalID: "evt_mobilepay_inventory_001",
+			url:        "https://example.com/webhooks/mobilepay/inventory",
+			events:     []string{"product.updated", "product.stock_changed"},
+			secret:     "whsec_mobilepay_secret_789",
+			isActive:   true,
+		},
+		{
+			provider:   "commercify",
+			externalID: "evt_commercify_analytics_001",
+			url:        "https://analytics.example.com/ingest",
+			events:     []string{"user.registered", "user.login", "cart.updated", "product.viewed"},
+			secret:     "whsec_commercify_analytics_secret_abc",
+			isActive:   true,
+		},
+		{
+			provider:   "commercify",
+			externalID: "evt_commercify_shipping_001",
+			url:        "https://logistics.example.com/api/shipping-updates",
+			events:     []string{"order.shipped", "order.delivered"},
+			secret:     "whsec_commercify_shipping_secret_xyz",
+			isActive:   false, // Intentionally inactive for testing
+		},
+	}
+
+	for _, webhook := range webhooks {
+		// Check if webhook with this provider and URL already exists
+		var exists bool
+		err := db.QueryRow(
+			`SELECT EXISTS(SELECT 1 FROM webhooks WHERE provider = $1 AND url = $2)`,
+			webhook.provider, webhook.url,
+		).Scan(&exists)
+
+		if err != nil {
+			return err
+		}
+
+		// Only insert if webhook doesn't exist
+		if !exists {
+			eventsJSON, err := json.Marshal(webhook.events)
+			if err != nil {
+				return err
+			}
+
+			_, err = db.Exec(
+				`INSERT INTO webhooks (
+					provider, external_id, url, events, secret, is_active,
+					created_at, updated_at
+				)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+				webhook.provider,
+				webhook.externalID,
+				webhook.url,
+				eventsJSON,
+				webhook.secret,
+				webhook.isActive,
+				now,
+				now,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	fmt.Printf("Seeded %d webhooks\n", len(webhooks))
+	return nil
+}
+
+// seedPaymentTransactions seeds payment transaction data
+func seedPaymentTransactions(db *sql.DB) error {
+	// Get order IDs with payment providers set
+	orderRows, err := db.Query(`
+		SELECT id, payment_id, payment_provider, total_amount, order_number 
+		FROM orders 
+		WHERE payment_provider IS NOT NULL 
+		AND status IN ('paid', 'shipped', 'delivered')
+	`)
+	if err != nil {
+		return err
+	}
+	defer orderRows.Close()
+
+	type orderInfo struct {
+		id              int
+		paymentID       string
+		paymentProvider string
+		totalAmount     int64
+		orderNumber     string
+	}
+
+	var orders []orderInfo
+	for orderRows.Next() {
+		var o orderInfo
+		if err := orderRows.Scan(&o.id, &o.paymentID, &o.paymentProvider, &o.totalAmount, &o.orderNumber); err != nil {
+			return err
+		}
+		orders = append(orders, o)
+	}
+
+	if len(orders) == 0 {
+		return fmt.Errorf("no paid orders found to create payment transactions for")
+	}
+
+	now := time.Now()
+
+	// Transaction statuses by provider
+	statuses := map[string][]string{
+		"stripe":    {"successful", "pending", "failed"},
+		"paypal":    {"successful", "pending", "failed"},
+		"mobilepay": {"successful", "pending", "failed"},
+		"mock":      {"successful", "pending", "failed"},
+	}
+
+	// Transaction types
+	transactionTypes := []string{"authorize", "capture", "refund"}
+
+	// Create payment transactions
+	for i, order := range orders {
+		// Set transaction status (mostly successful, with a few failures for testing)
+		statusList := statuses[order.paymentProvider]
+		if statusList == nil {
+			statusList = statuses["mock"] // Fallback to mock statuses
+		}
+
+		var status string
+		if i < len(orders)-2 {
+			status = statusList[0] // Success status (first in each list)
+		} else {
+			status = statusList[i%len(statusList)] // Mix of statuses for the last few
+		}
+
+		// Determine transaction type based on index
+		transactionType := transactionTypes[i%len(transactionTypes)]
+
+		// Generate metadata
+		metadata := map[string]interface{}{
+			"order_number": order.orderNumber,
+			"customer_ip":  fmt.Sprintf("192.168.1.%d", 100+i%100),
+			"user_agent":   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+		}
+
+		metadataJSON, err := json.Marshal(metadata)
+		if err != nil {
+			return err
+		}
+
+		// Insert payment transaction using the correct column names from the schema
+		_, err = db.Exec(`
+			INSERT INTO payment_transactions (
+				order_id, transaction_id, type, status, amount, currency, provider,
+				metadata, created_at, updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`,
+			order.id,
+			order.paymentID,
+			transactionType,
+			status,
+			order.totalAmount,
+			"USD", // Default currency
+			order.paymentProvider,
+			metadataJSON,
+			now,
+			now,
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("Seeded %d payment transactions\n", len(orders))
 	return nil
 }
