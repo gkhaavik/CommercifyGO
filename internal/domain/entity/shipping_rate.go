@@ -57,7 +57,7 @@ type ShippingOption struct {
 
 // NewShippingRate creates a new shipping rate
 func NewShippingRate(
-	shippingMethodID,
+	shippingMethodID uint,
 	shippingZoneID uint,
 	baseRate,
 	minOrderValue int64,
