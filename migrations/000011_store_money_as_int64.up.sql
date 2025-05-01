@@ -19,7 +19,6 @@ ALTER TABLE payment_transactions
 
 -- Discounts table
 ALTER TABLE discounts
-    ALTER COLUMN value TYPE BIGINT USING (value * 100)::BIGINT,
     ALTER COLUMN min_order_value TYPE BIGINT USING (min_order_value * 100)::BIGINT,
     ALTER COLUMN max_discount_value TYPE BIGINT USING (max_discount_value * 100)::BIGINT;
 
@@ -41,12 +40,14 @@ ALTER TABLE value_based_rates
 
 -- Products table
 ALTER TABLE products
-    ALTER COLUMN price TYPE BIGINT USING (price * 100)::BIGINT,
-    ALTER COLUMN compare_price TYPE BIGINT USING (compare_price * 100)::BIGINT,
-    ALTER COLUMN cost_price TYPE BIGINT USING (cost_price * 100)::BIGINT;
+    ALTER COLUMN price TYPE BIGINT USING (price * 100)::BIGINT;
 
 -- ProductVariants table
 ALTER TABLE product_variants
     ALTER COLUMN price TYPE BIGINT USING (price * 100)::BIGINT,
-    ALTER COLUMN compare_price TYPE BIGINT USING (compare_price * 100)::BIGINT,
-    ALTER COLUMN cost_price TYPE BIGINT USING (cost_price * 100)::BIGINT;
+    ALTER COLUMN compare_price TYPE BIGINT USING (compare_price * 100)::BIGINT;
+
+-- Add any missing columns (compare_price, cost_price) for future use
+ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_price BIGINT DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price BIGINT DEFAULT 0;
+ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS cost_price BIGINT DEFAULT 0;

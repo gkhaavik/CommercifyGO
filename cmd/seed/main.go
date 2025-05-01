@@ -11,6 +11,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/zenfulcode/commercify/config"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/database"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -423,7 +424,7 @@ func seedProducts(db *sql.DB) error {
 		_, err := db.Exec(
 			`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at, product_number)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-			product.name, product.description, product.price, product.stock, categoryID, sellerID, product.images, now, now, productNumber,
+			product.name, product.description, money.ToCents(product.price), product.stock, categoryID, sellerID, product.images, now, now, productNumber,
 		)
 		if err != nil {
 			return err
@@ -636,8 +637,8 @@ func seedOrders(db *sql.DB) error {
 				orderID,
 				product.id,
 				quantity,
-				product.price,
-				subtotal,
+				int64(product.price),
+				int64(subtotal),
 				createdAt,
 			)
 
@@ -653,7 +654,7 @@ func seedOrders(db *sql.DB) error {
 			SET total_amount = $1
 			WHERE id = $2
 		`,
-			totalAmount,
+			int64(totalAmount),
 			orderID,
 		)
 
@@ -897,8 +898,8 @@ func seedDiscounts(db *sql.DB) error {
 			discount.discountType,
 			discount.method,
 			discount.value,
-			discount.minOrderValue,
-			discount.maxDiscountValue,
+			money.ToCents(discount.minOrderValue),
+			money.ToCents(discount.maxDiscountValue),
 			productIDsJSON,
 			categoryIDsJSON,
 			discount.startDate,

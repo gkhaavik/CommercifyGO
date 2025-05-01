@@ -3,13 +3,14 @@
 
 -- Products table
 ALTER TABLE products ADD COLUMN price_decimal DECIMAL(10, 2);
-ALTER TABLE products ADD COLUMN compare_price_decimal DECIMAL(10, 2);
-UPDATE products SET price_decimal = price::DECIMAL / 100, compare_price_decimal = compare_price::DECIMAL / 100;
+UPDATE products SET price_decimal = price::DECIMAL / 100;
 
 -- Product variants table
 ALTER TABLE product_variants ADD COLUMN price_decimal DECIMAL(10, 2);
 ALTER TABLE product_variants ADD COLUMN compare_price_decimal DECIMAL(10, 2);
-UPDATE product_variants SET price_decimal = price::DECIMAL / 100, compare_price_decimal = compare_price::DECIMAL / 100;
+UPDATE product_variants SET 
+    price_decimal = price::DECIMAL / 100,
+    compare_price_decimal = CASE WHEN compare_price IS NOT NULL THEN compare_price::DECIMAL / 100 ELSE NULL END;
 
 -- Orders table
 ALTER TABLE orders ADD COLUMN total_amount_decimal DECIMAL(10, 2);
@@ -56,7 +57,6 @@ ALTER TABLE discounts ADD COLUMN value_decimal DECIMAL(10, 2);
 ALTER TABLE discounts ADD COLUMN min_order_value_decimal DECIMAL(10, 2);
 ALTER TABLE discounts ADD COLUMN max_discount_value_decimal DECIMAL(10, 2);
 UPDATE discounts SET 
-    value_decimal = value::DECIMAL / 100,
     min_order_value_decimal = min_order_value::DECIMAL / 100,
     max_discount_value_decimal = max_discount_value::DECIMAL / 100;
 
@@ -66,14 +66,15 @@ UPDATE payment_transactions SET amount_decimal = amount::DECIMAL / 100;
 
 -- Now drop the int columns and rename the decimal ones
 -- Products
-ALTER TABLE products DROP COLUMN price;
-ALTER TABLE products DROP COLUMN compare_price;
+ALTER TABLE products DROP COLUMN IF EXISTS price;
+ALTER TABLE products DROP COLUMN IF EXISTS compare_price;
+ALTER TABLE products DROP COLUMN IF EXISTS cost_price;
 ALTER TABLE products RENAME COLUMN price_decimal TO price;
-ALTER TABLE products RENAME COLUMN compare_price_decimal TO compare_price;
 
 -- Product variants
 ALTER TABLE product_variants DROP COLUMN price;
 ALTER TABLE product_variants DROP COLUMN compare_price;
+ALTER TABLE product_variants DROP COLUMN IF EXISTS cost_price;
 ALTER TABLE product_variants RENAME COLUMN price_decimal TO price;
 ALTER TABLE product_variants RENAME COLUMN compare_price_decimal TO compare_price;
 
@@ -114,10 +115,8 @@ ALTER TABLE value_based_rates RENAME COLUMN max_order_value_decimal TO max_order
 ALTER TABLE value_based_rates RENAME COLUMN rate_decimal TO rate;
 
 -- Discounts
-ALTER TABLE discounts DROP COLUMN value;
 ALTER TABLE discounts DROP COLUMN min_order_value;
 ALTER TABLE discounts DROP COLUMN max_discount_value;
-ALTER TABLE discounts RENAME COLUMN value_decimal TO value;
 ALTER TABLE discounts RENAME COLUMN min_order_value_decimal TO min_order_value;
 ALTER TABLE discounts RENAME COLUMN max_discount_value_decimal TO max_discount_value;
 
@@ -125,54 +124,13 @@ ALTER TABLE discounts RENAME COLUMN max_discount_value_decimal TO max_discount_v
 ALTER TABLE payment_transactions DROP COLUMN amount;
 ALTER TABLE payment_transactions RENAME COLUMN amount_decimal TO amount;
 
--- Revert migration changing money fields from BIGINT (cents) back to DECIMAL (dollars)
-
--- Order table
-ALTER TABLE orders
-    ALTER COLUMN shipping_cost TYPE DECIMAL(10, 2) USING (shipping_cost / 100.0),
-    ALTER COLUMN total_amount TYPE DECIMAL(10, 2) USING (total_amount / 100.0),
-    ALTER COLUMN final_amount TYPE DECIMAL(10, 2) USING (final_amount / 100.0),
-    ALTER COLUMN discount_amount TYPE DECIMAL(10, 2) USING (discount_amount / 100.0);
-
--- OrderItem table
-ALTER TABLE order_items
-    ALTER COLUMN price TYPE DECIMAL(10, 2) USING (price / 100.0),
-    ALTER COLUMN subtotal TYPE DECIMAL(10, 2) USING (subtotal / 100.0);
-
--- PaymentTransaction table
-ALTER TABLE payment_transactions
-    ALTER COLUMN amount TYPE DECIMAL(10, 2) USING (amount / 100.0);
-
--- Discounts table
-ALTER TABLE discounts
-    ALTER COLUMN value TYPE DECIMAL(10, 2) USING (value / 100.0),
-    ALTER COLUMN min_order_value TYPE DECIMAL(10, 2) USING (min_order_value / 100.0),
-    ALTER COLUMN max_discount_value TYPE DECIMAL(10, 2) USING (max_discount_value / 100.0);
-
--- ShippingRate table
-ALTER TABLE shipping_rates
-    ALTER COLUMN base_rate TYPE DECIMAL(10, 2) USING (base_rate / 100.0),
-    ALTER COLUMN min_order_value TYPE DECIMAL(10, 2) USING (min_order_value / 100.0),
-    ALTER COLUMN free_shipping_threshold TYPE DECIMAL(10, 2) USING (free_shipping_threshold / 100.0);
-
--- WeightBasedRate table
-ALTER TABLE weight_based_rates
-    ALTER COLUMN rate TYPE DECIMAL(10, 2) USING (rate / 100.0);
-
--- ValueBasedRate table
-ALTER TABLE value_based_rates
-    ALTER COLUMN rate TYPE DECIMAL(10, 2) USING (rate / 100.0),
-    ALTER COLUMN min_order_value TYPE DECIMAL(10, 2) USING (min_order_value / 100.0),
-    ALTER COLUMN max_order_value TYPE DECIMAL(10, 2) USING (max_order_value / 100.0);
-
--- Products table
-ALTER TABLE products
-    ALTER COLUMN price TYPE DECIMAL(10, 2) USING (price / 100.0),
-    ALTER COLUMN compare_price TYPE DECIMAL(10, 2) USING (compare_price / 100.0),
-    ALTER COLUMN cost_price TYPE DECIMAL(10, 2) USING (cost_price / 100.0);
-
--- ProductVariants table
-ALTER TABLE product_variants
-    ALTER COLUMN price TYPE DECIMAL(10, 2) USING (price / 100.0),
-    ALTER COLUMN compare_price TYPE DECIMAL(10, 2) USING (compare_price / 100.0),
-    ALTER COLUMN cost_price TYPE DECIMAL(10, 2) USING (cost_price / 100.0);
+-- Handle product_variants cost_price if it exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='product_variants' AND column_name='cost_price') THEN
+        ALTER TABLE product_variants ADD COLUMN cost_price_decimal DECIMAL(10, 2);
+        UPDATE product_variants SET cost_price_decimal = cost_price::DECIMAL / 100;
+        ALTER TABLE product_variants DROP COLUMN cost_price;
+        ALTER TABLE product_variants RENAME COLUMN cost_price_decimal TO cost_price;
+    END IF;
+END $$;
