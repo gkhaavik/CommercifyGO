@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
@@ -188,15 +189,19 @@ func (uc *ShippingUseCase) CreateShippingRate(input CreateShippingRateInput) (*e
 		return nil, errors.New("shipping zone not found")
 	}
 
+	baseRateCents := money.ToCents(input.BaseRate)
+	minOrderValueCents := money.ToCents(input.MinOrderValue)
+	freeShippingThresholdCents := money.ConvertNullableToCents(input.FreeShippingThreshold)
+
 	// Create shipping rate
 	rate := &entity.ShippingRate{
 		ShippingMethodID:      input.ShippingMethodID,
 		ShippingZoneID:        input.ShippingZoneID,
 		ShippingMethod:        method,
 		ShippingZone:          zone,
-		BaseRate:              input.BaseRate,
-		MinOrderValue:         input.MinOrderValue,
-		FreeShippingThreshold: input.FreeShippingThreshold,
+		BaseRate:              baseRateCents,
+		MinOrderValue:         minOrderValueCents,
+		FreeShippingThreshold: freeShippingThresholdCents,
 		Active:                input.Active,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
@@ -226,12 +231,14 @@ func (uc *ShippingUseCase) CreateWeightBasedRate(input CreateWeightBasedRateInpu
 		return nil, errors.New("shipping rate not found")
 	}
 
+	rateCents := money.ToCents(input.Rate)
+
 	// Create weight-based rate
 	weightRate := &entity.WeightBasedRate{
 		ShippingRateID: input.ShippingRateID,
 		MinWeight:      input.MinWeight,
 		MaxWeight:      input.MaxWeight,
-		Rate:           input.Rate,
+		Rate:           rateCents,
 	}
 
 	// Save to repository
@@ -258,12 +265,16 @@ func (uc *ShippingUseCase) CreateValueBasedRate(input CreateValueBasedRateInput)
 		return nil, errors.New("shipping rate not found")
 	}
 
+	minOrderValueCents := money.ToCents(input.MinOrderValue)
+	maxOrderValueCents := money.ToCents(input.MaxOrderValue)
+	rateCents := money.ToCents(input.Rate)
+
 	// Create value-based rate
 	valueRate := &entity.ValueBasedRate{
 		ShippingRateID: input.ShippingRateID,
-		MinOrderValue:  input.MinOrderValue,
-		MaxOrderValue:  input.MaxOrderValue,
-		Rate:           input.Rate,
+		MinOrderValue:  minOrderValueCents,
+		MaxOrderValue:  maxOrderValueCents,
+		Rate:           rateCents,
 	}
 
 	// Save to repository
@@ -296,10 +307,14 @@ func (uc *ShippingUseCase) UpdateShippingRate(input UpdateShippingRateInput) (*e
 		return nil, err
 	}
 
+	baseRateCents := money.ToCents(input.BaseRate)
+	minOrderValueCents := money.ToCents(input.MinOrderValue)
+	freeShippingThresholdCents := money.ConvertNullableToCents(input.FreeShippingThreshold)
+
 	// Update fields
-	rate.BaseRate = input.BaseRate
-	rate.MinOrderValue = input.MinOrderValue
-	rate.FreeShippingThreshold = input.FreeShippingThreshold
+	rate.BaseRate = baseRateCents
+	rate.MinOrderValue = minOrderValueCents
+	rate.FreeShippingThreshold = freeShippingThresholdCents
 	rate.Active = input.Active
 	rate.UpdatedAt = time.Now()
 
@@ -317,7 +332,7 @@ type ShippingOptions struct {
 }
 
 // CalculateShippingOptions calculates available shipping options for an order
-func (uc *ShippingUseCase) CalculateShippingOptions(address entity.Address, orderValue float64, orderWeight float64) (*ShippingOptions, error) {
+func (uc *ShippingUseCase) CalculateShippingOptions(address entity.Address, orderValue int64, orderWeight float64) (*ShippingOptions, error) {
 	// Get available shipping rates for address and order value
 	rates, err := uc.shippingRateRepo.GetAvailableRatesForAddress(address, orderValue)
 	if err != nil {
@@ -375,7 +390,7 @@ func (uc *ShippingUseCase) CalculateShippingOptions(address entity.Address, orde
 }
 
 // GetShippingCost calculates the shipping cost for a specific shipping rate
-func (uc *ShippingUseCase) GetShippingCost(rateID uint, orderValue float64, orderWeight float64) (float64, error) {
+func (uc *ShippingUseCase) GetShippingCost(rateID uint, orderValue int64, orderWeight float64) (int64, error) {
 	// Get shipping rate
 	rate, err := uc.shippingRateRepo.GetByID(rateID)
 	if err != nil {

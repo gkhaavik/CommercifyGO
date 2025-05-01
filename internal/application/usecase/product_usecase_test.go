@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/testutil/mock"
 )
 
@@ -50,7 +51,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.NotNil(t, product)
 		assert.Equal(t, input.Name, product.Name)
 		assert.Equal(t, input.Description, product.Description)
-		assert.Equal(t, input.Price, product.Price)
+		assert.Equal(t, money.ToCents(input.Price), product.Price)
 		assert.Equal(t, input.Stock, product.Stock)
 		assert.Equal(t, input.CategoryID, product.CategoryID)
 		assert.Equal(t, input.SellerID, product.SellerID)
@@ -124,7 +125,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.Equal(t, "SKU-1", product.Variants[0].SKU)
 		assert.Equal(t, true, product.Variants[0].IsDefault)
 		assert.Equal(t, "SKU-2", product.Variants[1].SKU)
-		assert.Equal(t, 129.99, product.Variants[1].ComparePrice)
+		assert.Equal(t, money.ToCents(129.99), product.Variants[1].ComparePrice)
 	})
 
 	t.Run("Create product with invalid category", func(t *testing.T) {
@@ -174,7 +175,7 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -246,7 +247,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -266,7 +267,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		input := usecase.UpdateProductInput{
 			Name:        "Updated Product",
 			Description: "Updated description",
-			Price:       129.99,
+			Price:       12999,
 			Stock:       50,
 			CategoryID:  2,
 			Images:      []string{"updated.jpg"},
@@ -279,7 +280,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, input.Name, updatedProduct.Name)
 		assert.Equal(t, input.Description, updatedProduct.Description)
-		assert.Equal(t, input.Price, updatedProduct.Price)
+		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price)
 		assert.Equal(t, input.Stock, updatedProduct.Stock)
 		assert.Equal(t, input.CategoryID, updatedProduct.CategoryID)
 		assert.Equal(t, input.Images, updatedProduct.Images)
@@ -296,7 +297,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -339,7 +340,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -375,8 +376,8 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		assert.NotNil(t, variant)
 		assert.Equal(t, input.ProductID, variant.ProductID)
 		assert.Equal(t, input.SKU, variant.SKU)
-		assert.Equal(t, input.Price, variant.Price)
-		assert.Equal(t, input.ComparePrice, variant.ComparePrice)
+		assert.Equal(t, money.ToCents(input.Price), variant.Price)
+		assert.Equal(t, money.ToCents(input.ComparePrice), variant.ComparePrice)
 		assert.Equal(t, input.Stock, variant.Stock)
 		assert.Equal(t, input.Attributes, variant.Attributes)
 		assert.Equal(t, input.Images, variant.Images)
@@ -385,7 +386,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		// Check that product is updated
 		updatedProduct, _ := productRepo.GetByID(1)
 		assert.True(t, updatedProduct.HasVariants)
-		assert.Equal(t, input.Price, updatedProduct.Price) // Price should be updated from default variant
+		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price) // Price should be updated from default variant
 	})
 }
 
@@ -401,7 +402,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -415,7 +416,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 			ID:        1,
 			ProductID: 1,
 			SKU:       "SKU-1",
-			Price:     99.99,
+			Price:     9999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Red"},
@@ -429,7 +430,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 			ID:        2,
 			ProductID: 1,
 			SKU:       "SKU-2",
-			Price:     109.99,
+			Price:     10999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Blue"},
@@ -463,8 +464,8 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.Equal(t, input.SKU, updatedVariant.SKU)
-		assert.Equal(t, input.Price, updatedVariant.Price)
-		assert.Equal(t, input.ComparePrice, updatedVariant.ComparePrice)
+		assert.Equal(t, money.ToCents(input.Price), updatedVariant.Price)
+		assert.Equal(t, money.ToCents(input.ComparePrice), updatedVariant.ComparePrice)
 		assert.Equal(t, input.Stock, updatedVariant.Stock)
 		assert.Equal(t, input.Attributes, updatedVariant.Attributes)
 		assert.Equal(t, input.Images, updatedVariant.Images)
@@ -476,7 +477,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 
 		// Check that product price is updated
 		updatedProduct, _ := productRepo.GetByID(1)
-		assert.Equal(t, input.Price, updatedProduct.Price)
+		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price)
 	})
 }
 
@@ -492,7 +493,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -506,7 +507,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:        1,
 			ProductID: 1,
 			SKU:       "SKU-1",
-			Price:     99.99,
+			Price:     9999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Red"},
@@ -520,7 +521,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:        2,
 			ProductID: 1,
 			SKU:       "SKU-2",
-			Price:     109.99,
+			Price:     10999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Blue"},
@@ -565,7 +566,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -579,7 +580,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:        1,
 			ProductID: 1,
 			SKU:       "SKU-1",
-			Price:     99.99,
+			Price:     9999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Red"},
@@ -593,7 +594,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:        2,
 			ProductID: 1,
 			SKU:       "SKU-2",
-			Price:     109.99,
+			Price:     10999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Blue"},
@@ -637,7 +638,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -651,7 +652,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			ID:        1,
 			ProductID: 1,
 			SKU:       "SKU-1",
-			Price:     99.99,
+			Price:     9999,
 			Stock:     50,
 			Attributes: []entity.VariantAttribute{
 				{Name: "Color", Value: "Red"},
@@ -689,7 +690,7 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			ID:          1,
 			Name:        "Blue Shirt",
 			Description: "A nice blue shirt",
-			Price:       29.99,
+			Price:       2999,
 			CategoryID:  1,
 			SellerID:    1,
 		}
@@ -699,7 +700,7 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			ID:          2,
 			Name:        "Red T-shirt",
 			Description: "A comfortable red t-shirt",
-			Price:       19.99,
+			Price:       1999,
 			CategoryID:  1,
 			SellerID:    1,
 		}
@@ -709,14 +710,14 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			ID:          3,
 			Name:        "Black Jeans",
 			Description: "Stylish black jeans",
-			Price:       49.99,
+			Price:       4999,
 			CategoryID:  2,
 			SellerID:    2,
 		}
 		productRepo.Create(product3)
 
 		// Configure mock search function
-		productRepo.MockSearch = func(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error) {
+		productRepo.MockSearch = func(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error) {
 			results := make([]*entity.Product, 0)
 
 			// Simple implementation that checks if query is in name or description
@@ -822,7 +823,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,
@@ -861,7 +862,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 			ID:          1,
 			Name:        "Test Product",
 			Description: "This is a test product",
-			Price:       99.99,
+			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
 			SellerID:    1,

@@ -31,9 +31,9 @@ func (r *ShippingRateRepository) Create(rate *entity.ShippingRate) error {
 		RETURNING id
 	`
 
-	var freeShippingThresholdSQL sql.NullFloat64
+	var freeShippingThresholdSQL sql.NullInt64
 	if rate.FreeShippingThreshold != nil {
-		freeShippingThresholdSQL.Float64 = *rate.FreeShippingThreshold
+		freeShippingThresholdSQL.Int64 = *rate.FreeShippingThreshold
 		freeShippingThresholdSQL.Valid = true
 	}
 
@@ -62,7 +62,7 @@ func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) 
 		WHERE id = $1
 	`
 
-	var freeShippingThresholdSQL sql.NullFloat64
+	var freeShippingThresholdSQL sql.NullInt64
 	rate := &entity.ShippingRate{
 		ShippingMethod: &entity.ShippingMethod{},
 		ShippingZone:   &entity.ShippingZone{},
@@ -90,7 +90,7 @@ func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) 
 
 	// Set free shipping threshold if available
 	if freeShippingThresholdSQL.Valid {
-		value := freeShippingThresholdSQL.Float64
+		value := freeShippingThresholdSQL.Int64
 		rate.FreeShippingThreshold = &value
 	}
 
@@ -196,7 +196,7 @@ func (r *ShippingRateRepository) GetByMethodID(methodID uint) ([]*entity.Shippin
 
 	rates := []*entity.ShippingRate{}
 	for rows.Next() {
-		var freeShippingThresholdSQL sql.NullFloat64
+		var freeShippingThresholdSQL sql.NullInt64
 		rate := &entity.ShippingRate{}
 		err := rows.Scan(
 			&rate.ID,
@@ -215,7 +215,7 @@ func (r *ShippingRateRepository) GetByMethodID(methodID uint) ([]*entity.Shippin
 
 		// Set free shipping threshold if available
 		if freeShippingThresholdSQL.Valid {
-			value := freeShippingThresholdSQL.Float64
+			value := freeShippingThresholdSQL.Int64
 			rate.FreeShippingThreshold = &value
 		}
 
@@ -243,7 +243,7 @@ func (r *ShippingRateRepository) GetByZoneID(zoneID uint) ([]*entity.ShippingRat
 
 	rates := []*entity.ShippingRate{}
 	for rows.Next() {
-		var freeShippingThresholdSQL sql.NullFloat64
+		var freeShippingThresholdSQL sql.NullInt64
 		rate := &entity.ShippingRate{}
 		err := rows.Scan(
 			&rate.ID,
@@ -262,7 +262,7 @@ func (r *ShippingRateRepository) GetByZoneID(zoneID uint) ([]*entity.ShippingRat
 
 		// Set free shipping threshold if available
 		if freeShippingThresholdSQL.Valid {
-			value := freeShippingThresholdSQL.Float64
+			value := freeShippingThresholdSQL.Int64
 			rate.FreeShippingThreshold = &value
 		}
 
@@ -273,7 +273,7 @@ func (r *ShippingRateRepository) GetByZoneID(zoneID uint) ([]*entity.ShippingRat
 }
 
 // GetAvailableRatesForAddress retrieves available shipping rates for a specific address
-func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Address, orderValue float64) ([]*entity.ShippingRate, error) {
+func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Address, orderValue int64) ([]*entity.ShippingRate, error) {
 	// First, find applicable shipping zones for this address
 	query := `
 		SELECT id 
@@ -349,7 +349,7 @@ func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Addr
 
 	rates := []*entity.ShippingRate{}
 	for rateRows.Next() {
-		var freeShippingThresholdSQL sql.NullFloat64
+		var freeShippingThresholdSQL sql.NullInt64
 		rate := &entity.ShippingRate{
 			ShippingMethod: &entity.ShippingMethod{},
 		}
@@ -377,7 +377,7 @@ func (r *ShippingRateRepository) GetAvailableRatesForAddress(address entity.Addr
 
 		// Set free shipping threshold if available
 		if freeShippingThresholdSQL.Valid {
-			value := freeShippingThresholdSQL.Float64
+			value := freeShippingThresholdSQL.Int64
 			rate.FreeShippingThreshold = &value
 		}
 
@@ -525,9 +525,9 @@ func (r *ShippingRateRepository) Update(rate *entity.ShippingRate) error {
 		WHERE id = $8
 	`
 
-	var freeShippingThresholdSQL sql.NullFloat64
+	var freeShippingThresholdSQL sql.NullInt64
 	if rate.FreeShippingThreshold != nil {
-		freeShippingThresholdSQL.Float64 = *rate.FreeShippingThreshold
+		freeShippingThresholdSQL.Int64 = *rate.FreeShippingThreshold
 		freeShippingThresholdSQL.Valid = true
 	}
 

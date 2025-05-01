@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/zenfulcode/commercify/internal/domain/money"
 )
 
 // Product represents a product in the system
@@ -12,7 +14,7 @@ type Product struct {
 	ProductNumber string            `json:"product_number"`
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
-	Price         float64           `json:"price"`
+	Price         int64             `json:"price"` // Stored as cents
 	Stock         int               `json:"stock"`
 	Weight        float64           `json:"weight"` // Weight in kg
 	CategoryID    uint              `json:"category_id"`
@@ -24,12 +26,12 @@ type Product struct {
 	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
-// NewProduct creates a new product with the given details
-func NewProduct(name, description string, price float64, stock int, weight float64, categoryID, sellerID uint, images []string) (*Product, error) {
+// NewProduct creates a new product with the given details (price in cents)
+func NewProduct(name, description string, price int64, stock int, weight float64, categoryID, sellerID uint, images []string) (*Product, error) {
 	if name == "" {
 		return nil, errors.New("product name cannot be empty")
 	}
-	if price <= 0 {
+	if price <= 0 { // Check cents
 		return nil, errors.New("price must be greater than zero")
 	}
 	if stock < 0 {
@@ -48,7 +50,7 @@ func NewProduct(name, description string, price float64, stock int, weight float
 		Name:          name,
 		ProductNumber: productNumber,
 		Description:   description,
-		Price:         price,
+		Price:         price, // Already in cents
 		Stock:         stock,
 		Weight:        weight,
 		CategoryID:    categoryID,
@@ -165,6 +167,11 @@ func (p *Product) GetTotalWeight(quantity int) float64 {
 		return 0
 	}
 	return p.Weight * float64(quantity)
+}
+
+// GetPriceDollars returns the price in dollars
+func (p *Product) GetPriceDollars() float64 {
+	return money.FromCents(p.Price)
 }
 
 // Category represents a product category

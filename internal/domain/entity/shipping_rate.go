@@ -12,9 +12,9 @@ type ShippingRate struct {
 	ShippingMethod        *ShippingMethod   `json:"shipping_method,omitempty"`
 	ShippingZoneID        uint              `json:"shipping_zone_id"`
 	ShippingZone          *ShippingZone     `json:"shipping_zone,omitempty"`
-	BaseRate              float64           `json:"base_rate"`
-	MinOrderValue         float64           `json:"min_order_value"`
-	FreeShippingThreshold *float64          `json:"free_shipping_threshold"`
+	BaseRate              int64             `json:"base_rate"`
+	MinOrderValue         int64             `json:"min_order_value"`
+	FreeShippingThreshold *int64            `json:"free_shipping_threshold"`
 	WeightBasedRates      []WeightBasedRate `json:"weight_based_rates,omitempty"`
 	ValueBasedRates       []ValueBasedRate  `json:"value_based_rates,omitempty"`
 	Active                bool              `json:"active"`
@@ -28,7 +28,7 @@ type WeightBasedRate struct {
 	ShippingRateID uint      `json:"shipping_rate_id"`
 	MinWeight      float64   `json:"min_weight"`
 	MaxWeight      float64   `json:"max_weight"`
-	Rate           float64   `json:"rate"` // Can be flat fee or percentage
+	Rate           int64     `json:"rate"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -37,30 +37,30 @@ type WeightBasedRate struct {
 type ValueBasedRate struct {
 	ID             uint      `json:"id"`
 	ShippingRateID uint      `json:"shipping_rate_id"`
-	MinOrderValue  float64   `json:"min_order_value"`
-	MaxOrderValue  float64   `json:"max_order_value"`
-	Rate           float64   `json:"rate"` // Can be flat fee or percentage
+	MinOrderValue  int64     `json:"min_order_value"`
+	MaxOrderValue  int64     `json:"max_order_value"`
+	Rate           int64     `json:"rate"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ShippingOption represents a single shipping option with its cost
 type ShippingOption struct {
-	ShippingRateID        uint    `json:"shipping_rate_id"`
-	ShippingMethodID      uint    `json:"shipping_method_id"`
-	Name                  string  `json:"name"`
-	Description           string  `json:"description"`
-	EstimatedDeliveryDays int     `json:"estimated_delivery_days"`
-	Cost                  float64 `json:"cost"`
-	FreeShipping          bool    `json:"free_shipping"`
+	ShippingRateID        uint   `json:"shipping_rate_id"`
+	ShippingMethodID      uint   `json:"shipping_method_id"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
+	EstimatedDeliveryDays int    `json:"estimated_delivery_days"`
+	Cost                  int64  `json:"cost"`
+	FreeShipping          bool   `json:"free_shipping"`
 }
 
 // NewShippingRate creates a new shipping rate
 func NewShippingRate(
 	shippingMethodID uint,
 	shippingZoneID uint,
-	baseRate float64,
-	minOrderValue float64,
+	baseRate,
+	minOrderValue int64,
 ) (*ShippingRate, error) {
 	if shippingMethodID == 0 {
 		return nil, errors.New("shipping method ID cannot be empty")
@@ -91,7 +91,7 @@ func NewShippingRate(
 }
 
 // Update updates a shipping rate's details
-func (r *ShippingRate) Update(baseRate float64, minOrderValue float64) error {
+func (r *ShippingRate) Update(baseRate, minOrderValue int64) error {
 	if baseRate < 0 {
 		return errors.New("base rate cannot be negative")
 	}
@@ -107,7 +107,7 @@ func (r *ShippingRate) Update(baseRate float64, minOrderValue float64) error {
 }
 
 // SetFreeShippingThreshold sets the free shipping threshold
-func (r *ShippingRate) SetFreeShippingThreshold(threshold *float64) {
+func (r *ShippingRate) SetFreeShippingThreshold(threshold *int64) {
 	// Validate that threshold is either nil or positive
 	if threshold != nil && *threshold < 0 {
 		return
@@ -118,7 +118,7 @@ func (r *ShippingRate) SetFreeShippingThreshold(threshold *float64) {
 }
 
 // CalculateShippingCost calculates the shipping cost for an order
-func (r *ShippingRate) CalculateShippingCost(orderValue float64, weight float64) float64 {
+func (r *ShippingRate) CalculateShippingCost(orderValue int64, weight float64) int64 {
 	// Check if order qualifies for free shipping
 	if r.FreeShippingThreshold != nil && orderValue >= *r.FreeShippingThreshold {
 		return 0

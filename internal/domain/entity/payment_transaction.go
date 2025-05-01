@@ -30,7 +30,7 @@ type PaymentTransaction struct {
 	TransactionID string            // External transaction ID from payment provider
 	Type          TransactionType   // Type of transaction (authorize, capture, refund, cancel)
 	Status        TransactionStatus // Status of the transaction
-	Amount        float64           // Amount of the transaction
+	Amount        int64             // Amount of the transaction
 	Currency      string            // Currency of the transaction
 	Provider      string            // Payment provider (stripe, paypal, etc.)
 	RawResponse   string            // Raw response from payment provider (JSON)
@@ -45,7 +45,7 @@ func NewPaymentTransaction(
 	transactionID string,
 	transactionType TransactionType,
 	status TransactionStatus,
-	amount float64,
+	amount int64,
 	currency string,
 	provider string,
 ) (*PaymentTransaction, error) {

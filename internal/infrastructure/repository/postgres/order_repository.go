@@ -328,12 +328,12 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 
 	var discountID sql.NullInt64
 	var discountCode sql.NullString
-	discountAmount := 0.0
+	var discountAmount sql.NullInt64
 
 	if order.AppliedDiscount != nil && order.AppliedDiscount.DiscountID > 0 {
 		discountID.Int64 = int64(order.AppliedDiscount.DiscountID)
 		discountID.Valid = true
-		discountAmount = order.AppliedDiscount.DiscountAmount
+		discountAmount.Int64 = order.AppliedDiscount.DiscountAmount
 		discountCode.String = order.AppliedDiscount.DiscountCode
 		discountCode.Valid = true
 	}
