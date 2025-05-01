@@ -53,7 +53,6 @@ UPDATE value_based_rates SET
     rate_decimal = rate::DECIMAL / 100;
 
 -- Discounts table
-ALTER TABLE discounts ADD COLUMN value_decimal DECIMAL(10, 2);
 ALTER TABLE discounts ADD COLUMN min_order_value_decimal DECIMAL(10, 2);
 ALTER TABLE discounts ADD COLUMN max_discount_value_decimal DECIMAL(10, 2);
 UPDATE discounts SET 

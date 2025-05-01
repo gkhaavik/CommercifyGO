@@ -826,7 +826,7 @@ func seedDiscounts(db *sql.DB) error {
 			code:             "PRODUCT10OFF",
 			discountType:     "product",
 			method:           "fixed",
-			value:            10.0,
+			value:            100.0,
 			minOrderValue:    0,
 			maxDiscountValue: 0,
 			productIDs:       productIDs[2:], // Use remaining products
