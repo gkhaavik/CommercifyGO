@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
@@ -102,8 +103,8 @@ func (uc *DiscountUseCase) CreateDiscount(input CreateDiscountInput) (*entity.Di
 		discountType,
 		discountMethod,
 		input.Value,
-		input.MinOrderValue,
-		input.MaxDiscountValue,
+		money.ToCents(input.MinOrderValue),
+		money.ToCents(input.MaxDiscountValue),
 		input.ProductIDs,
 		input.CategoryIDs,
 		input.StartDate,
@@ -195,11 +196,11 @@ func (uc *DiscountUseCase) UpdateDiscount(id uint, input UpdateDiscountInput) (*
 	}
 
 	if input.MinOrderValue >= 0 {
-		discount.MinOrderValue = input.MinOrderValue
+		discount.MinOrderValue = money.ToCents(input.MinOrderValue)
 	}
 
 	if input.MaxDiscountValue >= 0 {
-		discount.MaxDiscountValue = input.MaxDiscountValue
+		discount.MaxDiscountValue = money.ToCents(input.MaxDiscountValue)
 	}
 
 	if len(input.ProductIDs) > 0 {
@@ -286,9 +287,75 @@ func (uc *DiscountUseCase) ApplyDiscountToOrder(input ApplyDiscountToOrderInput,
 		return nil, errors.New("invalid discount code")
 	}
 
-	// Apply discount to order
-	if err := order.ApplyDiscount(discount); err != nil {
-		return nil, err
+	// For category-based discounts, we need to modify the ProductIDs to include products from those categories
+	if discount.Type == entity.DiscountTypeProduct && len(discount.CategoryIDs) > 0 {
+		// Create a map to track which items in the order need discounts
+		eligibleProducts := make(map[uint]bool)
+
+		// First add directly specified products
+		for _, productID := range discount.ProductIDs {
+			eligibleProducts[productID] = true
+		}
+
+		// Then find products that belong to the specified categories
+		for _, categoryID := range discount.CategoryIDs {
+			// Get all products in this category
+			products, err := uc.productRepo.Search("", categoryID, 0, 0, 0, 1000)
+			if err == nil && len(products) > 0 {
+				// Add these products to our eligibility map
+				for _, product := range products {
+					eligibleProducts[product.ID] = true
+				}
+			}
+		}
+
+		// Now calculate the discount based on eligible products
+		var discountAmount int64
+
+		for _, item := range order.Items {
+			if eligibleProducts[item.ProductID] {
+				itemTotal := int64(item.Quantity) * item.Price
+
+				if discount.Method == entity.DiscountMethodFixed {
+					// Apply fixed discount per item
+					itemDiscount := min(money.ToCents(discount.Value), itemTotal)
+					discountAmount += itemDiscount
+				} else if discount.Method == entity.DiscountMethodPercentage {
+					// Apply percentage discount to the item
+					// itemTotal * (discount.Value / 100)
+					itemDiscount := money.ApplyPercentage(itemTotal, discount.Value)
+					discountAmount += itemDiscount
+				}
+			}
+		}
+
+		// Apply maximum discount cap if specified
+		if discount.MaxDiscountValue > 0 && discountAmount > discount.MaxDiscountValue {
+			discountAmount = discount.MaxDiscountValue
+		}
+
+		// Ensure discount doesn't exceed order total
+		if discountAmount > order.TotalAmount {
+			discountAmount = order.TotalAmount
+		}
+
+		// Apply calculated discount amount
+		order.DiscountAmount = discountAmount
+		order.FinalAmount = order.TotalAmount - discountAmount
+
+		// Record the applied discount
+		order.AppliedDiscount = &entity.AppliedDiscount{
+			DiscountID:     discount.ID,
+			DiscountCode:   discount.Code,
+			DiscountAmount: discountAmount,
+		}
+
+		order.UpdatedAt = time.Now()
+	} else {
+		// For non-category specific discounts, use the standard entity method
+		if err := order.ApplyDiscount(discount); err != nil {
+			return nil, err
+		}
 	}
 
 	uc.orderRepo.Update(order)

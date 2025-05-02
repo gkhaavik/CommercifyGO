@@ -27,7 +27,7 @@ type Order struct {
 	OrderNumber     string
 	UserID          uint // 0 for guest orders
 	Items           []OrderItem
-	TotalAmount     float64
+	TotalAmount     int64 // stored in cents
 	Status          string
 	ShippingAddr    Address
 	BillingAddr     Address
@@ -45,9 +45,15 @@ type Order struct {
 	GuestFullName string
 	IsGuestOrder  bool
 
+	// Shipping information
+	ShippingMethodID uint            `json:"shipping_method_id,omitempty"`
+	ShippingMethod   *ShippingMethod `json:"shipping_method,omitempty"`
+	ShippingCost     int64           `json:"shipping_cost"` // stored in cents
+	TotalWeight      float64         `json:"total_weight"`
+
 	// Discount-related fields
-	DiscountAmount  float64
-	FinalAmount     float64
+	DiscountAmount  int64 // stored in cents
+	FinalAmount     int64 // stored in cents
 	AppliedDiscount *AppliedDiscount
 }
 
@@ -57,8 +63,9 @@ type OrderItem struct {
 	OrderID   uint    `json:"order_id"`
 	ProductID uint    `json:"product_id"`
 	Quantity  int     `json:"quantity"`
-	Price     float64 `json:"price"`
-	Subtotal  float64 `json:"subtotal"`
+	Price     int64   `json:"price"`    // stored in cents
+	Subtotal  int64   `json:"subtotal"` // stored in cents
+	Weight    float64 `json:"weight"`   // Weight per item
 }
 
 // Address represents a shipping or billing address
@@ -79,7 +86,8 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		return nil, errors.New("order must have at least one item")
 	}
 
-	totalAmount := 0.0
+	var totalAmount int64
+	totalWeight := 0.0
 	for _, item := range items {
 		if item.Quantity <= 0 {
 			return nil, errors.New("item quantity must be greater than zero")
@@ -87,8 +95,9 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		if item.Price <= 0 {
 			return nil, errors.New("item price must be greater than zero")
 		}
-		item.Subtotal = float64(item.Quantity) * item.Price
+		item.Subtotal = int64(item.Quantity) * item.Price
 		totalAmount += item.Subtotal
+		totalWeight += item.Weight * float64(item.Quantity)
 	}
 
 	now := time.Now()
@@ -102,6 +111,8 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		OrderNumber:    orderNumber,
 		Items:          items,
 		TotalAmount:    totalAmount,
+		TotalWeight:    totalWeight,
+		ShippingCost:   0, // Default to 0, will be set later
 		DiscountAmount: 0,
 		FinalAmount:    totalAmount, // Initially same as total amount
 		Status:         string(OrderStatusPending),
@@ -118,15 +129,8 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		return nil, errors.New("order must have at least one item")
 	}
 
-	if email == "" {
-		return nil, errors.New("guest email cannot be empty")
-	}
-
-	if fullName == "" {
-		return nil, errors.New("guest full name cannot be empty")
-	}
-
-	totalAmount := 0.0
+	totalAmount := int64(0)
+	totalWeight := 0.0
 	for _, item := range items {
 		if item.Quantity <= 0 {
 			return nil, errors.New("item quantity must be greater than zero")
@@ -134,13 +138,13 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		if item.Price <= 0 {
 			return nil, errors.New("item price must be greater than zero")
 		}
-		item.Subtotal = float64(item.Quantity) * item.Price
+		item.Subtotal = int64(item.Quantity) * item.Price
 		totalAmount += item.Subtotal
+		totalWeight += item.Weight * float64(item.Quantity)
 	}
 
 	now := time.Now()
 
-	// Generate a friendly order number (will be replaced with actual ID after creation)
 	// Format: GS-YYYYMMDD-TEMP (GS prefix for guest orders)
 	orderNumber := fmt.Sprintf("GS-%s-TEMP", now.Format("20060102"))
 
@@ -149,6 +153,8 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		OrderNumber:    orderNumber,
 		Items:          items,
 		TotalAmount:    totalAmount,
+		TotalWeight:    totalWeight,
+		ShippingCost:   0, // Default to 0, will be set later
 		DiscountAmount: 0,
 		FinalAmount:    totalAmount, // Initially same as total amount
 		Status:         string(OrderStatusPending),
@@ -167,20 +173,15 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 
 // UpdateStatus updates the order status
 func (o *Order) UpdateStatus(status OrderStatus) error {
-	if status == "" {
-		return errors.New("status cannot be empty")
-	}
-
-	// Validate status transitions
-	currentStatus := OrderStatus(o.Status)
-	if !isValidStatusTransition(currentStatus, status) {
-		return fmt.Errorf("invalid status transition: %s -> %s", currentStatus, status)
+	if !isValidStatusTransition(OrderStatus(o.Status), status) {
+		return errors.New("invalid status transition: " + string(OrderStatus(o.Status)) + " -> " + string(status))
 	}
 
 	o.Status = string(status)
 	o.UpdatedAt = time.Now()
 
-	if status == OrderStatusDelivered {
+	// If the status is delivered or cancelled, set the completed_at timestamp
+	if status == OrderStatusDelivered || status == OrderStatusCancelled || status == OrderStatusRefunded {
 		now := time.Now()
 		o.CompletedAt = &now
 	}
@@ -190,47 +191,18 @@ func (o *Order) UpdateStatus(status OrderStatus) error {
 
 // isValidStatusTransition checks if a status transition is valid
 func isValidStatusTransition(from, to OrderStatus) bool {
-	// Define valid transitions
 	validTransitions := map[OrderStatus][]OrderStatus{
-		OrderStatusPending: {
-			OrderStatusPaid,
-			OrderStatusCancelled,
-			OrderStatusPendingAction,
-		},
-		OrderStatusPendingAction: {
-			OrderStatusPaid,
-			OrderStatusCancelled,
-		},
-		OrderStatusPaid: {
-			OrderStatusCaptured,
-			OrderStatusRefunded,
-		},
-		OrderStatusShipped: {
-			OrderStatusDelivered,
-		},
-		OrderStatusDelivered: {
-			OrderStatusRefunded,
-		},
-		OrderStatusCaptured: {
-			OrderStatusShipped,
-			OrderStatusRefunded,
-		},
-		OrderStatusCancelled: {},
-		OrderStatusRefunded:  {},
+		OrderStatusPending:       {OrderStatusPendingAction, OrderStatusPaid, OrderStatusCancelled},
+		OrderStatusPendingAction: {OrderStatusPaid, OrderStatusCancelled},
+		OrderStatusPaid:          {OrderStatusShipped, OrderStatusCancelled, OrderStatusRefunded, OrderStatusCaptured},
+		OrderStatusCaptured:      {OrderStatusShipped, OrderStatusCancelled, OrderStatusRefunded},
+		OrderStatusShipped:       {OrderStatusDelivered, OrderStatusCancelled},
+		OrderStatusDelivered:     {OrderStatusRefunded},
+		OrderStatusCancelled:     {OrderStatusRefunded},
+		OrderStatusRefunded:      {},
 	}
 
-	// If it's the same status, always allow
-	if from == to {
-		return true
-	}
-
-	// Check if the transition is valid
-	validNextStates, exists := validTransitions[from]
-	if !exists {
-		return false
-	}
-
-	return slices.Contains(validNextStates, to)
+	return slices.Contains(validTransitions[from], to)
 }
 
 // SetPaymentID sets the payment ID for the order
@@ -278,44 +250,78 @@ func (o *Order) ApplyDiscount(discount *Discount) error {
 		return errors.New("discount cannot be nil")
 	}
 
-	if !discount.IsValid() {
-		return errors.New("discount is not valid")
+	// Validate discount
+	if !discount.IsValid() || !discount.Active {
+		return errors.New("discount is invalid or inactive")
 	}
 
-	if !discount.IsApplicableToOrder(o) {
+	// Use the Discount entity's CalculateDiscount method to calculate the discount amount
+	discountAmount := discount.CalculateDiscount(o)
+	if discountAmount <= 0 {
 		return errors.New("discount is not applicable to this order")
 	}
 
-	// Calculate discount amount
-	discountAmount := discount.CalculateDiscount(o)
-	if discountAmount <= 0 {
-		return errors.New("discount amount must be greater than zero")
-	}
-
-	// Apply the discount
+	// Apply the calculated discount
 	o.DiscountAmount = discountAmount
-	o.FinalAmount = o.TotalAmount - o.DiscountAmount
+	o.FinalAmount = o.TotalAmount + o.ShippingCost - discountAmount
+
+	// Record the applied discount
 	o.AppliedDiscount = &AppliedDiscount{
 		DiscountID:     discount.ID,
 		DiscountCode:   discount.Code,
 		DiscountAmount: discountAmount,
 	}
-	o.UpdatedAt = time.Now()
 
+	o.UpdatedAt = time.Now()
 	return nil
 }
 
 // RemoveDiscount removes any applied discount from the order
 func (o *Order) RemoveDiscount() {
 	o.DiscountAmount = 0
-	o.FinalAmount = o.TotalAmount
+	o.FinalAmount = o.TotalAmount + o.ShippingCost
 	o.AppliedDiscount = nil
 	o.UpdatedAt = time.Now()
 }
 
 // SetActionURL sets the action URL for the order
 func (o *Order) SetActionURL(actionURL string) error {
+	if actionURL == "" {
+		return errors.New("action URL cannot be empty")
+	}
+
 	o.ActionURL = actionURL
 	o.UpdatedAt = time.Now()
 	return nil
+}
+
+// SetShippingMethod sets the shipping method for the order and updates shipping cost
+func (o *Order) SetShippingMethod(method *ShippingMethod, cost int64) error {
+	if method == nil {
+		return errors.New("shipping method cannot be nil")
+	}
+
+	if cost < 0 {
+		return errors.New("shipping cost cannot be negative")
+	}
+
+	o.ShippingMethodID = method.ID
+	o.ShippingMethod = method
+	o.ShippingCost = cost
+
+	// Update final amount with new shipping cost
+	o.FinalAmount = o.TotalAmount + o.ShippingCost - o.DiscountAmount
+
+	o.UpdatedAt = time.Now()
+	return nil
+}
+
+// CalculateTotalWeight calculates the total weight of all items in the order
+func (o *Order) CalculateTotalWeight() float64 {
+	totalWeight := 0.0
+	for _, item := range o.Items {
+		totalWeight += item.Weight * float64(item.Quantity)
+	}
+	o.TotalWeight = totalWeight
+	return totalWeight
 }

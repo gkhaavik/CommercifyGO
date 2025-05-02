@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
@@ -24,6 +27,101 @@ func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Log
 	}
 }
 
+// --- Response Structs --- //
+
+// ProductVariantResponse is the API representation of a product variant (prices in dollars)
+type ProductVariantResponse struct {
+	ID           uint                      `json:"id"`
+	ProductID    uint                      `json:"product_id"`
+	SKU          string                    `json:"sku"`
+	Price        float64                   `json:"price"`                   // Price in dollars
+	ComparePrice float64                   `json:"compare_price,omitempty"` // Price in dollars
+	Stock        int                       `json:"stock"`
+	Weight       float64                   `json:"weight"`
+	Attributes   []entity.VariantAttribute `json:"attributes"`
+	Images       []string                  `json:"images,omitempty"`
+	IsDefault    bool                      `json:"is_default"`
+	CreatedAt    time.Time                 `json:"created_at"` // Use time.Time, marshaller handles formatting
+	UpdatedAt    time.Time                 `json:"updated_at"` // Use time.Time, marshaller handles formatting
+}
+
+// ProductResponse is the API representation of a product (prices in dollars)
+type ProductResponse struct {
+	ID            uint                      `json:"id"`
+	ProductNumber string                    `json:"product_number"`
+	Name          string                    `json:"name"`
+	Description   string                    `json:"description"`
+	Price         float64                   `json:"price"` // Price in dollars
+	Stock         int                       `json:"stock"`
+	Weight        float64                   `json:"weight"`
+	CategoryID    uint                      `json:"category_id"`
+	SellerID      uint                      `json:"seller_id"`
+	Images        []string                  `json:"images"`
+	HasVariants   bool                      `json:"has_variants"`
+	Variants      []*ProductVariantResponse `json:"variants,omitempty"`
+	CreatedAt     time.Time                 `json:"created_at"` // Use time.Time, marshaller handles formatting
+	UpdatedAt     time.Time                 `json:"updated_at"` // Use time.Time, marshaller handles formatting
+}
+
+// --- Helper Functions --- //
+
+func toProductVariantResponse(variant *entity.ProductVariant) *ProductVariantResponse {
+	if variant == nil {
+		return nil
+	}
+	return &ProductVariantResponse{
+		ID:           variant.ID,
+		ProductID:    variant.ProductID,
+		SKU:          variant.SKU,
+		Price:        money.FromCents(variant.Price),
+		ComparePrice: money.FromCents(variant.ComparePrice),
+		Stock:        variant.Stock,
+		Weight:       variant.Weight,
+		Attributes:   variant.Attributes,
+		Images:       variant.Images,
+		IsDefault:    variant.IsDefault,
+		CreatedAt:    variant.CreatedAt, // Assign directly
+		UpdatedAt:    variant.UpdatedAt, // Assign directly
+	}
+}
+
+func toProductResponse(product *entity.Product) *ProductResponse {
+	if product == nil {
+		return nil
+	}
+	variantsResponse := make([]*ProductVariantResponse, len(product.Variants))
+	for i, v := range product.Variants {
+		variantsResponse[i] = toProductVariantResponse(v)
+	}
+
+	return &ProductResponse{
+		ID:            product.ID,
+		ProductNumber: product.ProductNumber,
+		Name:          product.Name,
+		Description:   product.Description,
+		Price:         money.FromCents(product.Price),
+		Stock:         product.Stock,
+		Weight:        product.Weight,
+		CategoryID:    product.CategoryID,
+		SellerID:      product.SellerID,
+		Images:        product.Images,
+		HasVariants:   product.HasVariants,
+		Variants:      variantsResponse,
+		CreatedAt:     product.CreatedAt, // Assign directly
+		UpdatedAt:     product.UpdatedAt, // Assign directly
+	}
+}
+
+func toProductListResponse(products []*entity.Product) []*ProductResponse {
+	list := make([]*ProductResponse, len(products))
+	for i, p := range products {
+		list[i] = toProductResponse(p)
+	}
+	return list
+}
+
+// --- Handlers --- //
+
 // CreateProduct handles product creation
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
@@ -33,7 +131,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (expects float64 for prices)
 	var input usecase.CreateProductInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -43,7 +141,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	// Set seller ID from authenticated user
 	input.SellerID = userID
 
-	// Create product
+	// Create product (use case handles conversion to cents)
 	product, err := h.productUseCase.CreateProduct(input)
 	if err != nil {
 		h.logger.Error("Failed to create product: %v", err)
@@ -51,10 +149,13 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return created product
+	// Convert entity to response struct (converts cents to dollars)
+	response := toProductResponse(product)
+
+	// Return created product response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(product)
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetProduct handles getting a product by ID
@@ -67,7 +168,7 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get product
+	// Get product (use case returns entity with cents)
 	product, err := h.productUseCase.GetProductByID(uint(id))
 	if err != nil {
 		h.logger.Error("Failed to get product: %v", err)
@@ -75,9 +176,12 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return product
+	// Convert entity to response struct (converts cents to dollars)
+	response := toProductResponse(product)
+
+	// Return product response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(product)
+	json.NewEncoder(w).Encode(response)
 }
 
 // UpdateProduct handles updating a product
@@ -97,14 +201,14 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (expects float64 for prices)
 	var input usecase.UpdateProductInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Update product
+	// Update product (use case handles conversion to cents)
 	product, err := h.productUseCase.UpdateProduct(uint(id), userID, input)
 	if err != nil {
 		h.logger.Error("Failed to update product: %v", err)
@@ -116,9 +220,12 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return updated product
+	// Convert entity to response struct (converts cents to dollars)
+	response := toProductResponse(product)
+
+	// Return updated product response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(product)
+	json.NewEncoder(w).Encode(response)
 }
 
 // DeleteProduct handles deleting a product
@@ -170,7 +277,7 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (expects float64 for prices)
 	var input usecase.AddVariantInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -180,7 +287,7 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 	// Set product ID from URL
 	input.ProductID = uint(productID)
 
-	// Add variant
+	// Add variant (use case handles conversion to cents)
 	variant, err := h.productUseCase.AddVariant(userID, input)
 	if err != nil {
 		h.logger.Error("Failed to add variant: %v", err)
@@ -192,10 +299,13 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return created variant
+	// Convert entity to response struct (converts cents to dollars)
+	response := toProductVariantResponse(variant)
+
+	// Return created variant response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(variant)
+	json.NewEncoder(w).Encode(response)
 }
 
 // UpdateVariant handles updating a product variant
@@ -221,14 +331,14 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body (expects float64 for prices)
 	var input usecase.UpdateVariantInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Update variant
+	// Update variant (use case handles conversion to cents)
 	variant, err := h.productUseCase.UpdateVariant(uint(productID), uint(variantID), userID, input)
 	if err != nil {
 		h.logger.Error("Failed to update variant: %v", err)
@@ -240,9 +350,12 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return updated variant
+	// Convert entity to response struct (converts cents to dollars)
+	response := toProductVariantResponse(variant)
+
+	// Return updated variant response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(variant)
+	json.NewEncoder(w).Encode(response)
 }
 
 // DeleteVariant handles deleting a product variant
@@ -292,7 +405,7 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 		limit = 10 // Default limit
 	}
 
-	// Get products
+	// Get products (use case returns entities with cents)
 	products, err := h.productUseCase.ListProducts(offset, limit)
 	if err != nil {
 		h.logger.Error("Failed to list products: %v", err)
@@ -300,14 +413,17 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return products
+	// Convert entities to response structs (converts cents to dollars)
+	response := toProductListResponse(products)
+
+	// Return products response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(products)
+	json.NewEncoder(w).Encode(response)
 }
 
 // SearchProducts handles searching for products
 func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
-	// Parse search parameters
+	// Parse search parameters (prices are float64 dollars)
 	query := r.URL.Query().Get("q")
 	categoryIDStr := r.URL.Query().Get("category")
 	minPriceStr := r.URL.Query().Get("min_price")
@@ -338,12 +454,12 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		limit = 10 // Default limit
 	}
 
-	// Search products
+	// Search products (use case expects float64 dollars)
 	input := usecase.SearchProductsInput{
 		Query:      query,
 		CategoryID: categoryID,
-		MinPrice:   minPrice,
-		MaxPrice:   maxPrice,
+		MinPrice:   minPrice, // Pass dollars
+		MaxPrice:   maxPrice, // Pass dollars
 		Offset:     offset,
 		Limit:      limit,
 	}
@@ -355,9 +471,12 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Return products
+	// Convert entities to response structs (converts cents to dollars)
+	response := toProductListResponse(products)
+
+	// Return products response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(products)
+	json.NewEncoder(w).Encode(response)
 }
 
 // ListSellerProducts handles listing products for a seller
@@ -376,7 +495,7 @@ func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Reque
 		limit = 10 // Default limit
 	}
 
-	// Get seller's products
+	// Get seller's products (use case returns entities with cents)
 	products, err := h.productUseCase.ListProductsBySeller(userID, offset, limit)
 	if err != nil {
 		h.logger.Error("Failed to list seller products: %v", err)
@@ -384,9 +503,12 @@ func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Return products
+	// Convert entities to response structs (converts cents to dollars)
+	response := toProductListResponse(products)
+
+	// Return products response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(products)
+	json.NewEncoder(w).Encode(response)
 }
 
 // ListCategories handles listing all categories

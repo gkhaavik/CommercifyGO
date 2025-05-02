@@ -15,6 +15,7 @@ type HandlerProvider interface {
 	PaymentHandler() *handler.PaymentHandler
 	WebhookHandler() *handler.WebhookHandler
 	DiscountHandler() *handler.DiscountHandler
+	ShippingHandler() *handler.ShippingHandler
 }
 
 // handlerProvider is the concrete implementation of HandlerProvider
@@ -29,6 +30,7 @@ type handlerProvider struct {
 	paymentHandler  *handler.PaymentHandler
 	webhookHandler  *handler.WebhookHandler
 	discountHandler *handler.DiscountHandler
+	shippingHandler *handler.ShippingHandler
 }
 
 // NewHandlerProvider creates a new handler provider
@@ -138,4 +140,18 @@ func (p *handlerProvider) DiscountHandler() *handler.DiscountHandler {
 		)
 	}
 	return p.discountHandler
+}
+
+// ShippingHandler returns the shipping handler
+func (p *handlerProvider) ShippingHandler() *handler.ShippingHandler {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.shippingHandler == nil {
+		p.shippingHandler = handler.NewShippingHandler(
+			p.container.UseCases().ShippingUseCase(),
+			p.container.Logger(),
+		)
+	}
+	return p.shippingHandler
 }

@@ -13,7 +13,7 @@ type MockProductRepository struct {
 	bySeller map[uint][]*entity.Product
 	lastID   uint
 	// Add MockSearch function field for custom search behavior in tests
-	MockSearch func(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error)
+	MockSearch func(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error)
 }
 
 // NewMockProductRepository creates a new instance of MockProductRepository
@@ -105,7 +105,7 @@ func (r *MockProductRepository) List(offset, limit int) ([]*entity.Product, erro
 }
 
 // Search searches for products based on criteria
-func (r *MockProductRepository) Search(query string, categoryID uint, minPrice, maxPrice float64, offset, limit int) ([]*entity.Product, error) {
+func (r *MockProductRepository) Search(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error) {
 	if r.MockSearch != nil {
 		// Use the custom search function if provided
 		return r.MockSearch(query, categoryID, minPrice, maxPrice, offset, limit)

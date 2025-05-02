@@ -152,7 +152,7 @@ func (s *MultiProviderPaymentService) VerifyPayment(transactionID string, provid
 }
 
 // RefundPayment refunds a payment
-func (s *MultiProviderPaymentService) RefundPayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *MultiProviderPaymentService) RefundPayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	paymentProvider, exists := s.providers[provider]
 	if !exists {
 		return fmt.Errorf("payment provider %s not available", provider)
@@ -162,7 +162,7 @@ func (s *MultiProviderPaymentService) RefundPayment(transactionID string, amount
 }
 
 // CapturePayment captures a payment
-func (s *MultiProviderPaymentService) CapturePayment(transactionID string, amount float64, provider service.PaymentProviderType) error {
+func (s *MultiProviderPaymentService) CapturePayment(transactionID string, amount int64, provider service.PaymentProviderType) error {
 	paymentProvider, exists := s.providers[provider]
 	if !exists {
 		return fmt.Errorf("payment provider %s not available", provider)

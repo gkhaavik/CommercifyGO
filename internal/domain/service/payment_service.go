@@ -33,7 +33,7 @@ type PaymentProvider struct {
 // PaymentRequest represents a request to process a payment
 type PaymentRequest struct {
 	OrderID         uint
-	Amount          float64
+	Amount          int64
 	Currency        string
 	PaymentMethod   PaymentMethod
 	PaymentProvider PaymentProviderType
@@ -89,10 +89,10 @@ type PaymentService interface {
 	VerifyPayment(transactionID string, provider PaymentProviderType) (bool, error)
 
 	// RefundPayment refunds a payment
-	RefundPayment(transactionID string, amount float64, provider PaymentProviderType) error
+	RefundPayment(transactionID string, amount int64, provider PaymentProviderType) error
 
 	// CapturePayment captures a payment
-	CapturePayment(transactionID string, amount float64, provider PaymentProviderType) error
+	CapturePayment(transactionID string, amount int64, provider PaymentProviderType) error
 
 	// CancelPayment cancels a payment
 	CancelPayment(transactionID string, provider PaymentProviderType) error

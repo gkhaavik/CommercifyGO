@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/zenfulcode/commercify/internal/domain/money"
 )
 
 // Product represents a product in the system
@@ -12,8 +14,9 @@ type Product struct {
 	ProductNumber string            `json:"product_number"`
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
-	Price         float64           `json:"price"`
+	Price         int64             `json:"price"` // Stored as cents
 	Stock         int               `json:"stock"`
+	Weight        float64           `json:"weight"` // Weight in kg
 	CategoryID    uint              `json:"category_id"`
 	SellerID      uint              `json:"seller_id"`
 	Images        []string          `json:"images"`
@@ -23,16 +26,19 @@ type Product struct {
 	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
-// NewProduct creates a new product with the given details
-func NewProduct(name, description string, price float64, stock int, categoryID, sellerID uint, images []string) (*Product, error) {
+// NewProduct creates a new product with the given details (price in cents)
+func NewProduct(name, description string, price int64, stock int, weight float64, categoryID, sellerID uint, images []string) (*Product, error) {
 	if name == "" {
 		return nil, errors.New("product name cannot be empty")
 	}
-	if price <= 0 {
+	if price <= 0 { // Check cents
 		return nil, errors.New("price must be greater than zero")
 	}
 	if stock < 0 {
 		return nil, errors.New("stock cannot be negative")
+	}
+	if weight < 0 {
+		return nil, errors.New("weight cannot be negative")
 	}
 
 	now := time.Now()
@@ -44,8 +50,9 @@ func NewProduct(name, description string, price float64, stock int, categoryID, 
 		Name:          name,
 		ProductNumber: productNumber,
 		Description:   description,
-		Price:         price,
+		Price:         price, // Already in cents
 		Stock:         stock,
+		Weight:        weight,
 		CategoryID:    categoryID,
 		SellerID:      sellerID,
 		Images:        images,
@@ -57,11 +64,6 @@ func NewProduct(name, description string, price float64, stock int, categoryID, 
 
 // UpdateStock updates the product's stock
 func (p *Product) UpdateStock(quantity int) error {
-	// If product has variants, stock should be managed at variant level
-	if p.HasVariants {
-		return errors.New("product has variants, stock should be updated at variant level")
-	}
-
 	newStock := p.Stock + quantity
 	if newStock < 0 {
 		return errors.New("insufficient stock")
@@ -73,9 +75,9 @@ func (p *Product) UpdateStock(quantity int) error {
 
 // IsAvailable checks if the product is available in the requested quantity
 func (p *Product) IsAvailable(quantity int) bool {
-	// If product has variants, availability should be checked at variant level
 	if p.HasVariants {
-		return false
+		// For products with variants, availability depends on variants
+		return true
 	}
 	return p.Stock >= quantity
 }
@@ -97,6 +99,7 @@ func (p *Product) AddVariant(variant *ProductVariant) error {
 	// If this is the first variant and it's the default, set product price to match
 	if len(p.Variants) == 0 && variant.IsDefault {
 		p.Price = variant.Price
+		p.Weight = variant.Weight
 	}
 
 	// Add variant to product
@@ -156,6 +159,19 @@ func (p *Product) GetVariantBySKU(sku string) *ProductVariant {
 func (p *Product) SetProductNumber(id uint) {
 	// Format: PROD-000001
 	p.ProductNumber = fmt.Sprintf("PROD-%06d", id)
+}
+
+// GetTotalWeight calculates the total weight for a quantity of this product
+func (p *Product) GetTotalWeight(quantity int) float64 {
+	if quantity <= 0 {
+		return 0
+	}
+	return p.Weight * float64(quantity)
+}
+
+// GetPriceDollars returns the price in dollars
+func (p *Product) GetPriceDollars() float64 {
+	return money.FromCents(p.Price)
 }
 
 // Category represents a product category

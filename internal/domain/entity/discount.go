@@ -2,8 +2,11 @@ package entity
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"time"
+
+	"github.com/zenfulcode/commercify/internal/domain/money"
 )
 
 // DiscountType represents the type of discount
@@ -32,9 +35,9 @@ type Discount struct {
 	Code             string         `json:"code"`
 	Type             DiscountType   `json:"type"`
 	Method           DiscountMethod `json:"method"`
-	Value            float64        `json:"value"`
-	MinOrderValue    float64        `json:"min_order_value"`
-	MaxDiscountValue float64        `json:"max_discount_value"`
+	Value            float64        `json:"value"`              // Still using float64 for percentage value
+	MinOrderValue    int64          `json:"min_order_value"`    // stored in cents
+	MaxDiscountValue int64          `json:"max_discount_value"` // stored in cents
 	ProductIDs       []uint         `json:"product_ids,omitempty"`
 	CategoryIDs      []uint         `json:"category_ids,omitempty"`
 	StartDate        time.Time      `json:"start_date"`
@@ -52,8 +55,8 @@ func NewDiscount(
 	discountType DiscountType,
 	method DiscountMethod,
 	value float64,
-	minOrderValue float64,
-	maxDiscountValue float64,
+	minOrderValue int64,
+	maxDiscountValue int64,
 	productIDs []uint,
 	categoryIDs []uint,
 	startDate time.Time,
@@ -129,9 +132,14 @@ func (d *Discount) IsApplicableToOrder(order *Order) bool {
 			if slices.Contains(d.ProductIDs, item.ProductID) {
 				return true
 			}
-
-			// We would check categories here, but we need product details
-			// This would be handled in the discount service
+			// Note: Category check is handled separately in the CalculateDiscount method
+			// since we need product details from the repository
+		}
+		// If we have category IDs but no direct product matches,
+		// we still need to check if any product belongs to those categories
+		// This is handled in the use case layer
+		if len(d.CategoryIDs) > 0 {
+			return true
 		}
 		return false
 	}
@@ -140,19 +148,24 @@ func (d *Discount) IsApplicableToOrder(order *Order) bool {
 }
 
 // CalculateDiscount calculates the discount amount for an order
-func (d *Discount) CalculateDiscount(order *Order) float64 {
+func (d *Discount) CalculateDiscount(order *Order) int64 {
 	if !d.IsApplicableToOrder(order) {
 		return 0
 	}
 
-	var discountAmount float64
+	var discountAmount int64
 
 	if d.Type == DiscountTypeBasket {
 		// Calculate discount for the entire order
 		if d.Method == DiscountMethodFixed {
-			discountAmount = d.Value
+			// For fixed amount method, the value is in dollars and needs to be converted to cents
+			// But since we updated the structure, the database will provide the value already in cents
+			discountAmount = money.ToCents(d.Value)
+			fmt.Printf("Discount amount in cents: %d\n", discountAmount)
 		} else if d.Method == DiscountMethodPercentage {
-			discountAmount = order.TotalAmount * (d.Value / 100)
+			// For percentage, apply the percentage to the total amount
+			discountAmount = money.ApplyPercentage(order.TotalAmount, d.Value)
+			fmt.Printf("Discount amount in percentage: %d\n", discountAmount)
 		}
 	} else if d.Type == DiscountTypeProduct {
 		// Calculate discount for eligible products only
@@ -160,14 +173,16 @@ func (d *Discount) CalculateDiscount(order *Order) float64 {
 			isEligible := slices.Contains(d.ProductIDs, item.ProductID)
 
 			if isEligible {
-				itemTotal := float64(item.Quantity) * item.Price
+				itemTotal := item.Subtotal
 				if d.Method == DiscountMethodFixed {
-					// Apply fixed discount per item
-					itemDiscount := min(d.Value*float64(item.Quantity), itemTotal)
+					// For fixed discount, apply once per item (not per quantity)
+					// This matches with the current implementation in ApplyDiscountToOrder
+					fixedDiscountInCents := money.ToCents(d.Value)
+					itemDiscount := min(fixedDiscountInCents, itemTotal)
 					discountAmount += itemDiscount
 				} else if d.Method == DiscountMethodPercentage {
-					itemDiscount := itemTotal * (d.Value / 100)
-					discountAmount += itemDiscount
+					// For percentage discount, apply percentage to item total
+					discountAmount += money.ApplyPercentage(itemTotal, d.Value)
 				}
 			}
 		}
@@ -194,7 +209,7 @@ func (d *Discount) IncrementUsage() {
 
 // AppliedDiscount represents a discount applied to an order
 type AppliedDiscount struct {
-	DiscountID     uint    `json:"discount_id"`
-	DiscountCode   string  `json:"discount_code"`
-	DiscountAmount float64 `json:"discount_amount"`
+	DiscountID     uint   `json:"discount_id"`
+	DiscountCode   string `json:"discount_code"`
+	DiscountAmount int64  `json:"discount_amount"` // stored in cents
 }
