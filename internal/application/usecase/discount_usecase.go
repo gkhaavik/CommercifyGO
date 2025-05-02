@@ -318,7 +318,7 @@ func (uc *DiscountUseCase) ApplyDiscountToOrder(input ApplyDiscountToOrderInput,
 
 				if discount.Method == entity.DiscountMethodFixed {
 					// Apply fixed discount per item
-					itemDiscount := min(money.ToCents(discount.Value)*int64(item.Quantity), itemTotal)
+					itemDiscount := min(money.ToCents(discount.Value), itemTotal)
 					discountAmount += itemDiscount
 				} else if discount.Method == entity.DiscountMethodPercentage {
 					// Apply percentage discount to the item
