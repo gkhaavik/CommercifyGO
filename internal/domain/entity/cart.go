@@ -2,6 +2,7 @@ package entity
 
 import (
 	"errors"
+	"slices"
 	"time"
 )
 
@@ -17,12 +18,13 @@ type Cart struct {
 
 // CartItem represents an item in a shopping cart
 type CartItem struct {
-	ID        uint      `json:"id"`
-	CartID    uint      `json:"cart_id"`
-	ProductID uint      `json:"product_id"`
-	Quantity  int       `json:"quantity"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID               uint      `json:"id"`
+	CartID           uint      `json:"cart_id"`
+	ProductID        uint      `json:"product_id"`
+	ProductVariantID uint      `json:"product_variant_id,omitempty"` // Added field for variant ID
+	Quantity         int       `json:"quantity"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // NewCart creates a new shopping cart for a user
@@ -56,7 +58,7 @@ func NewGuestCart(sessionID string) (*Cart, error) {
 }
 
 // AddItem adds a product to the cart
-func (c *Cart) AddItem(productID uint, quantity int) error {
+func (c *Cart) AddItem(productID uint, variantID uint, quantity int) error {
 	if productID == 0 {
 		return errors.New("product ID cannot be empty")
 	}
@@ -66,7 +68,9 @@ func (c *Cart) AddItem(productID uint, quantity int) error {
 
 	// Check if the product is already in the cart
 	for i, item := range c.Items {
-		if item.ProductID == productID {
+		// Match by both product ID and variant ID (if variant ID is provided)
+		if item.ProductID == productID &&
+			(variantID == 0 || item.ProductVariantID == variantID) {
 			// Update quantity if product already exists
 			c.Items[i].Quantity += quantity
 			c.Items[i].UpdatedAt = time.Now()
@@ -78,10 +82,11 @@ func (c *Cart) AddItem(productID uint, quantity int) error {
 	// Add new item if product doesn't exist in cart
 	now := time.Now()
 	c.Items = append(c.Items, CartItem{
-		ProductID: productID,
-		Quantity:  quantity,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ProductID:        productID,
+		ProductVariantID: variantID, // Store variant ID
+		Quantity:         quantity,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	})
 	c.UpdatedAt = now
 
@@ -89,7 +94,7 @@ func (c *Cart) AddItem(productID uint, quantity int) error {
 }
 
 // UpdateItem updates the quantity of a product in the cart
-func (c *Cart) UpdateItem(productID uint, quantity int) error {
+func (c *Cart) UpdateItem(productID uint, variantID uint, quantity int) error {
 	if productID == 0 {
 		return errors.New("product ID cannot be empty")
 	}
@@ -98,7 +103,9 @@ func (c *Cart) UpdateItem(productID uint, quantity int) error {
 	}
 
 	for i, item := range c.Items {
-		if item.ProductID == productID {
+		// Match by both product ID and variant ID (if variant ID is provided)
+		if item.ProductID == productID &&
+			(variantID == 0 || item.ProductVariantID == variantID) {
 			c.Items[i].Quantity = quantity
 			c.Items[i].UpdatedAt = time.Now()
 			c.UpdatedAt = time.Now()
@@ -110,15 +117,17 @@ func (c *Cart) UpdateItem(productID uint, quantity int) error {
 }
 
 // RemoveItem removes a product from the cart
-func (c *Cart) RemoveItem(productID uint) error {
+func (c *Cart) RemoveItem(productID uint, variantID uint) error {
 	if productID == 0 {
 		return errors.New("product ID cannot be empty")
 	}
 
 	for i, item := range c.Items {
-		if item.ProductID == productID {
+		// Match by both product ID and variant ID (if variant ID is provided)
+		if item.ProductID == productID &&
+			(variantID == 0 || item.ProductVariantID == variantID) {
 			// Remove item from slice
-			c.Items = append(c.Items[:i], c.Items[i+1:]...)
+			c.Items = slices.Delete(c.Items, i, i+1)
 			c.UpdatedAt = time.Now()
 			return nil
 		}

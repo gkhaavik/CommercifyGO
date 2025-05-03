@@ -119,18 +119,11 @@ func main() {
 		fmt.Println("Webhooks seeded successfully")
 	}
 
-	// if *allFlag || *cartsFlag {
-	// 	if err := seedCarts(db); err != nil {
-	// 		log.Fatalf("Failed to seed carts: %v", err)
-	// 	}
-	// 	fmt.Println("Carts seeded successfully")
-	// }
-
-	if *allFlag || *paymentTransactionsFlag {
-		if err := seedPaymentTransactions(db); err != nil {
-			log.Fatalf("Failed to seed payment transactions: %v", err)
+	if *allFlag || *cartsFlag {
+		if err := seedCarts(db); err != nil {
+			log.Fatalf("Failed to seed carts: %v", err)
 		}
-		fmt.Println("Payment transactions seeded successfully")
+		fmt.Println("Carts seeded successfully")
 	}
 
 	if *allFlag || *ordersFlag {
@@ -138,6 +131,13 @@ func main() {
 			log.Fatalf("Failed to seed orders: %v", err)
 		}
 		fmt.Println("Orders seeded successfully")
+	}
+
+	if *allFlag || *paymentTransactionsFlag {
+		if err := seedPaymentTransactions(db); err != nil {
+			log.Fatalf("Failed to seed payment transactions: %v", err)
+		}
+		fmt.Println("Payment transactions seeded successfully")
 	}
 
 	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*productVariantsFlag &&
@@ -843,11 +843,39 @@ func seedCarts(db *sql.DB) error {
 		// Add 1-4 random products to cart
 		numItems := (i % 4) + 1
 
+		// Track which products have already been added to this cart to avoid duplicates
+		addedProducts := make(map[int]bool)
+		addedVariants := make(map[int]bool)
+
 		// Use variants if available, otherwise use products
 		if len(variants) > 0 {
 			for j := 0; j < numItems; j++ {
-				// Select variant
-				variant := variants[(i+j)%len(variants)]
+				// Select variant - ensure we don't pick the same product twice
+				variantIndex := (i + j) % len(variants)
+				variant := variants[variantIndex]
+
+				// Skip if this product was already added to the cart
+				if addedProducts[variant.productID] {
+					// Try to find another product if possible
+					found := false
+					for k := 0; k < len(variants); k++ {
+						testIdx := (variantIndex + k + 1) % len(variants)
+						if !addedProducts[variants[testIdx].productID] {
+							variant = variants[testIdx]
+							found = true
+							break
+						}
+					}
+
+					// If we can't find another product, just skip this one
+					if !found {
+						continue
+					}
+				}
+
+				// Mark this product as added
+				addedProducts[variant.productID] = true
+				addedVariants[variant.id] = true
 
 				// Random quantity between 1 and 3
 				quantity := (j % 3) + 1
@@ -873,8 +901,31 @@ func seedCarts(db *sql.DB) error {
 			}
 		} else {
 			for j := 0; j < numItems; j++ {
-				// Select product
-				product := products[(i+j)%len(products)]
+				// Select product - ensure we don't pick the same product twice
+				productIndex := (i + j) % len(products)
+				product := products[productIndex]
+
+				// Skip if this product was already added to the cart
+				if addedProducts[product.id] {
+					// Try to find another product if possible
+					found := false
+					for k := 0; k < len(products); k++ {
+						testIdx := (productIndex + k + 1) % len(products)
+						if !addedProducts[products[testIdx].id] {
+							product = products[testIdx]
+							found = true
+							break
+						}
+					}
+
+					// If we can't find another product, just skip this one
+					if !found {
+						continue
+					}
+				}
+
+				// Mark this product as added
+				addedProducts[product.id] = true
 
 				// Random quantity between 1 and 3
 				quantity := (j % 3) + 1
@@ -905,10 +956,11 @@ func seedCarts(db *sql.DB) error {
 		}
 
 		// Log the cart creation
+		itemCount := len(addedProducts)
 		if userID != nil {
-			fmt.Printf("Created cart #%d for user ID %d with %d items\n", cartID, *userID, numItems)
+			fmt.Printf("Created cart #%d for user ID %d with %d items\n", cartID, *userID, itemCount)
 		} else {
-			fmt.Printf("Created guest cart #%d with session ID %s with %d items\n", cartID, *sessionID, numItems)
+			fmt.Printf("Created guest cart #%d with session ID %s with %d items\n", cartID, *sessionID, itemCount)
 		}
 	}
 

@@ -85,7 +85,11 @@ func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 // AddToCart handles adding an item to the cart
 func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
-	var input usecase.AddToCartInput
+	var input struct {
+		ProductID uint `json:"product_id"`
+		VariantID uint `json:"variant_id,omitempty"` // Added variant ID
+		Quantity  int  `json:"quantity"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -101,6 +105,12 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cartInput := usecase.AddToCartInput{
+		ProductID: input.ProductID,
+		VariantID: input.VariantID, // Pass variant ID to use case
+		Quantity:  input.Quantity,
+	}
+
 	// Get user ID from context (if authenticated)
 	userID, ok := r.Context().Value("user_id").(uint)
 
@@ -109,11 +119,11 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 
 	if ok && userID > 0 {
 		// User is authenticated, add to user cart
-		cart, err = h.cartUseCase.AddToCart(userID, input)
+		cart, err = h.cartUseCase.AddToCart(userID, cartInput)
 	} else {
 		// User is a guest, add to guest cart
 		sessionID := h.getSessionID(w, r)
-		cart, err = h.cartUseCase.AddToGuestCart(sessionID, input)
+		cart, err = h.cartUseCase.AddToGuestCart(sessionID, cartInput)
 	}
 
 	if err != nil {
@@ -139,7 +149,8 @@ func (h *CartHandler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var input struct {
-		Quantity int `json:"quantity"`
+		Quantity  int  `json:"quantity"`
+		VariantID uint `json:"variant_id,omitempty"` // Added variant ID
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -154,6 +165,7 @@ func (h *CartHandler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 
 	updateInput := usecase.UpdateCartItemInput{
 		ProductID: uint(productID),
+		VariantID: input.VariantID, // Pass variant ID to use case
 		Quantity:  input.Quantity,
 	}
 
@@ -192,6 +204,9 @@ func (h *CartHandler) RemoveFromCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get variant ID from query parameters
+	variantID, _ := strconv.ParseUint(r.URL.Query().Get("variantId"), 10, 32)
+
 	// Get user ID from context (if authenticated)
 	userID, ok := r.Context().Value("user_id").(uint)
 
@@ -199,11 +214,11 @@ func (h *CartHandler) RemoveFromCart(w http.ResponseWriter, r *http.Request) {
 
 	if ok && userID > 0 {
 		// User is authenticated, remove from user cart
-		cart, err = h.cartUseCase.RemoveFromCart(userID, uint(productID))
+		cart, err = h.cartUseCase.RemoveFromCart(userID, uint(productID), uint(variantID))
 	} else {
 		// User is a guest, remove from guest cart
 		sessionID := h.getSessionID(w, r)
-		cart, err = h.cartUseCase.RemoveFromGuestCart(sessionID, uint(productID))
+		cart, err = h.cartUseCase.RemoveFromGuestCart(sessionID, uint(productID), uint(variantID))
 	}
 
 	if err != nil {

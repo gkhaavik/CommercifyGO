@@ -686,6 +686,7 @@ POST /api/cart/items
 ```json
 {
   "product_id": 2,
+  "variant_id": 5,
   "quantity": 1
 }
 ```
@@ -701,6 +702,7 @@ POST /api/cart/items
       "id": 1,
       "cart_id": 1,
       "product_id": 1,
+      "product_variant_id": 3,
       "quantity": 2,
       "created_at": "2023-04-20T16:00:00Z",
       "updated_at": "2023-04-20T16:00:00Z"
@@ -709,12 +711,13 @@ POST /api/cart/items
       "id": 2,
       "cart_id": 1,
       "product_id": 2,
+      "product_variant_id": 5,
       "quantity": 1,
       "created_at": "2023-04-20T16:15:00Z",
       "updated_at": "2023-04-20T16:15:00Z"
     }
   ],
-  "created_at": "2023-04-20T15:45:00Z",
+  "created_at": "2023-04-20T15:00:00Z",
   "updated_at": "2023-04-20T16:15:00Z"
 }
 ```
@@ -722,9 +725,8 @@ POST /api/cart/items
 **Status Codes:**
 
 - `200 OK`: Item added to cart successfully
-- `400 Bad Request`: Invalid request body or insufficient stock
-- `401 Unauthorized`: Not authenticated
-- `404 Not Found`: Product not found
+- `400 Bad Request`: Invalid request body, product not found, or insufficient stock
+- `401 Unauthorized`: Not authenticated (for user cart operations)
 
 ### Update Cart Item
 
@@ -736,7 +738,8 @@ PUT /api/cart/items/{productId}
 
 ```json
 {
-  "quantity": 3
+  "quantity": 3,
+  "variant_id": 5
 }
 ```
 
@@ -751,35 +754,36 @@ PUT /api/cart/items/{productId}
       "id": 1,
       "cart_id": 1,
       "product_id": 1,
-      "quantity": 3,
+      "product_variant_id": 3,
+      "quantity": 2,
       "created_at": "2023-04-20T16:00:00Z",
-      "updated_at": "2023-04-20T16:30:00Z"
+      "updated_at": "2023-04-20T16:00:00Z"
     },
     {
       "id": 2,
       "cart_id": 1,
       "product_id": 2,
-      "quantity": 1,
+      "product_variant_id": 5,
+      "quantity": 3,
       "created_at": "2023-04-20T16:15:00Z",
-      "updated_at": "2023-04-20T16:15:00Z"
+      "updated_at": "2023-04-20T16:20:00Z"
     }
   ],
-  "created_at": "2023-04-20T15:45:00Z",
-  "updated_at": "2023-04-20T16:30:00Z"
+  "created_at": "2023-04-20T15:00:00Z",
+  "updated_at": "2023-04-20T16:20:00Z"
 }
 ```
 
 **Status Codes:**
 
 - `200 OK`: Cart item updated successfully
-- `400 Bad Request`: Invalid request body or insufficient stock
-- `401 Unauthorized`: Not authenticated
-- `404 Not Found`: Product not found in cart
+- `400 Bad Request`: Invalid request body, product not found, or insufficient stock
+- `401 Unauthorized`: Not authenticated (for user cart operations)
 
 ### Remove from Cart
 
 ```plaintext
-DELETE /api/cart/items/{productId}
+DELETE /api/cart/items/{productId}?variantId={variantId}
 ```
 
 **Response Body:**
@@ -790,24 +794,25 @@ DELETE /api/cart/items/{productId}
   "user_id": 1,
   "items": [
     {
-      "id": 2,
+      "id": 1,
       "cart_id": 1,
-      "product_id": 2,
-      "quantity": 1,
-      "created_at": "2023-04-20T16:15:00Z",
-      "updated_at": "2023-04-20T16:15:00Z"
+      "product_id": 1,
+      "product_variant_id": 3,
+      "quantity": 2,
+      "created_at": "2023-04-20T16:00:00Z",
+      "updated_at": "2023-04-20T16:00:00Z"
     }
   ],
-  "created_at": "2023-04-20T15:45:00Z",
-  "updated_at": "2023-04-20T16:45:00Z"
+  "created_at": "2023-04-20T15:00:00Z",
+  "updated_at": "2023-04-20T16:25:00Z"
 }
 ```
 
 **Status Codes:**
 
-- `200 OK`: Item removed from cart successfully
-- `401 Unauthorized`: Not authenticated
-- `404 Not Found`: Product not found in cart
+- `200 OK`: Cart item removed successfully
+- `400 Bad Request`: Product not found in cart
+- `401 Unauthorized`: Not authenticated (for user cart operations)
 
 ### Clear Cart
 
@@ -831,11 +836,6 @@ DELETE /api/cart
 
 - `200 OK`: Cart cleared successfully
 - `401 Unauthorized`: Not authenticated
-- `404 Not Found`: Cart not found
-
-## Orders
-
-### Create Order
 
 ```plaintext
 POST /api/orders
