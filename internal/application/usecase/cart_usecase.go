@@ -138,9 +138,9 @@ func (uc *CartUseCase) UpdateCartItem(userID uint, input UpdateCartItemInput) (*
 	}
 
 	// Get cart
-	cart, err := uc.cartRepo.GetByUserID(userID)
+	cart, err := uc.GetOrCreateCart(userID)
 	if err != nil {
-		return nil, errors.New("cart not found")
+		return nil, err
 	}
 
 	// Update item in cart
