@@ -44,29 +44,50 @@ func (uc *CartUseCase) GetOrCreateCart(userID uint) (*entity.Cart, error) {
 // AddToCartInput contains the data needed to add an item to a cart
 type AddToCartInput struct {
 	ProductID uint `json:"product_id"`
+	VariantID uint `json:"variant_id,omitempty"` // Added variant ID
 	Quantity  int  `json:"quantity"`
 }
 
 // AddToCart adds a product to a user's cart
 func (uc *CartUseCase) AddToCart(userID uint, input AddToCartInput) (*entity.Cart, error) {
 	// Check if product exists and has enough stock
-	product, err := uc.productRepo.GetByID(input.ProductID)
+	product, err := uc.productRepo.GetByIDWithVariants(input.ProductID)
 	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	if !product.IsAvailable(input.Quantity) {
-		return nil, errors.New("insufficient stock")
+	// Check stock based on whether it's a variant or a regular product
+	isVariant := input.VariantID > 0
+	if isVariant {
+		variant := product.GetVariantByID(input.VariantID)
+
+		if variant == nil {
+			return nil, errors.New("product variant not found")
+		}
+
+		if !variant.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
+
+	} else {
+		// Regular product
+		if product.HasVariants {
+			return nil, errors.New("please select a product variant")
+		}
+
+		if !product.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
 	}
 
-	// Get or create cart
+	// Get cart
 	cart, err := uc.GetOrCreateCart(userID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add item to cart
-	if err := cart.AddItem(input.ProductID, input.Quantity); err != nil {
+	if err := cart.AddItem(input.ProductID, input.VariantID, input.Quantity); err != nil {
 		return nil, err
 	}
 
@@ -81,29 +102,49 @@ func (uc *CartUseCase) AddToCart(userID uint, input AddToCartInput) (*entity.Car
 // UpdateCartItemInput contains the data needed to update a cart item
 type UpdateCartItemInput struct {
 	ProductID uint `json:"product_id"`
+	VariantID uint `json:"variant_id,omitempty"` // Added variant ID
 	Quantity  int  `json:"quantity"`
 }
 
 // UpdateCartItem updates the quantity of a product in a user's cart
 func (uc *CartUseCase) UpdateCartItem(userID uint, input UpdateCartItemInput) (*entity.Cart, error) {
 	// Check if product exists and has enough stock
-	product, err := uc.productRepo.GetByID(input.ProductID)
+	product, err := uc.productRepo.GetByIDWithVariants(input.ProductID)
 	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	if !product.IsAvailable(input.Quantity) {
-		return nil, errors.New("insufficient stock")
+	// Check stock based on whether it's a variant or a regular product
+	isVariant := input.VariantID > 0
+	if isVariant {
+		// Find the variant and check its stock
+		variant := product.GetVariantByID(input.VariantID)
+		if variant == nil {
+			return nil, errors.New("product variant not found")
+		}
+
+		if !variant.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
+	} else {
+		// Regular product
+		if product.HasVariants {
+			return nil, errors.New("please select a product variant")
+		}
+
+		if !product.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
 	}
 
 	// Get cart
-	cart, err := uc.cartRepo.GetByUserID(userID)
+	cart, err := uc.GetOrCreateCart(userID)
 	if err != nil {
-		return nil, errors.New("cart not found")
+		return nil, err
 	}
 
 	// Update item in cart
-	if err := cart.UpdateItem(input.ProductID, input.Quantity); err != nil {
+	if err := cart.UpdateItem(input.ProductID, input.VariantID, input.Quantity); err != nil {
 		return nil, err
 	}
 
@@ -116,7 +157,7 @@ func (uc *CartUseCase) UpdateCartItem(userID uint, input UpdateCartItemInput) (*
 }
 
 // RemoveFromCart removes a product from a user's cart
-func (uc *CartUseCase) RemoveFromCart(userID uint, productID uint) (*entity.Cart, error) {
+func (uc *CartUseCase) RemoveFromCart(userID uint, productID uint, variantID uint) (*entity.Cart, error) {
 	// Get cart
 	cart, err := uc.cartRepo.GetByUserID(userID)
 	if err != nil {
@@ -124,7 +165,7 @@ func (uc *CartUseCase) RemoveFromCart(userID uint, productID uint) (*entity.Cart
 	}
 
 	// Remove item from cart
-	if err := cart.RemoveItem(productID); err != nil {
+	if err := cart.RemoveItem(productID, variantID); err != nil {
 		return nil, err
 	}
 
@@ -174,23 +215,40 @@ func (uc *CartUseCase) GetOrCreateGuestCart(sessionID string) (*entity.Cart, err
 // AddToGuestCart adds a product to a guest's cart
 func (uc *CartUseCase) AddToGuestCart(sessionID string, input AddToCartInput) (*entity.Cart, error) {
 	// Check if product exists and has enough stock
-	product, err := uc.productRepo.GetByID(input.ProductID)
+	product, err := uc.productRepo.GetByIDWithVariants(input.ProductID)
 	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	if !product.IsAvailable(input.Quantity) {
-		return nil, errors.New("insufficient stock")
+	// Check stock based on whether it's a variant or a regular product
+	isVariant := input.VariantID > 0
+	if isVariant {
+		variant := product.GetVariantByID(input.VariantID)
+		if variant == nil {
+			return nil, errors.New("product variant not found")
+		}
+		if !variant.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
+	} else {
+		// Regular product
+		if product.HasVariants {
+			return nil, errors.New("please select a product variant")
+		}
+
+		if !product.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
 	}
 
-	// Get or create cart
+	// Get cart
 	cart, err := uc.GetOrCreateGuestCart(sessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add item to cart
-	if err := cart.AddItem(input.ProductID, input.Quantity); err != nil {
+	if err := cart.AddItem(input.ProductID, input.VariantID, input.Quantity); err != nil {
 		return nil, err
 	}
 
@@ -205,23 +263,40 @@ func (uc *CartUseCase) AddToGuestCart(sessionID string, input AddToCartInput) (*
 // UpdateGuestCartItem updates the quantity of a product in a guest's cart
 func (uc *CartUseCase) UpdateGuestCartItem(sessionID string, input UpdateCartItemInput) (*entity.Cart, error) {
 	// Check if product exists and has enough stock
-	product, err := uc.productRepo.GetByID(input.ProductID)
+	product, err := uc.productRepo.GetByIDWithVariants(input.ProductID)
 	if err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	if !product.IsAvailable(input.Quantity) {
-		return nil, errors.New("insufficient stock")
+	// Check stock based on whether it's a variant or a regular product
+	isVariant := input.VariantID > 0
+	if isVariant {
+		variant := product.GetVariantByID(input.VariantID)
+		if variant == nil {
+			return nil, errors.New("product variant not found")
+		}
+		if !variant.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
+	} else {
+		// Regular product
+		if product.HasVariants {
+			return nil, errors.New("please select a product variant")
+		}
+
+		if !product.IsAvailable(input.Quantity) {
+			return nil, errors.New("insufficient stock")
+		}
 	}
 
 	// Get cart
-	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	cart, err := uc.GetOrCreateGuestCart(sessionID)
 	if err != nil {
-		return nil, errors.New("cart not found")
+		return nil, err
 	}
 
 	// Update item in cart
-	if err := cart.UpdateItem(input.ProductID, input.Quantity); err != nil {
+	if err := cart.UpdateItem(input.ProductID, input.VariantID, input.Quantity); err != nil {
 		return nil, err
 	}
 
@@ -234,7 +309,7 @@ func (uc *CartUseCase) UpdateGuestCartItem(sessionID string, input UpdateCartIte
 }
 
 // RemoveFromGuestCart removes a product from a guest's cart
-func (uc *CartUseCase) RemoveFromGuestCart(sessionID string, productID uint) (*entity.Cart, error) {
+func (uc *CartUseCase) RemoveFromGuestCart(sessionID string, productID uint, variantID uint) (*entity.Cart, error) {
 	// Get cart
 	cart, err := uc.cartRepo.GetBySessionID(sessionID)
 	if err != nil {
@@ -242,7 +317,7 @@ func (uc *CartUseCase) RemoveFromGuestCart(sessionID string, productID uint) (*e
 	}
 
 	// Remove item from cart
-	if err := cart.RemoveItem(productID); err != nil {
+	if err := cart.RemoveItem(productID, variantID); err != nil {
 		return nil, err
 	}
 

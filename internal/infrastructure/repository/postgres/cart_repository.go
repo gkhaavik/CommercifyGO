@@ -71,14 +71,15 @@ func (r *CartRepository) Create(cart *entity.Cart) error {
 		for i := range cart.Items {
 			cart.Items[i].CartID = cart.ID
 			query := `
-				INSERT INTO cart_items (cart_id, product_id, quantity, created_at, updated_at)
-				VALUES ($1, $2, $3, $4, $5)
+				INSERT INTO cart_items (cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, $5, $6)
 				RETURNING id
 			`
 			err = tx.QueryRow(
 				query,
 				cart.Items[i].CartID,
 				cart.Items[i].ProductID,
+				cart.Items[i].ProductVariantID,
 				cart.Items[i].Quantity,
 				cart.Items[i].CreatedAt,
 				cart.Items[i].UpdatedAt,
@@ -117,26 +118,28 @@ func (r *CartRepository) GetByUserID(userID uint) (*entity.Cart, error) {
 		return nil, err
 	}
 
-	// Get cart items
-	query = `
-		SELECT id, cart_id, product_id, quantity, created_at, updated_at
+	// Fetch cart items for the cart
+	itemsQuery := `
+		SELECT id, cart_id, product_id, product_variant_id, quantity, created_at, updated_at
 		FROM cart_items
 		WHERE cart_id = $1
 	`
-
-	rows, err := r.db.Query(query, cart.ID)
+	itemRows, err := r.db.Query(itemsQuery, cart.ID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer itemRows.Close()
 
+	// Parse cart items
 	cart.Items = []entity.CartItem{}
-	for rows.Next() {
-		item := entity.CartItem{}
-		err := rows.Scan(
+	for itemRows.Next() {
+		var item entity.CartItem
+		var variantID sql.NullInt64 // Use NullInt64 to handle NULL values
+		err := itemRows.Scan(
 			&item.ID,
 			&item.CartID,
 			&item.ProductID,
+			&variantID,
 			&item.Quantity,
 			&item.CreatedAt,
 			&item.UpdatedAt,
@@ -144,6 +147,12 @@ func (r *CartRepository) GetByUserID(userID uint) (*entity.Cart, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Convert from NullInt64 to uint
+		if variantID.Valid {
+			item.ProductVariantID = uint(variantID.Int64)
+		}
+
 		cart.Items = append(cart.Items, item)
 	}
 
@@ -177,7 +186,7 @@ func (r *CartRepository) GetBySessionID(sessionID string) (*entity.Cart, error) 
 
 	// Get cart items
 	query = `
-		SELECT id, cart_id, product_id, quantity, created_at, updated_at
+		SELECT id, cart_id, product_id, product_variant_id, quantity, created_at, updated_at
 		FROM cart_items
 		WHERE cart_id = $1
 	`
@@ -191,10 +200,12 @@ func (r *CartRepository) GetBySessionID(sessionID string) (*entity.Cart, error) 
 	cart.Items = []entity.CartItem{}
 	for rows.Next() {
 		item := entity.CartItem{}
+		var variantID sql.NullInt64 // Use NullInt64 to handle NULL values
 		err := rows.Scan(
 			&item.ID,
 			&item.CartID,
 			&item.ProductID,
+			&variantID,
 			&item.Quantity,
 			&item.CreatedAt,
 			&item.UpdatedAt,
@@ -202,6 +213,12 @@ func (r *CartRepository) GetBySessionID(sessionID string) (*entity.Cart, error) 
 		if err != nil {
 			return nil, err
 		}
+
+		// Convert from NullInt64 to uint
+		if variantID.Valid {
+			item.ProductVariantID = uint(variantID.Int64)
+		}
+
 		cart.Items = append(cart.Items, item)
 	}
 
@@ -210,6 +227,7 @@ func (r *CartRepository) GetBySessionID(sessionID string) (*entity.Cart, error) 
 
 // Update updates a cart
 func (r *CartRepository) Update(cart *entity.Cart) error {
+	// Begin a transaction
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -217,57 +235,45 @@ func (r *CartRepository) Update(cart *entity.Cart) error {
 	defer func() {
 		if err != nil {
 			tx.Rollback()
-			return
 		}
-		err = tx.Commit()
 	}()
 
 	// Update cart
-	query := `
-		UPDATE carts
-		SET updated_at = $1
-		WHERE id = $2
-	`
-
 	_, err = tx.Exec(
-		query,
-		time.Now(),
+		"UPDATE carts SET updated_at = $1 WHERE id = $2",
+		cart.UpdatedAt,
 		cart.ID,
 	)
 	if err != nil {
 		return err
 	}
 
-	// Delete all cart items
-	query = `DELETE FROM cart_items WHERE cart_id = $1`
-	_, err = tx.Exec(query, cart.ID)
+	// Delete all existing cart items
+	_, err = tx.Exec("DELETE FROM cart_items WHERE cart_id = $1", cart.ID)
 	if err != nil {
 		return err
 	}
 
-	// Insert new cart items
-	for i := range cart.Items {
-		cart.Items[i].CartID = cart.ID
-		now := time.Now()
-		query := `
-			INSERT INTO cart_items (cart_id, product_id, quantity, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5)
-			RETURNING id
-		`
-		err = tx.QueryRow(
-			query,
-			cart.Items[i].CartID,
-			cart.Items[i].ProductID,
-			cart.Items[i].Quantity,
-			now,
-			now,
-		).Scan(&cart.Items[i].ID)
+	// Insert cart items
+	for _, item := range cart.Items {
+		_, err = tx.Exec(
+			`INSERT INTO cart_items 
+			 (cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			cart.ID,
+			item.ProductID,
+			item.ProductVariantID, // Store variant ID
+			item.Quantity,
+			item.CreatedAt,
+			item.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
+	// Commit transaction
+	return tx.Commit()
 }
 
 // Delete deletes a cart
@@ -316,21 +322,22 @@ func (r *CartRepository) ConvertGuestCartToUserCart(sessionID string, userID uin
 		for _, item := range guestCart.Items {
 			found := false
 			for i, userItem := range userCart.Items {
-				if userItem.ProductID == item.ProductID {
-					// Update quantity if product already exists
+				if userItem.ProductID == item.ProductID && userItem.ProductVariantID == item.ProductVariantID {
+					// Update quantity if product and variant already exist
 					userCart.Items[i].Quantity += item.Quantity
 					found = true
 					break
 				}
 			}
 			if !found {
-				// Add new item if product doesn't exist in user cart
+				// Add new item if product and variant don't exist in user cart
 				userCart.Items = append(userCart.Items, entity.CartItem{
-					CartID:    userCart.ID,
-					ProductID: item.ProductID,
-					Quantity:  item.Quantity,
-					CreatedAt: time.Now(),
-					UpdatedAt: time.Now(),
+					CartID:           userCart.ID,
+					ProductID:        item.ProductID,
+					ProductVariantID: item.ProductVariantID,
+					Quantity:         item.Quantity,
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
 				})
 			}
 		}

@@ -2,7 +2,6 @@ package entity
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 	"time"
 
@@ -161,11 +160,9 @@ func (d *Discount) CalculateDiscount(order *Order) int64 {
 			// For fixed amount method, the value is in dollars and needs to be converted to cents
 			// But since we updated the structure, the database will provide the value already in cents
 			discountAmount = money.ToCents(d.Value)
-			fmt.Printf("Discount amount in cents: %d\n", discountAmount)
 		} else if d.Method == DiscountMethodPercentage {
 			// For percentage, apply the percentage to the total amount
 			discountAmount = money.ApplyPercentage(order.TotalAmount, d.Value)
-			fmt.Printf("Discount amount in percentage: %d\n", discountAmount)
 		}
 	} else if d.Type == DiscountTypeProduct {
 		// Calculate discount for eligible products only

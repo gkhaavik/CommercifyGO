@@ -156,22 +156,24 @@ func (r *MockCartRepository) ConvertGuestCartToUserCart(sessionID string, userID
 		for _, item := range guestCart.Items {
 			found := false
 			for i, userItem := range existingCart.Items {
-				if userItem.ProductID == item.ProductID {
-					// Update quantity if product already exists
+				// Check both product ID and variant ID to determine if it's the same item
+				if userItem.ProductID == item.ProductID && userItem.ProductVariantID == item.ProductVariantID {
+					// Update quantity if product and variant already exist
 					existingCart.Items[i].Quantity += item.Quantity
 					found = true
 					break
 				}
 			}
 			if !found {
-				// Add new item if product doesn't exist in user cart
+				// Add new item if product/variant doesn't exist in user cart
 				existingCart.Items = append(existingCart.Items, entity.CartItem{
-					ID:        r.nextID,
-					CartID:    existingCart.ID,
-					ProductID: item.ProductID,
-					Quantity:  item.Quantity,
-					CreatedAt: time.Now(),
-					UpdatedAt: time.Now(),
+					ID:               r.nextID,
+					CartID:           existingCart.ID,
+					ProductID:        item.ProductID,
+					ProductVariantID: item.ProductVariantID,
+					Quantity:         item.Quantity,
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
 				})
 				r.nextID++
 			}
