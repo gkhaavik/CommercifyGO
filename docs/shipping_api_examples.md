@@ -209,10 +209,17 @@ Add a value-based rate to an existing shipping rate.
 
 ## Example Workflow
 
-1. Create shipping methods (Standard, Express, etc.)
-2. Create shipping zones (US Domestic, International, etc.)
-3. Create shipping rates connecting methods to zones
-4. Add weight-based or value-based rules to rates as needed
-5. When a customer enters their shipping address and has items in cart, call the shipping options endpoint
-6. Customer selects a shipping option
-7. Calculate final cost using the specific rate endpoint
+### Shipping Configuration Flow (Admin)
+
+1. Admin creates shipping methods (Standard, Express, etc.)
+2. Admin creates shipping zones (US Domestic, International, etc.)
+3. Admin creates shipping rates connecting methods to zones
+4. Admin adds weight-based or value-based rules to rates as needed
+
+### Customer Shipping Selection Flow
+
+1. When a customer enters their shipping address and has items in cart, the system calls the shipping options endpoint
+2. Available shipping options are displayed to the customer based on their location and order details
+3. Customer selects a shipping option during checkout
+4. The selected shipping method is included in the order
+5. Shipping cost is calculated and added to the order total
