@@ -58,6 +58,23 @@ func (uc *CurrencyUseCase) CreateCurrency(
 	rate float64,
 	isDefault, isEnabled bool,
 ) (*entity.Currency, error) {
+	// Validate input parameters
+	if code == "" {
+		return nil, errors.New("currency code cannot be empty")
+	}
+	if name == "" {
+		return nil, errors.New("currency name cannot be empty")
+	}
+	if symbol == "" {
+		return nil, errors.New("currency symbol cannot be empty")
+	}
+	if precision < 0 {
+		return nil, errors.New("currency precision cannot be negative")
+	}
+	if rate <= 0 {
+		return nil, errors.New("exchange rate must be positive")
+	}
+
 	// Check if currency already exists
 	existing, err := uc.currencyRepo.GetByCode(code)
 	if err == nil && existing != nil {
@@ -118,9 +135,17 @@ func (uc *CurrencyUseCase) UpdateCurrency(
 	if precision != nil {
 		currency.Precision = *precision
 	}
-	if rate != nil {
+
+	// Handle the default currency setting first, as it affects the exchange rate
+	if isDefault != nil && *isDefault {
+		// If setting as default, ensure exchange rate is 1.0 regardless of provided rate
+		currency.ExchangeRate = 1.0
+		currency.IsDefault = true
+	} else if rate != nil {
+		// Only update rate if not being set as default
 		currency.ExchangeRate = *rate
 	}
+
 	if isEnabled != nil {
 		currency.IsEnabled = *isEnabled
 	}
@@ -138,11 +163,9 @@ func (uc *CurrencyUseCase) UpdateCurrency(
 		if err := uc.currencyRepo.SetDefault(code); err != nil {
 			return nil, err
 		}
-		// Refresh our currency object to reflect default status
-		currency, err = uc.currencyRepo.GetByCode(code)
-		if err != nil {
-			return nil, err
-		}
+
+		// Refresh the currency to get the updated data
+		return uc.currencyRepo.GetByCode(code)
 	}
 
 	return currency, nil
@@ -214,6 +237,28 @@ func (uc *CurrencyUseCase) GetExchangeRateHistory(
 	}
 
 	return uc.currencyRepo.GetExchangeRateHistory(baseCurrency, targetCurrency, limit)
+}
+
+// GetExchangeRate returns the current exchange rate between two currencies
+func (uc *CurrencyUseCase) GetExchangeRate(fromCurrency, toCurrency string) (float64, error) {
+	// Validate currencies
+	if fromCurrency == "" || toCurrency == "" {
+		return 0, errors.New("source and target currencies cannot be empty")
+	}
+
+	// Ensure currencies exist
+	_, err := uc.currencyRepo.GetByCode(fromCurrency)
+	if err != nil {
+		return 0, fmt.Errorf("source currency not found: %w", err)
+	}
+
+	_, err = uc.currencyRepo.GetByCode(toCurrency)
+	if err != nil {
+		return 0, fmt.Errorf("target currency not found: %w", err)
+	}
+
+	// Get the exchange rate from the currency service
+	return uc.currencyService.GetExchangeRate(fromCurrency, toCurrency)
 }
 
 // ConvertMoney converts an amount from one currency to another

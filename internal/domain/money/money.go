@@ -134,9 +134,26 @@ func FormatDollars(dollars float64, symbol string) string {
 	return symbol + formatDollars(dollars)
 }
 
-// formatDollars is a helper function to format dollar values with 2 decimal places
+// formatDollars is a helper function to format dollar values with 2 decimal places and thousands separators
 func formatDollars(dollars float64) string {
-	return fmt.Sprintf("%.2f", dollars)
+	// Get the integer and fraction parts
+	intPart := int64(dollars)
+	fracPart := int64(math.Round((dollars - float64(intPart)) * 100))
+
+	// Format the integer part with thousands separators
+	intStr := fmt.Sprintf("%d", intPart)
+
+	// Add thousands separators
+	result := ""
+	for i := range len(intStr) {
+		if i > 0 && (len(intStr)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(intStr[i])
+	}
+
+	// Combine with the fractional part
+	return fmt.Sprintf("%s.%02d", result, fracPart)
 }
 
 // ApplyPercentage applies a percentage to a cents value
@@ -152,9 +169,7 @@ func (m *Money) Format() (string, error) {
 	}
 
 	value := float64(m.Amount) / math.Pow(10, float64(currency.Precision))
-	format := "%s%." + fmt.Sprintf("%d", currency.Precision) + "f"
-
-	return fmt.Sprintf(format, currency.Symbol, value), nil
+	return FormatDollars(value, currency.Symbol), nil
 }
 
 // Add adds two Money values and returns a new Money result
