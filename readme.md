@@ -237,12 +237,13 @@ Authorization: Bearer <token>
 #### Discounts
 
 - `GET /api/discounts` - List active discounts
+- `POST /api/orders/{id}/discounts` - Apply discount to order
+- `DELETE /api/orders/{id}/discounts` - Remove discount from order
 - `POST /api/admin/discounts` - Create discount (admin only)
 - `PUT /api/admin/discounts/{id}` - Update discount (admin only)
 - `DELETE /api/admin/discounts/{id}` - Delete discount (admin only)
 - `GET /api/admin/discounts` - List all discounts (admin only)
 
-**Note:** To apply or remove discounts from orders, refer to the [Orders](#order-processing) section.
 #### Webhooks
 
 - `POST /api/webhooks/stripe` - Stripe webhook endpoint
