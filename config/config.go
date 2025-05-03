@@ -16,6 +16,7 @@ type Config struct {
 	Stripe    StripeConfig
 	PayPal    PayPalConfig
 	MobilePay MobilePayConfig
+	CORS      CORSConfig
 }
 
 // ServerConfig holds server-specific configuration
@@ -87,6 +88,12 @@ type MobilePayConfig struct {
 	Market               string // NOK, DKK, EUR
 	Enabled              bool
 	IsTestMode           bool
+}
+
+// CORSConfig holds CORS-specific configuration
+type CORSConfig struct {
+	AllowedOrigins  []string
+	AllowAllOrigins bool
 }
 
 // LoadConfig loads configuration from environment variables
@@ -208,6 +215,10 @@ func LoadConfig() (*Config, error) {
 			Market:               getEnv("MOBILEPAY_MARKET", "NOK"),
 			Enabled:              mobilePayEnabled,
 			IsTestMode:           mobilePayTestMode,
+		},
+		CORS: CORSConfig{
+			AllowedOrigins:  []string{"*"},
+			AllowAllOrigins: true,
 		},
 	}, nil
 }
