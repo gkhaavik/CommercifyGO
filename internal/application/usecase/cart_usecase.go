@@ -81,9 +81,9 @@ func (uc *CartUseCase) AddToCart(userID uint, input AddToCartInput) (*entity.Car
 	}
 
 	// Get cart
-	cart, err := uc.cartRepo.GetByUserID(userID)
+	cart, err := uc.GetOrCreateCart(userID)
 	if err != nil {
-		return nil, errors.New("cart not found")
+		return nil, err
 	}
 
 	// Add item to cart
@@ -242,9 +242,9 @@ func (uc *CartUseCase) AddToGuestCart(sessionID string, input AddToCartInput) (*
 	}
 
 	// Get cart
-	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	cart, err := uc.GetOrCreateGuestCart(sessionID)
 	if err != nil {
-		return nil, errors.New("cart not found")
+		return nil, err
 	}
 
 	// Add item to cart
@@ -290,9 +290,9 @@ func (uc *CartUseCase) UpdateGuestCartItem(sessionID string, input UpdateCartIte
 	}
 
 	// Get cart
-	cart, err := uc.cartRepo.GetBySessionID(sessionID)
+	cart, err := uc.GetOrCreateGuestCart(sessionID)
 	if err != nil {
-		return nil, errors.New("cart not found")
+		return nil, err
 	}
 
 	// Update item in cart
