@@ -564,9 +564,18 @@ Delete a product variant (seller only).
 
 ## Example Workflow
 
-1. Seller creates a product through the seller interface
+### Product Management Flow (Seller)
+
+1. Seller creates a base product through the seller interface
 2. If the product has variants, seller adds variants with different attributes (color, size, etc.)
-3. Customers browse or search products through the public endpoints
-4. Customers can view product details including all available variants
-5. When adding to cart, customers select specific variants if the product has them
-6. Sellers can update or delete their products and variants as needed
+3. Seller can update product information or variant details as needed
+4. Seller can manage inventory levels for products and variants
+5. Seller can deactivate or delete products when they're no longer available
+
+### Product Shopping Flow (Customer)
+
+1. Customers browse products by category or use the search function
+2. Customers can view detailed product information including available variants
+3. When adding to cart, customers select specific variants if the product has them
+4. Products and variants are displayed with current inventory levels
+5. Out-of-stock products or variants can be marked as unavailable for purchase

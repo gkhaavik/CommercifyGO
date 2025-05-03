@@ -164,12 +164,19 @@ Authorization: Bearer <token>
 - `GET /api/users/me` - Get current user profile
 - `PUT /api/users/me` - Update user profile
 - `PUT /api/users/me/password` - Change password
+- `GET /api/admin/users` - List all users (admin only)
+- `GET /api/admin/users/{id}` - Get user by ID (admin only)
+- `PUT /api/admin/users/{id}/role` - Update user role (admin only)
+- `PUT /api/admin/users/{id}/deactivate` - Deactivate user (admin only)
+- `PUT /api/admin/users/{id}/activate` - Reactivate user (admin only)
 
 #### Products
 
-- `GET /api/products` - List products
+- `GET /api/products` - List products with pagination
 - `GET /api/products/{id}` - Get product details
 - `GET /api/products/search` - Search products
+- `GET /api/categories` - List product categories
+- `GET /api/products/seller` - List seller's products (seller only)
 - `POST /api/products` - Create product (seller only)
 - `PUT /api/products/{id}` - Update product (seller only)
 - `DELETE /api/products/{id}` - Delete product (seller only)
@@ -180,56 +187,102 @@ Authorization: Bearer <token>
 - `PUT /api/products/{productId}/variants/{variantId}` - Update variant (seller only)
 - `DELETE /api/products/{productId}/variants/{variantId}` - Delete variant (seller only)
 
-#### Categories
+#### Shopping Cart
 
-- `GET /api/categories` - List categories
-
-#### Cart
-
-- `GET /api/cart` - Get user's cart
-- `POST /api/cart/items` - Add item to cart
-- `PUT /api/cart/items/{productId}` - Update cart item
-- `DELETE /api/cart/items/{productId}` - Remove item from cart
-- `DELETE /api/cart` - Clear cart
+- `GET /api/guest/cart` - Get guest cart
+- `POST /api/guest/cart/items` - Add item to guest cart
+- `PUT /api/guest/cart/items/{productId}` - Update guest cart item
+- `DELETE /api/guest/cart/items/{productId}` - Remove item from guest cart
+- `DELETE /api/guest/cart` - Clear guest cart
+- `POST /api/guest/cart/convert` - Convert guest cart to user cart
+- `GET /api/cart` - Get authenticated user's cart
+- `POST /api/cart/items` - Add item to user cart
+- `PUT /api/cart/items/{productId}` - Update user cart item
+- `DELETE /api/cart/items/{productId}` - Remove item from user cart
+- `DELETE /api/cart` - Clear user cart
 
 #### Orders
 
-- `POST /api/orders` - Create order from cart
+- `POST /api/guest/orders` - Create guest order
+- `POST /api/guest/orders/{id}/payment` - Process payment for guest order
+- `POST /api/orders` - Create order for authenticated user
 - `GET /api/orders/{id}` - Get order details
 - `GET /api/orders` - List user's orders
-- `POST /api/orders/{id}/payment` - Process payment for order
+- `POST /api/orders/{id}/payment` - Process payment for user order
+- `POST /api/orders/{id}/discounts` - Apply discount to order
+- `DELETE /api/orders/{id}/discounts` - Remove discount from order
+- `GET /api/admin/orders` - List all orders (admin only)
+- `PUT /api/admin/orders/{id}/status` - Update order status (admin only)
 
 #### Payment
 
 - `GET /api/payment/providers` - Get available payment providers
+- `POST /api/admin/payments/{paymentId}/capture` - Capture payment (admin only)
+- `POST /api/admin/payments/{paymentId}/cancel` - Cancel payment (admin only)
+- `POST /api/admin/payments/{paymentId}/refund` - Refund payment (admin only)
 
 #### Shipping
 
-- `GET /api/shipping/methods` - List shipping methods
-- `GET /api/shipping/methods/{id}` - Get shipping method details
-- `POST /api/shipping/options` - Calculate shipping options for address and order
-- `POST /api/shipping/rates/{id}/cost` - Calculate cost for specific shipping rate
+- `POST /api/shipping/options` - Calculate shipping options
+- `POST /api/shipping/rates/{id}/cost` - Calculate cost for specific rate
 - `POST /api/admin/shipping/methods` - Create shipping method (admin only)
 - `PUT /api/admin/shipping/methods/{id}` - Update shipping method (admin only)
 - `POST /api/admin/shipping/zones` - Create shipping zone (admin only)
-- `GET /api/admin/shipping/zones` - List shipping zones (admin only)
-- `GET /api/admin/shipping/zones/{id}` - Get shipping zone details (admin only)
 - `PUT /api/admin/shipping/zones/{id}` - Update shipping zone (admin only)
 - `POST /api/admin/shipping/rates` - Create shipping rate (admin only)
-- `GET /api/admin/shipping/rates/{id}` - Get shipping rate details (admin only)
 - `PUT /api/admin/shipping/rates/{id}` - Update shipping rate (admin only)
 - `POST /api/admin/shipping/rates/weight` - Create weight-based rate (admin only)
 - `POST /api/admin/shipping/rates/value` - Create value-based rate (admin only)
 
-#### Admin
+#### Discounts
 
-- `GET /api/admin/users` - List all users (admin only)
-- `GET /api/admin/orders` - List all orders (admin only)
-- `PUT /api/admin/orders/{id}/status` - Update order status (admin only)
+- `GET /api/discounts` - List active discounts
+- `POST /api/admin/discounts` - Create discount (admin only)
+- `PUT /api/admin/discounts/{id}` - Update discount (admin only)
+- `DELETE /api/admin/discounts/{id}` - Delete discount (admin only)
+- `GET /api/admin/discounts` - List all discounts (admin only)
 
-### Webhooks
+#### Webhooks
 
 - `POST /api/webhooks/stripe` - Stripe webhook endpoint
+- `POST /api/webhooks/mobilepay` - MobilePay webhook endpoint
+- `POST /api/webhooks/paypal` - PayPal webhook endpoint
+
+## Key Workflows
+
+The API supports several key e-commerce workflows:
+
+### User Management
+- Registration and authentication
+- Profile management and address book
+- Role-based access control (customer, seller, admin)
+
+### Product Management
+- Creating and updating products with variants
+- Inventory tracking
+- Product categorization and search
+
+### Shopping Experience
+- Cart management for both guests and authenticated users
+- Applying discounts and promotions
+- Shipping calculation
+
+### Checkout Process
+- Order creation from cart
+- Shipping method selection
+- Multiple payment options (credit card, PayPal, MobilePay)
+- 3D Secure authentication when required
+
+### Order Management
+- Order tracking and history
+- Payment processing and confirmation
+- Shipping status updates
+
+### Admin Functions
+- User management
+- Order processing and fulfillment
+- Payment capture, cancellation, and refunds
+- Discount and promotion management
 
 ## Database Schema
 
