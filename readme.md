@@ -223,20 +223,22 @@ Authorization: Bearer <token>
 
 #### Shipping
 
-- `POST /api/shipping/options` - Calculate shipping options
-- `POST /api/shipping/rates/{id}/cost` - Calculate cost for specific rate
+- `POST /api/shipping/options` - Calculate shipping options for address and order
+- `POST /api/shipping/rates/{id}/cost` - Calculate cost for specific shipping rate
 - `POST /api/admin/shipping/methods` - Create shipping method (admin only)
 - `PUT /api/admin/shipping/methods/{id}` - Update shipping method (admin only)
 - `POST /api/admin/shipping/zones` - Create shipping zone (admin only)
 - `PUT /api/admin/shipping/zones/{id}` - Update shipping zone (admin only)
 - `POST /api/admin/shipping/rates` - Create shipping rate (admin only)
 - `PUT /api/admin/shipping/rates/{id}` - Update shipping rate (admin only)
-- `POST /api/admin/shipping/rates/weight` - Create weight-based rate (admin only)
-- `POST /api/admin/shipping/rates/value` - Create value-based rate (admin only)
+- `POST /api/admin/shipping/rates/weight` - Add weight-based rate (admin only)
+- `POST /api/admin/shipping/rates/value` - Add value-based rate (admin only)
 
 #### Discounts
 
 - `GET /api/discounts` - List active discounts
+- `POST /api/orders/{id}/discounts` - Apply discount to order
+- `DELETE /api/orders/{id}/discounts` - Remove discount from order
 - `POST /api/admin/discounts` - Create discount (admin only)
 - `PUT /api/admin/discounts/{id}` - Update discount (admin only)
 - `DELETE /api/admin/discounts/{id}` - Delete discount (admin only)
