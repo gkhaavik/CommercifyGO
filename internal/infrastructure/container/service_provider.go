@@ -5,6 +5,7 @@ import (
 
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/auth"
+	"github.com/zenfulcode/commercify/internal/infrastructure/currency"
 	"github.com/zenfulcode/commercify/internal/infrastructure/email"
 	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
 )
@@ -17,6 +18,7 @@ type ServiceProvider interface {
 	EmailService() service.EmailService
 	MobilePayService() *payment.MobilePayPaymentService
 	InitializeMobilePay() *payment.MobilePayPaymentService
+	CurrencyService() service.CurrencyService
 }
 
 // serviceProvider is the concrete implementation of ServiceProvider
@@ -29,6 +31,7 @@ type serviceProvider struct {
 	webhookService   *payment.WebhookService
 	emailService     service.EmailService
 	mobilePayService *payment.MobilePayPaymentService
+	currencyService  service.CurrencyService
 }
 
 // NewServiceProvider creates a new service provider
@@ -123,4 +126,21 @@ func (p *serviceProvider) EmailService() service.EmailService {
 		p.emailService = email.NewSMTPEmailService(p.container.Config().Email, p.container.Logger())
 	}
 	return p.emailService
+}
+
+// CurrencyService returns the currency service
+func (p *serviceProvider) CurrencyService() service.CurrencyService {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.currencyService == nil {
+		// exchangeRateProvider := currency.NewMockExchangeRateProvider()
+
+		p.currencyService = currency.NewDefaultCurrencyService(
+			p.container.Repositories().CurrencyRepository(),
+			"https://api.exchangerate-api.com/v4/latest/",
+			"",
+		)
+	}
+	return p.currencyService
 }

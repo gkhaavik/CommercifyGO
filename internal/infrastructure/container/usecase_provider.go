@@ -15,6 +15,7 @@ type UseCaseProvider interface {
 	DiscountUseCase() *usecase.DiscountUseCase
 	WebhookUseCase() *usecase.WebhookUseCase
 	ShippingUseCase() *usecase.ShippingUseCase
+	CurrencyUseCase() *usecase.CurrencyUseCase
 }
 
 // useCaseProvider is the concrete implementation of UseCaseProvider
@@ -29,6 +30,7 @@ type useCaseProvider struct {
 	discountUseCase *usecase.DiscountUseCase
 	webhookUseCase  *usecase.WebhookUseCase
 	shippingUseCase *usecase.ShippingUseCase
+	currencyUseCase *usecase.CurrencyUseCase
 }
 
 // NewUseCaseProvider creates a new use case provider
@@ -152,4 +154,18 @@ func (p *useCaseProvider) InitializeShippingUseCase() *usecase.ShippingUseCase {
 		)
 	}
 	return p.shippingUseCase
+}
+
+// CurrencyUseCase returns the currency use case
+func (p *useCaseProvider) CurrencyUseCase() *usecase.CurrencyUseCase {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.currencyUseCase == nil {
+		p.currencyUseCase = usecase.NewCurrencyUseCase(
+			p.container.Repositories().CurrencyRepository(),
+			p.container.Services().CurrencyService(),
+		)
+	}
+	return p.currencyUseCase
 }
