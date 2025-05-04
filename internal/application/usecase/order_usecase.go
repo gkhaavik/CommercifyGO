@@ -538,6 +538,21 @@ func (uc *OrderUseCase) GetOrderByID(id uint) (*entity.Order, error) {
 	return uc.orderRepo.GetByID(id)
 }
 
+// GetOrderByPaymentID retrieves an order by its payment ID
+func (uc *OrderUseCase) GetOrderByPaymentID(paymentID string) (*entity.Order, error) {
+	if paymentID == "" {
+		return nil, errors.New("payment ID cannot be empty")
+	}
+
+	// Delegate to the order repository which has this functionality
+	order, err := uc.orderRepo.GetByPaymentID(paymentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order by payment ID: %w", err)
+	}
+
+	return order, nil
+}
+
 // GetUserOrders retrieves orders for a user
 func (uc *OrderUseCase) GetUserOrders(userID uint, offset, limit int) ([]*entity.Order, error) {
 	return uc.orderRepo.GetByUser(userID, offset, limit)
@@ -873,4 +888,20 @@ func (uc *OrderUseCase) GetShippingOptions(userID uint, sessionID string, shippi
 	}
 
 	return uc.shippingUseCase.CalculateShippingOptions(shippingAddr, totalValue, totalWeight)
+}
+
+// RecordPaymentTransaction records a payment transaction for an order
+func (uc *OrderUseCase) RecordPaymentTransaction(transaction *entity.PaymentTransaction) error {
+	if transaction == nil {
+		return errors.New("payment transaction cannot be nil")
+	}
+
+	// Validate the order exists
+	_, err := uc.orderRepo.GetByID(transaction.OrderID)
+	if err != nil {
+		return fmt.Errorf("failed to verify order existence: %w", err)
+	}
+
+	// Create transaction record
+	return uc.paymentTxnRepo.Create(transaction)
 }

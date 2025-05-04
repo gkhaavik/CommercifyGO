@@ -114,8 +114,9 @@ func (s *Server) setupRoutes() {
 	// Webhooks
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
 
-	// Setup MobilePay webhooks if enabled
+	// Setup payment provider webhooks
 	s.setupMobilePayWebhooks(api, webhookHandler)
+	s.setupStripeWebhooks(api, webhookHandler)
 
 	// Protected routes
 	protected := api.PathPrefix("").Subrouter()
@@ -191,6 +192,24 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
 	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
 	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.GetMobilePayWebhooks).Methods(http.MethodGet)
+}
+
+// setupStripeWebhooks configures Stripe webhooks
+func (s *Server) setupStripeWebhooks(api *mux.Router, webhookHandler *handler.WebhookHandler) {
+	if !s.config.Stripe.Enabled {
+		return
+	}
+
+	if s.config.Stripe.WebhookSecret == "" {
+		s.logger.Warn("Stripe webhook secret is not configured, webhooks will not validate signatures")
+	} else {
+		s.logger.Info("Stripe webhook endpoint configured at /api/webhooks/stripe")
+	}
+
+	// Note: For Stripe, webhook endpoints are already registered in the routes.
+	// We don't need to dynamically register them like in MobilePay.
+	// This method exists for consistency with MobilePay setup and to handle any future
+	// Stripe webhook configuration needs.
 }
 
 // setupMobilePayWebhooks configures MobilePay webhooks if enabled

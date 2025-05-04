@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v72/customer"
 	"github.com/stripe/stripe-go/v72/paymentintent"
+	"github.com/stripe/stripe-go/v72/paymentmethod"
 	"github.com/stripe/stripe-go/v72/refund"
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/domain/service"
@@ -43,14 +45,74 @@ func (s *StripePaymentService) GetAvailableProviders() []service.PaymentProvider
 	}
 }
 
+// createPaymentMethodFromCard creates a payment method from card details
+func (s *StripePaymentService) createPaymentMethodFromCard(cardDetails *service.CardDetails) (string, error) {
+	if cardDetails == nil {
+		return "", errors.New("card details are required")
+	}
+
+	// If a token was provided, use it directly
+	if cardDetails.Token != "" {
+		return cardDetails.Token, nil
+	}
+
+	// Otherwise create a payment method from the card details
+	params := &stripe.PaymentMethodParams{
+		Card: &stripe.PaymentMethodCardParams{
+			Number:   stripe.String(cardDetails.CardNumber),
+			ExpMonth: stripe.String(string(cardDetails.ExpiryMonth)),
+			ExpYear:  stripe.String(string(cardDetails.ExpiryYear)),
+			CVC:      stripe.String(cardDetails.CVV),
+		},
+		Type: stripe.String("card"),
+	}
+
+	if cardDetails.CardholderName != "" {
+		params.BillingDetails = &stripe.BillingDetailsParams{
+			Name: stripe.String(cardDetails.CardholderName),
+		}
+	}
+
+	// Create the payment method
+	pm, err := paymentmethod.New(params)
+	if err != nil {
+		return "", fmt.Errorf("failed to create payment method: %w", err)
+	}
+
+	return pm.ID, nil
+}
+
+// createCustomer creates a customer in Stripe
+func (s *StripePaymentService) createCustomer(email string, name string) (string, error) {
+	if email == "" {
+		return "", errors.New("email is required to create customer")
+	}
+
+	params := &stripe.CustomerParams{
+		Email: stripe.String(email),
+	}
+
+	if name != "" {
+		params.Name = stripe.String(name)
+	}
+
+	c, err := customer.New(params)
+	if err != nil {
+		return "", fmt.Errorf("failed to create customer: %w", err)
+	}
+
+	return c.ID, nil
+}
+
 // ProcessPayment processes a payment request using Stripe
 func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*service.PaymentResult, error) {
 	// Convert amount to cents (Stripe requires amounts in the smallest currency unit)
-	amountInCents := int64(request.Amount * 100)
+	amountInCents := int64(request.Amount)
 
 	// Set up payment method based on the payment method type
 	var paymentMethodID string
 	var paymentMethodType string
+	var err error
 
 	switch request.PaymentMethod {
 	case service.PaymentMethodCreditCard:
@@ -62,9 +124,17 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 			}, nil
 		}
 		paymentMethodType = "card"
-		// In a real implementation, you would create a payment method using the card details
-		// For now, assume the card token is passed directly
-		paymentMethodID = request.CardDetails.Token
+
+		// Create payment method from card details or use token
+		paymentMethodID, err = s.createPaymentMethodFromCard(request.CardDetails)
+		if err != nil {
+			s.logger.Error("Failed to create payment method: %v", err)
+			return &service.PaymentResult{
+				Success:      false,
+				ErrorMessage: "failed to create payment method: " + err.Error(),
+				Provider:     service.PaymentProviderStripe,
+			}, nil
+		}
 
 	case service.PaymentMethodPayPal:
 		// Stripe supports PayPal through payment methods API
@@ -98,7 +168,7 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 	// Create a payment intent
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountInCents),
-		Currency:      stripe.String(string(stripe.CurrencyUSD)),
+		Currency:      stripe.String(s.getCurrencyCode(request.Currency)),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Description:   stripe.String(s.config.PaymentDescription),
 		Confirm:       stripe.Bool(true), // Confirm the payment intent immediately
@@ -110,9 +180,30 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 		},
 	}
 
-	// Add receipt email if available
+	// Create a customer if email is provided
 	if request.CustomerEmail != "" {
+		// First, attach email to receipt
 		params.ReceiptEmail = stripe.String(request.CustomerEmail)
+
+		// Then, create customer and attach to payment
+		customerName := ""
+		if request.CardDetails != nil && request.CardDetails.CardholderName != "" {
+			customerName = request.CardDetails.CardholderName
+		}
+
+		customerID, err := s.createCustomer(request.CustomerEmail, customerName)
+		if err != nil {
+			s.logger.Warn("Failed to create customer, proceeding with payment: %v", err)
+			// Continue with payment, just without customer association
+		} else {
+			// Associate payment with customer
+			params.Customer = stripe.String(customerID)
+
+			// Save payment method for future use if it's a card
+			if paymentMethodType == "card" {
+				params.SetupFutureUsage = stripe.String("off_session")
+			}
+		}
 	}
 
 	// Create and confirm the payment intent
@@ -152,10 +243,18 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 		return &service.PaymentResult{
 			Success:       false,
 			TransactionID: paymentIntent.ID,
-			ErrorMessage:  fmt.Sprint(paymentIntent.Status),
+			ErrorMessage:  fmt.Sprintf("payment status: %s", paymentIntent.Status),
 			Provider:      service.PaymentProviderStripe,
 		}, nil
 	}
+}
+
+// getCurrencyCode returns the standardized currency code
+func (s *StripePaymentService) getCurrencyCode(currency string) string {
+	if currency == "" {
+		return string(stripe.CurrencyUSD) // Default currency
+	}
+	return currency
 }
 
 // VerifyPayment verifies a payment
@@ -168,11 +267,18 @@ func (s *StripePaymentService) VerifyPayment(transactionID string, provider serv
 	paymentIntent, err := paymentintent.Get(transactionID, nil)
 	if err != nil {
 		s.logger.Error("Failed to retrieve Stripe payment intent: %v", err)
-		return false, err
+		return false, fmt.Errorf("failed to verify payment: %w", err)
 	}
 
 	// Check if the payment intent was successful
-	return paymentIntent.Status == stripe.PaymentIntentStatusSucceeded, nil
+	if paymentIntent.Status == stripe.PaymentIntentStatusSucceeded {
+		return true, nil
+	} else if paymentIntent.Status == stripe.PaymentIntentStatusRequiresCapture {
+		// Payment is authorized but requires capture
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // RefundPayment refunds a payment
@@ -184,20 +290,21 @@ func (s *StripePaymentService) RefundPayment(transactionID string, amount int64,
 		return errors.New("refund amount must be greater than zero")
 	}
 
-	// Convert amount to cents
-	amountInCents := int64(amount * 100)
-
 	// Create refund params
 	params := &stripe.RefundParams{
 		PaymentIntent: stripe.String(transactionID),
-		Amount:        stripe.Int64(amountInCents),
+		Amount:        stripe.Int64(amount),
 	}
 
 	// Process the refund
-	_, err := refund.New(params)
+	refundResult, err := refund.New(params)
 	if err != nil {
 		s.logger.Error("Failed to process Stripe refund: %v", err)
-		return err
+		return fmt.Errorf("failed to process refund: %w", err)
+	}
+
+	if refundResult.Status != stripe.RefundStatusSucceeded {
+		s.logger.Warn("Refund created with status %s", refundResult.Status)
 	}
 
 	return nil
@@ -212,19 +319,20 @@ func (s *StripePaymentService) CapturePayment(transactionID string, amount int64
 		return errors.New("capture amount must be greater than zero")
 	}
 
-	// Convert amount to cents
-	amountInCents := int64(amount * 100)
-
 	// Create capture params
 	params := &stripe.PaymentIntentCaptureParams{
-		AmountToCapture: stripe.Int64(amountInCents),
+		AmountToCapture: stripe.Int64(amount),
 	}
 
 	// Capture the payment intent
-	_, err := paymentintent.Capture(transactionID, params)
+	captureResult, err := paymentintent.Capture(transactionID, params)
 	if err != nil {
 		s.logger.Error("Failed to capture Stripe payment: %v", err)
-		return err
+		return fmt.Errorf("failed to capture payment: %w", err)
+	}
+
+	if captureResult.Status != stripe.PaymentIntentStatusSucceeded {
+		return fmt.Errorf("capture resulted in unexpected status: %s", captureResult.Status)
 	}
 
 	return nil
@@ -240,11 +348,22 @@ func (s *StripePaymentService) CancelPayment(transactionID string, provider serv
 	params := &stripe.PaymentIntentCancelParams{}
 
 	// Cancel the payment intent
-	_, err := paymentintent.Cancel(transactionID, params)
+	cancelResult, err := paymentintent.Cancel(transactionID, params)
 	if err != nil {
 		s.logger.Error("Failed to cancel Stripe payment: %v", err)
-		return err
+		return fmt.Errorf("failed to cancel payment: %w", err)
+	}
+
+	if cancelResult.Status != stripe.PaymentIntentStatusCanceled {
+		return fmt.Errorf("cancel resulted in unexpected status: %s", cancelResult.Status)
 	}
 
 	return nil
+}
+
+// CreateSetupIntent creates a setup intent for saving a payment method without charging
+func (s *StripePaymentService) CreateSetupIntent(customerEmail string) (string, string, error) {
+	// This method could be used to save payment methods for future use
+	// Implementation would go here
+	return "", "", errors.New("not implemented")
 }
