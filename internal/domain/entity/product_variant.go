@@ -21,7 +21,6 @@ type ProductVariant struct {
 	Price        int64              `json:"price"`                   // Stored as cents
 	ComparePrice int64              `json:"compare_price,omitempty"` // Stored as cents
 	Stock        int                `json:"stock"`
-	Weight       float64            `json:"weight"` // Weight in kg
 	Attributes   []VariantAttribute `json:"attributes"`
 	Images       []string           `json:"images,omitempty"`
 	IsDefault    bool               `json:"is_default"`
@@ -56,7 +55,6 @@ func NewProductVariant(productID uint, sku string, price int64, stock int, weigh
 		SKU:        sku,
 		Price:      price, // Already in cents
 		Stock:      stock,
-		Weight:     weight,
 		Attributes: attributes,
 		Images:     images,
 		IsDefault:  isDefault,
@@ -94,12 +92,12 @@ func (v *ProductVariant) IsAvailable(quantity int) bool {
 }
 
 // GetTotalWeight calculates the total weight for a quantity of this variant
-func (v *ProductVariant) GetTotalWeight(quantity int) float64 {
-	if quantity <= 0 {
-		return 0
-	}
-	return v.Weight * float64(quantity)
-}
+// func (v *ProductVariant) GetTotalWeight(quantity int) float64 {
+// 	if quantity <= 0 {
+// 		return 0
+// 	}
+// 	return v.Weight * float64(quantity)
+// }
 
 // GetPriceDollars returns the price in dollars
 func (v *ProductVariant) GetPriceDollars() float64 {

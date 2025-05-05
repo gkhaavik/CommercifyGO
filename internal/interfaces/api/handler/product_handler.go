@@ -34,15 +34,14 @@ type ProductVariantResponse struct {
 	ID           uint                      `json:"id"`
 	ProductID    uint                      `json:"product_id"`
 	SKU          string                    `json:"sku"`
-	Price        float64                   `json:"price"`                   // Price in dollars
-	ComparePrice float64                   `json:"compare_price,omitempty"` // Price in dollars
+	Price        float64                   `json:"price"`
+	ComparePrice float64                   `json:"compare_price,omitempty"`
 	Stock        int                       `json:"stock"`
-	Weight       float64                   `json:"weight"`
 	Attributes   []entity.VariantAttribute `json:"attributes"`
 	Images       []string                  `json:"images,omitempty"`
 	IsDefault    bool                      `json:"is_default"`
-	CreatedAt    time.Time                 `json:"created_at"` // Use time.Time, marshaller handles formatting
-	UpdatedAt    time.Time                 `json:"updated_at"` // Use time.Time, marshaller handles formatting
+	CreatedAt    time.Time                 `json:"created_at"`
+	UpdatedAt    time.Time                 `json:"updated_at"`
 }
 
 // ProductResponse is the API representation of a product (prices in dollars)
@@ -51,7 +50,7 @@ type ProductResponse struct {
 	ProductNumber string                    `json:"product_number"`
 	Name          string                    `json:"name"`
 	Description   string                    `json:"description"`
-	Price         float64                   `json:"price"` // Price in dollars
+	Price         float64                   `json:"price"`
 	Stock         int                       `json:"stock"`
 	Weight        float64                   `json:"weight"`
 	CategoryID    uint                      `json:"category_id"`
@@ -59,8 +58,8 @@ type ProductResponse struct {
 	Images        []string                  `json:"images"`
 	HasVariants   bool                      `json:"has_variants"`
 	Variants      []*ProductVariantResponse `json:"variants,omitempty"`
-	CreatedAt     time.Time                 `json:"created_at"` // Use time.Time, marshaller handles formatting
-	UpdatedAt     time.Time                 `json:"updated_at"` // Use time.Time, marshaller handles formatting
+	CreatedAt     time.Time                 `json:"created_at"`
+	UpdatedAt     time.Time                 `json:"updated_at"`
 }
 
 // --- Helper Functions --- //
@@ -76,7 +75,6 @@ func toProductVariantResponse(variant *entity.ProductVariant) *ProductVariantRes
 		Price:        money.FromCents(variant.Price),
 		ComparePrice: money.FromCents(variant.ComparePrice),
 		Stock:        variant.Stock,
-		Weight:       variant.Weight,
 		Attributes:   variant.Attributes,
 		Images:       variant.Images,
 		IsDefault:    variant.IsDefault,

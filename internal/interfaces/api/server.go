@@ -50,6 +50,10 @@ func NewServer(cfg *config.Config, db *sql.DB, logger logger.Logger) *Server {
 		container: diContainer,
 	}
 
+	// Apply CORS middleware to all routes
+	// corsMiddleware := diContainer.Middlewares().CorsMiddleware()
+	// router.Use(corsMiddleware.ApplyCors)
+
 	server.setupRoutes()
 
 	// Create HTTP server

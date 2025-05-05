@@ -125,7 +125,7 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 	// If product has variants, fetch them
 	if product.HasVariants {
 		query := `
-			SELECT id, product_id, sku, price, compare_price, stock, weight, attributes, images, is_default, created_at, updated_at
+			SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
 			FROM product_variants
 			WHERE product_id = $1
 			ORDER BY is_default DESC, id ASC
@@ -148,7 +148,6 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 				&variant.Price,
 				&variant.ComparePrice,
 				&variant.Stock,
-				&variant.Weight,
 				&attributesJSON,
 				&imagesJSON,
 				&variant.IsDefault,
@@ -159,9 +158,39 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 				return nil, err
 			}
 
+			// Initialize empty attributes array
+			variant.Attributes = []entity.VariantAttribute{}
+
 			// Unmarshal attributes JSON
-			if err := json.Unmarshal(attributesJSON, &variant.Attributes); err != nil {
-				return nil, err
+			// Handle both array format and object format for backward compatibility
+			var rawAttributes interface{}
+			if err := json.Unmarshal(attributesJSON, &rawAttributes); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+			}
+
+			// Check if the attributes are in array format
+			if attrsArray, ok := rawAttributes.([]interface{}); ok {
+				// Handle array format
+				for _, attr := range attrsArray {
+					if attrMap, ok := attr.(map[string]interface{}); ok {
+						name, _ := attrMap["name"].(string)
+						value, _ := attrMap["value"].(string)
+						variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
+							Name:  name,
+							Value: value,
+						})
+					}
+				}
+			} else if attrsMap, ok := rawAttributes.(map[string]interface{}); ok {
+				// Handle object format (key-value pairs)
+				for name, value := range attrsMap {
+					if strValue, ok := value.(string); ok {
+						variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
+							Name:  name,
+							Value: strValue,
+						})
+					}
+				}
 			}
 
 			// Unmarshal images JSON
