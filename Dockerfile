@@ -32,6 +32,9 @@ COPY --from=builder /app/commercify-seed /app/commercify-seed
 COPY --from=builder /app/migrations /app/migrations
 COPY --from=builder /app/templates /app/templates
 
+# Copy .env file if it exists (will be overridden by env_file in docker-compose)
+# COPY --from=builder /app/.env /app/
+
 # Set executable permissions for all binaries
 RUN chmod +x /app/commercify /app/commercify-migrate /app/commercify-seed
 

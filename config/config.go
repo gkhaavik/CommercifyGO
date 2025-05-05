@@ -65,6 +65,7 @@ type StripeConfig struct {
 	PublicKey          string
 	WebhookSecret      string
 	PaymentDescription string
+	ReturnURL          string
 	Enabled            bool
 }
 
@@ -72,6 +73,7 @@ type StripeConfig struct {
 type PayPalConfig struct {
 	ClientID     string
 	ClientSecret string
+	ReturnURL    string
 	Sandbox      bool
 	Enabled      bool
 }
@@ -196,11 +198,13 @@ func LoadConfig() (*Config, error) {
 			PublicKey:          getEnv("STRIPE_PUBLIC_KEY", ""),
 			WebhookSecret:      getEnv("STRIPE_WEBHOOK_SECRET", ""),
 			PaymentDescription: getEnv("STRIPE_PAYMENT_DESCRIPTION", "Commercify Store Purchase"),
+			ReturnURL:          getEnv("RETURN_URL", ""),
 			Enabled:            stripeEnabled,
 		},
 		PayPal: PayPalConfig{
 			ClientID:     getEnv("PAYPAL_CLIENT_ID", ""),
 			ClientSecret: getEnv("PAYPAL_CLIENT_SECRET", ""),
+			ReturnURL:    getEnv("RETURN_URL", ""),
 			Sandbox:      paypalSandbox,
 			Enabled:      paypalEnabled,
 		},
@@ -209,7 +213,7 @@ func LoadConfig() (*Config, error) {
 			SubscriptionKey:      getEnv("MOBILEPAY_SUBSCRIPTION_KEY", ""),
 			ClientID:             getEnv("MOBILEPAY_CLIENT_ID", ""),
 			ClientSecret:         getEnv("MOBILEPAY_CLIENT_SECRET", ""),
-			ReturnURL:            getEnv("MOBILEPAY_RETURN_URL", ""),
+			ReturnURL:            getEnv("RETURN_URL", ""),
 			WebhookURL:           getEnv("MOBILEPAY_WEBHOOK_URL", ""),
 			PaymentDescription:   getEnv("MOBILEPAY_PAYMENT_DESCRIPTION", "Commercify Store Purchase"),
 			Market:               getEnv("MOBILEPAY_MARKET", "NOK"),

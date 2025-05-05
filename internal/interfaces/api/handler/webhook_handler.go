@@ -9,8 +9,8 @@ import (
 
 	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
 	"github.com/gorilla/mux"
-	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/webhook"
+	"github.com/stripe/stripe-go/v82"
+	"github.com/stripe/stripe-go/v82/webhook"
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"

@@ -6,6 +6,7 @@ Features:
 + Store money as int64 in database
 + Add GraphQL integration
 + Add a payment repository, to keep track of captured and refunded amount etc.
++ Add stripe-hosted checkout page
 
 Chores:
 * Remove debug messages from vipps sdk

@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/customer"
-	"github.com/stripe/stripe-go/v72/paymentintent"
-	"github.com/stripe/stripe-go/v72/paymentmethod"
-	"github.com/stripe/stripe-go/v72/refund"
+	"github.com/stripe/stripe-go/v82"
+	"github.com/stripe/stripe-go/v82/customer"
+	"github.com/stripe/stripe-go/v82/paymentintent"
+	"github.com/stripe/stripe-go/v82/paymentmethod"
+	"github.com/stripe/stripe-go/v82/refund"
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -60,15 +60,15 @@ func (s *StripePaymentService) createPaymentMethodFromCard(cardDetails *service.
 	params := &stripe.PaymentMethodParams{
 		Card: &stripe.PaymentMethodCardParams{
 			Number:   stripe.String(cardDetails.CardNumber),
-			ExpMonth: stripe.String(string(cardDetails.ExpiryMonth)),
-			ExpYear:  stripe.String(string(cardDetails.ExpiryYear)),
+			ExpMonth: stripe.Int64(int64(cardDetails.ExpiryMonth)),
+			ExpYear:  stripe.Int64(int64(cardDetails.ExpiryYear)),
 			CVC:      stripe.String(cardDetails.CVV),
 		},
 		Type: stripe.String("card"),
 	}
 
 	if cardDetails.CardholderName != "" {
-		params.BillingDetails = &stripe.BillingDetailsParams{
+		params.BillingDetails = &stripe.PaymentMethodBillingDetailsParams{
 			Name: stripe.String(cardDetails.CardholderName),
 		}
 	}
@@ -106,9 +106,6 @@ func (s *StripePaymentService) createCustomer(email string, name string) (string
 
 // ProcessPayment processes a payment request using Stripe
 func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*service.PaymentResult, error) {
-	// Convert amount to cents (Stripe requires amounts in the smallest currency unit)
-	amountInCents := int64(request.Amount)
-
 	// Set up payment method based on the payment method type
 	var paymentMethodID string
 	var paymentMethodType string
@@ -167,7 +164,7 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 
 	// Create a payment intent
 	params := &stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(amountInCents),
+		Amount:        stripe.Int64(request.Amount),
 		Currency:      stripe.String(s.getCurrencyCode(request.Currency)),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Description:   stripe.String(s.config.PaymentDescription),
@@ -178,6 +175,7 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 				"method":   paymentMethodType,
 			},
 		},
+		ReturnURL: stripe.String(s.config.ReturnURL),
 	}
 
 	// Create a customer if email is provided
@@ -228,6 +226,7 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 		}, nil
 
 	case stripe.PaymentIntentStatusRequiresAction:
+
 		// Payment requires additional action (e.g., 3D Secure)
 		return &service.PaymentResult{
 			Success:        false,
