@@ -3,7 +3,6 @@ Features:
 + Add cancel payments api endpoint    DONE v0.3.0-Beta
 + Add refund payments api endpoint    DONE v0.3.0-Beta
 + Add configurable currencies
-+ Store money as int64 in database
 + Add GraphQL integration
 + Add a payment repository, to keep track of captured and refunded amount etc.
 + Add stripe-hosted checkout page
@@ -11,7 +10,6 @@ Features:
 Chores:
 * Remove debug messages from vipps sdk
 * Refactor getting order final amount to a method
-* Fix price formatting (too many decimals)
 
 Stores v1.2.0:
 Authenticated with certain permission can create stores. Stores can be used to create 
