@@ -99,7 +99,6 @@ func (p *Product) AddVariant(variant *ProductVariant) error {
 	// If this is the first variant and it's the default, set product price to match
 	if len(p.Variants) == 0 && variant.IsDefault {
 		p.Price = variant.Price
-		p.Weight = variant.Weight
 	}
 
 	// Add variant to product

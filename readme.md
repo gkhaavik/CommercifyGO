@@ -350,3 +350,70 @@ The system uses user-friendly identifiers for better readability:
 - **Product Numbers**: Format `PROD-000001` (sequential numbering)
 
 These identifiers make it easier to reference orders and products in the UI and customer communications.
+
+## Payment Provider Implementations
+
+### Stripe Payment Provider
+
+Commercify implements Stripe as a payment provider following Clean Architecture principles. The implementation:
+
+- Supports credit card payments using Stripe's Payment Intents API
+- Handles 3D Secure authentication flows
+- Provides webhook integration for asynchronous event handling
+- Manages payment lifecycle (authorize, capture, refund, cancel)
+
+#### Stripe Setup
+
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Get your API keys from the Stripe Dashboard
+3. Set the following environment variables:
+
+```
+STRIPE_ENABLED=true
+STRIPE_SECRET_KEY=sk_test_your_key
+STRIPE_PUBLIC_KEY=pk_test_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret
+STRIPE_PAYMENT_DESCRIPTION=Commercify Store Purchase
+```
+
+#### Webhook Configuration
+
+To handle asynchronous payment events (3D Secure authentication, payment success/failure):
+
+1. Create a webhook endpoint in your Stripe Dashboard
+2. Point it to: `https://your-domain.com/api/webhooks/stripe`
+3. Select the following events to listen for:
+   - `payment_intent.succeeded`
+   - `payment_intent.payment_failed`
+   - `payment_intent.canceled`
+   - `payment_intent.requires_action`
+   - `payment_intent.processing`
+   - `payment_intent.amount_capturable_updated`
+   - `charge.succeeded`
+   - `charge.failed`
+   - `charge.refunded`
+   - `charge.dispute.created`
+   - `charge.dispute.closed`
+4. Copy the signing secret and set it as `STRIPE_WEBHOOK_SECRET` in your environment
+
+#### Payment Flows
+
+Commercify supports several payment flows with Stripe:
+
+**Direct Payment**
+Payment is authorized and captured immediately.
+
+**Authorization and Capture**
+Payment is first authorized, then captured later when the order is fulfilled.
+
+**3D Secure Authentication**
+When required by the bank, customers will be redirected to complete 3D Secure authentication.
+
+#### Testing Stripe Integration
+
+Use Stripe's test cards for development:
+- `4242 4242 4242 4242` - Successful payment
+- `4000 0000 0000 3220` - 3D Secure authentication required
+- `4000 0000 0000 9995` - Payment declined
+
+For more test card numbers, visit [Stripe's testing documentation](https://stripe.com/docs/testing).

@@ -9,11 +9,12 @@ import (
 
 	"github.com/gkhaavik/vipps-mobilepay-sdk/pkg/models"
 	"github.com/gorilla/mux"
-	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/webhook"
+	"github.com/stripe/stripe-go/v82"
+	"github.com/stripe/stripe-go/v82/webhook"
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
@@ -335,8 +336,24 @@ func (h *WebhookHandler) HandleStripeWebhook(w http.ResponseWriter, r *http.Requ
 		h.handlePaymentSucceeded(event)
 	case "payment_intent.payment_failed":
 		h.handlePaymentFailed(event)
+	case "payment_intent.canceled":
+		h.handlePaymentCanceled(event)
+	case "payment_intent.requires_action":
+		h.handlePaymentRequiresAction(event)
+	case "payment_intent.processing":
+		h.handlePaymentProcessing(event)
+	case "payment_intent.amount_capturable_updated":
+		h.handlePaymentCapturableUpdated(event)
+	case "charge.succeeded":
+		h.handleChargeSucceeded(event)
+	case "charge.failed":
+		h.handleChargeFailed(event)
 	case "charge.refunded":
 		h.handleRefund(event)
+	case "charge.dispute.created":
+		h.handleDisputeCreated(event)
+	case "charge.dispute.closed":
+		h.handleDisputeClosed(event)
 	default:
 		h.logger.Info("Received unhandled webhook event: %s", event.Type)
 	}
@@ -367,6 +384,34 @@ func (h *WebhookHandler) handlePaymentSucceeded(event stripe.Event) {
 	if err != nil {
 		h.logger.Error("Invalid order ID in metadata: %v", err)
 		return
+	}
+
+	// Record the successful payment transaction
+	txn, err := entity.NewPaymentTransaction(
+		uint(orderID),
+		paymentIntent.ID,
+		entity.TransactionTypeAuthorize,
+		entity.TransactionStatusSuccessful,
+		paymentIntent.Amount,
+		string(paymentIntent.Currency),
+		"stripe",
+	)
+
+	if err == nil {
+		// Add raw response for debugging
+		txn.SetRawResponse(string(event.Data.Raw))
+
+		// Add metadata
+		if method, exists := paymentIntent.Metadata["method"]; exists {
+			txn.AddMetadata("payment_method", method)
+		}
+
+		// Record the transaction
+		err = h.orderUseCase.RecordPaymentTransaction(txn)
+		if err != nil {
+			h.logger.Error("Failed to record payment transaction: %v", err)
+			// Continue processing even if transaction recording fails
+		}
 	}
 
 	// Update the order status to paid
@@ -407,8 +452,238 @@ func (h *WebhookHandler) handlePaymentFailed(event stripe.Event) {
 		return
 	}
 
+	// Record the failed payment transaction
+	txn, err := entity.NewPaymentTransaction(
+		uint(orderID),
+		paymentIntent.ID,
+		entity.TransactionTypeAuthorize,
+		entity.TransactionStatusFailed,
+		paymentIntent.Amount,
+		string(paymentIntent.Currency),
+		"stripe",
+	)
+
+	if err == nil {
+		txn.SetRawResponse(string(event.Data.Raw))
+
+		// Add metadata including error message
+		if paymentIntent.LastPaymentError != nil {
+			txn.AddMetadata("error_message", paymentIntent.LastPaymentError.Msg)
+			txn.AddMetadata("error_code", string(paymentIntent.LastPaymentError.Code))
+		}
+
+		// Record the transaction
+		err = h.orderUseCase.RecordPaymentTransaction(txn)
+		if err != nil {
+			h.logger.Error("Failed to record payment transaction: %v", err)
+		}
+	}
+
+	// Update order status to payment_failed
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: uint(orderID),
+		Status:  entity.OrderStatusCancelled,
+	}
+
+	_, err = h.orderUseCase.UpdateOrderStatus(input)
+	if err != nil {
+		h.logger.Error("Failed to update order status: %v", err)
+		return
+	}
+
 	// Log the payment failure
-	h.logger.Info("Payment failed for order %d: %s", orderID, paymentIntent.LastPaymentError.Msg)
+	errorMsg := "Unknown error"
+	if paymentIntent.LastPaymentError != nil {
+		errorMsg = paymentIntent.LastPaymentError.Msg
+	}
+	h.logger.Info("Payment failed for order %d: %s", orderID, errorMsg)
+}
+
+// handlePaymentCanceled handles the payment_intent.canceled event
+func (h *WebhookHandler) handlePaymentCanceled(event stripe.Event) {
+	var paymentIntent stripe.PaymentIntent
+	err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+	if err != nil {
+		h.logger.Error("Failed to parse payment intent: %v", err)
+		return
+	}
+
+	// Get the order ID from metadata
+	orderIDStr, ok := paymentIntent.Metadata["order_id"]
+	if !ok {
+		h.logger.Error("Order ID not found in payment intent metadata")
+		return
+	}
+
+	// Convert order ID to uint
+	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	if err != nil {
+		h.logger.Error("Invalid order ID in metadata: %v", err)
+		return
+	}
+
+	// Record the cancel transaction
+	txn, err := entity.NewPaymentTransaction(
+		uint(orderID),
+		paymentIntent.ID,
+		entity.TransactionTypeCancel,
+		entity.TransactionStatusSuccessful,
+		0, // No amount for cancellation
+		string(paymentIntent.Currency),
+		"stripe",
+	)
+
+	if err == nil {
+		txn.SetRawResponse(string(event.Data.Raw))
+
+		// Record the transaction
+		err = h.orderUseCase.RecordPaymentTransaction(txn)
+		if err != nil {
+			h.logger.Error("Failed to record payment transaction: %v", err)
+		}
+	}
+
+	// Update order status to cancelled
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: uint(orderID),
+		Status:  entity.OrderStatusCancelled,
+	}
+
+	_, err = h.orderUseCase.UpdateOrderStatus(input)
+	if err != nil {
+		h.logger.Error("Failed to update order status: %v", err)
+		return
+	}
+
+	h.logger.Info("Payment canceled for order %d", orderID)
+}
+
+// handlePaymentRequiresAction handles the payment_intent.requires_action event
+func (h *WebhookHandler) handlePaymentRequiresAction(event stripe.Event) {
+	var paymentIntent stripe.PaymentIntent
+	err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+	if err != nil {
+		h.logger.Error("Failed to parse payment intent: %v", err)
+		return
+	}
+
+	// Get the order ID from metadata
+	orderIDStr, ok := paymentIntent.Metadata["order_id"]
+	if !ok {
+		h.logger.Error("Order ID not found in payment intent metadata")
+		return
+	}
+
+	// Convert order ID to uint
+	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	if err != nil {
+		h.logger.Error("Invalid order ID in metadata: %v", err)
+		return
+	}
+
+	h.logger.Info("Payment requires action for order %d", orderID)
+}
+
+// handlePaymentProcessing handles the payment_intent.processing event
+func (h *WebhookHandler) handlePaymentProcessing(event stripe.Event) {
+	var paymentIntent stripe.PaymentIntent
+	err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+	if err != nil {
+		h.logger.Error("Failed to parse payment intent: %v", err)
+		return
+	}
+
+	// Get the order ID from metadata
+	orderIDStr, ok := paymentIntent.Metadata["order_id"]
+	if !ok {
+		h.logger.Error("Order ID not found in payment intent metadata")
+		return
+	}
+
+	// Convert order ID to uint
+	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	if err != nil {
+		h.logger.Error("Invalid order ID in metadata: %v", err)
+		return
+	}
+
+	h.logger.Info("Payment is processing for order %d", orderID)
+
+	// Update order status to processing_payment if needed
+	input := usecase.UpdateOrderStatusInput{
+		OrderID: uint(orderID),
+		Status:  entity.OrderStatusPending,
+	}
+
+	_, err = h.orderUseCase.UpdateOrderStatus(input)
+	if err != nil {
+		h.logger.Error("Failed to update order status: %v", err)
+		return
+	}
+}
+
+// handlePaymentCapturableUpdated handles the payment_intent.amount_capturable_updated event
+func (h *WebhookHandler) handlePaymentCapturableUpdated(event stripe.Event) {
+	var paymentIntent stripe.PaymentIntent
+	err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+	if err != nil {
+		h.logger.Error("Failed to parse payment intent: %v", err)
+		return
+	}
+
+	// Get the order ID from metadata
+	orderIDStr, ok := paymentIntent.Metadata["order_id"]
+	if !ok {
+		h.logger.Error("Order ID not found in payment intent metadata")
+		return
+	}
+
+	// Convert order ID to uint
+	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	if err != nil {
+		h.logger.Error("Invalid order ID in metadata: %v", err)
+		return
+	}
+
+	h.logger.Info("Payment is now capturable for order %d", orderID)
+}
+
+// handleChargeSucceeded handles the charge.succeeded event
+func (h *WebhookHandler) handleChargeSucceeded(event stripe.Event) {
+	var charge stripe.Charge
+	err := json.Unmarshal(event.Data.Raw, &charge)
+	if err != nil {
+		h.logger.Error("Failed to parse charge: %v", err)
+		return
+	}
+
+	// If there's no payment intent attached, we can't process further
+	if charge.PaymentIntent == nil || charge.PaymentIntent.ID == "" {
+		h.logger.Warn("Charge without payment intent ID received")
+		return
+	}
+
+	h.logger.Info("Charge succeeded for payment intent %s", charge.PaymentIntent.ID)
+}
+
+// handleChargeFailed handles the charge.failed event
+func (h *WebhookHandler) handleChargeFailed(event stripe.Event) {
+	var charge stripe.Charge
+	err := json.Unmarshal(event.Data.Raw, &charge)
+	if err != nil {
+		h.logger.Error("Failed to parse charge: %v", err)
+		return
+	}
+
+	// If there's no payment intent attached, we can't process further
+	if charge.PaymentIntent == nil || charge.PaymentIntent.ID == "" {
+		h.logger.Warn("Charge without payment intent ID received")
+		return
+	}
+
+	h.logger.Info("Charge failed for payment intent %s: %s",
+		charge.PaymentIntent.ID,
+		charge.FailureMessage)
 }
 
 // handleRefund handles the charge.refunded event
@@ -420,9 +695,96 @@ func (h *WebhookHandler) handleRefund(event stripe.Event) {
 		return
 	}
 
-	// Get payment intent ID
-	paymentIntentID := charge.PaymentIntent.ID
+	// If there's no payment intent attached, we can't process further
+	if charge.PaymentIntent == nil || charge.PaymentIntent.ID == "" {
+		h.logger.Warn("Charge without payment intent ID received")
+		return
+	}
 
-	// Log the refund
-	h.logger.Info("Refund processed for payment %s", paymentIntentID)
+	// Find order by payment ID
+	order, err := h.orderUseCase.GetOrderByPaymentID(charge.PaymentIntent.ID)
+	if err != nil {
+		h.logger.Error("Failed to find order for payment intent %s: %v", charge.PaymentIntent.ID, err)
+		return
+	}
+
+	// Record the refund transaction
+	txn, err := entity.NewPaymentTransaction(
+		order.ID,
+		charge.PaymentIntent.ID,
+		entity.TransactionTypeRefund,
+		entity.TransactionStatusSuccessful,
+		charge.AmountRefunded,
+		string(charge.Currency),
+		"stripe",
+	)
+
+	if err == nil {
+		txn.SetRawResponse(string(event.Data.Raw))
+
+		// Record the transaction
+		err = h.orderUseCase.RecordPaymentTransaction(txn)
+		if err != nil {
+			h.logger.Error("Failed to record refund transaction: %v", err)
+		}
+	}
+
+	// If the charge was fully refunded, update the order status
+	if charge.Refunded {
+		input := usecase.UpdateOrderStatusInput{
+			OrderID: order.ID,
+			Status:  entity.OrderStatusRefunded,
+		}
+
+		_, err = h.orderUseCase.UpdateOrderStatus(input)
+		if err != nil {
+			h.logger.Error("Failed to update order status to refunded: %v", err)
+			return
+		}
+	}
+
+	h.logger.Info("Refund processed for order %d, payment %s, amount: %v",
+		order.ID,
+		charge.PaymentIntent.ID,
+		money.FromCents(charge.AmountRefunded))
+}
+
+// handleDisputeCreated handles the charge.dispute.created event
+func (h *WebhookHandler) handleDisputeCreated(event stripe.Event) {
+	var dispute stripe.Dispute
+	err := json.Unmarshal(event.Data.Raw, &dispute)
+	if err != nil {
+		h.logger.Error("Failed to parse dispute: %v", err)
+		return
+	}
+
+	// If there's no payment intent attached, we can't process further
+	if dispute.PaymentIntent == nil || dispute.PaymentIntent.ID == "" {
+		h.logger.Warn("Dispute without payment intent ID received")
+		return
+	}
+
+	h.logger.Warn("Dispute created for payment intent %s, reason: %s",
+		dispute.PaymentIntent.ID,
+		dispute.Reason)
+}
+
+// handleDisputeClosed handles the charge.dispute.closed event
+func (h *WebhookHandler) handleDisputeClosed(event stripe.Event) {
+	var dispute stripe.Dispute
+	err := json.Unmarshal(event.Data.Raw, &dispute)
+	if err != nil {
+		h.logger.Error("Failed to parse dispute: %v", err)
+		return
+	}
+
+	// If there's no payment intent attached, we can't process further
+	if dispute.PaymentIntent == nil || dispute.PaymentIntent.ID == "" {
+		h.logger.Warn("Dispute without payment intent ID received")
+		return
+	}
+
+	h.logger.Info("Dispute closed for payment intent %s with status: %s",
+		dispute.PaymentIntent.ID,
+		dispute.Status)
 }

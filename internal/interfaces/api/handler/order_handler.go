@@ -169,7 +169,6 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		CardDetails     *service.CardDetails   `json:"card_details,omitempty"`
 		PayPalDetails   *service.PayPalDetails `json:"paypal_details,omitempty"`
 		BankDetails     *service.BankDetails   `json:"bank_details,omitempty"`
-		CustomerEmail   string                 `json:"customer_email,omitempty"`
 		PhoneNumber     string                 `json:"phone_number,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&paymentInput); err != nil {
@@ -249,7 +248,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		CardDetails:     paymentInput.CardDetails,
 		PayPalDetails:   paymentInput.PayPalDetails,
 		BankDetails:     paymentInput.BankDetails,
-		CustomerEmail:   paymentInput.CustomerEmail,
+		CustomerEmail:   order.GuestEmail,
 		PhoneNumber:     paymentInput.PhoneNumber,
 	}
 
