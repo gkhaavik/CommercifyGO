@@ -18,6 +18,7 @@ type RepositoryProvider interface {
 	DiscountRepository() repository.DiscountRepository
 	WebhookRepository() repository.WebhookRepository
 	PaymentTransactionRepository() repository.PaymentTransactionRepository
+	CurrencyRepository() repository.CurrencyRepository
 
 	// Shipping related repository
 	ShippingMethodRepository() repository.ShippingMethodRepository
@@ -39,6 +40,7 @@ type repositoryProvider struct {
 	discountRepo       repository.DiscountRepository
 	webhookRepo        repository.WebhookRepository
 	paymentTrxRepo     repository.PaymentTransactionRepository
+	currencyRepo       repository.CurrencyRepository
 
 	shippingMethodRepo repository.ShippingMethodRepository
 	shippingZoneRepo   repository.ShippingZoneRepository
@@ -182,4 +184,15 @@ func (p *repositoryProvider) ShippingRateRepository() repository.ShippingRateRep
 		p.shippingRateRepo = postgres.NewShippingRateRepository(p.container.DB())
 	}
 	return p.shippingRateRepo
+}
+
+// CurrencyRepository returns the currency repository
+func (p *repositoryProvider) CurrencyRepository() repository.CurrencyRepository {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.currencyRepo == nil {
+		p.currencyRepo = postgres.NewCurrencyRepository(p.container.DB())
+	}
+	return p.currencyRepo
 }
