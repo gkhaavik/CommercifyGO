@@ -8,7 +8,7 @@ A robust, scalable e-commerce backend API built with Go, following clean archite
 - **Product Management**: CRUD operations, categories, variants, search
 - **Shopping Cart**: Add, update, remove items
 - **Order Processing**: Create orders, payment processing, order status tracking
-- **Payment Integration**: Support for multiple payment providers (Stripe, PayPal, etc.)
+- **Payment Integration**: Support for multiple payment providers (Stripe, MobilePay, etc.)
 - **Email Notifications**: Order confirmations, status updates
 
 ## Technology Stack
@@ -16,7 +16,7 @@ A robust, scalable e-commerce backend API built with Go, following clean archite
 - **Language**: Go 1.20+
 - **Database**: PostgreSQL
 - **Authentication**: JWT
-- **Payment Processing**: Stripe, PayPal (configurable)
+- **Payment Processing**: Stripe, MobilePay
 - **Email**: SMTP integration
 
 ## Project Structure
@@ -47,56 +47,54 @@ The project follows clean architecture principles with clear separation of conce
 - PostgreSQL 15 (Only tested on v15)
 - Docker (optional)
 
+### Docker Setup
+
+For a quick start with Docker Compose:
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/zenfulcode/commercifygo.git
+cd commercify
+```
+
+2. Start the services using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+This will start:
+
+- PostgreSQL database
+- Commercify API server
+
+3. Run database migrations (First startup also migrates automatically):
+
+```bash
+docker-compose exec api /app/commercify-migrate -up
+```
+
+4. Seed the database with sample data (optional):
+
+```bash
+docker-compose exec api /app/commercify-seed -all
+```
+
+5. Access the API at `http://localhost:6091`
+
+6. To stop the services:
+
+```bash
+docker-compose down
+```
+
 ### Environment Variables
 
-Create a `.env` file in the root directory with the following variables:
+Create a `.env` file in the root directory by copying the `.env.example`
 
-```
-# Server
-
-SERVER_PORT=8080
-SERVER_READ_TIMEOUT=15
-SERVER_WRITE_TIMEOUT=15
-
-# Database
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=ecommerce
-DB_SSL_MODE=disable
-
-# Authentication
-
-AUTH_JWT_SECRET=your-secret-key
-AUTH_TOKEN_DURATION=24
-
-# Email
-
-EMAIL_SMTP_HOST=smtp.example.com
-EMAIL_SMTP_PORT=587
-EMAIL_SMTP_USERNAME=your-username
-EMAIL_SMTP_PASSWORD=your-password
-EMAIL_FROM_ADDRESS=noreply@example.com
-EMAIL_FROM_NAME=E-Commerce Store
-EMAIL_ADMIN_ADDRESS=admin@example.com
-EMAIL_ENABLED=false
-
-# Payment - Stripe
-
-STRIPE_SECRET_KEY=your-stripe-secret-key
-STRIPE_PUBLIC_KEY=your-stripe-public-key
-STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
-STRIPE_PAYMENT_DESCRIPTION=E-Commerce Store Purchase
-STRIPE_ENABLED=false
-
-# Payment - PayPal
-
-PAYPAL_CLIENT_ID=your-paypal-client-id
-PAYPAL_CLIENT_SECRET=your-paypal-client-secret
-PAYPAL_SANDBOX=true
-PAYPAL_ENABLED=false
+```bash
+cp .env.example .env
 ```
 
 ### Database Setup
@@ -248,56 +246,48 @@ Authorization: Bearer <token>
 
 - `POST /api/webhooks/stripe` - Stripe webhook endpoint
 - `POST /api/webhooks/mobilepay` - MobilePay webhook endpoint
-- `POST /api/webhooks/paypal` - PayPal webhook endpoint
-
-## Key Workflows
-
-The API supports several key e-commerce workflows:
-
-### User Management
-- Registration and authentication
-- Profile management and address book
-- Role-based access control (customer, seller, admin)
-
-### Product Management
-- Creating and updating products with variants
-- Inventory tracking
-- Product categorization and search
-
-### Shopping Experience
-- Cart management for both guests and authenticated users
-- Applying discounts and promotions
-- Shipping calculation
-
-### Checkout Process
-- Order creation from cart
-- Shipping method selection
-- Multiple payment options (credit card, PayPal, MobilePay)
-- 3D Secure authentication when required
-
-### Order Management
-- Order tracking and history
-- Payment processing and confirmation
-- Shipping status updates
-
-### Admin Functions
-- User management
-- Order processing and fulfillment
-- Payment capture, cancellation, and refunds
-- Discount and promotion management
 
 ## Database Schema
 
-The database consists of the following main tables:
+The database consists of the following tables:
 
-- `users` - User accounts
-- `categories` - Product categories
-- `products` - Products information
-- `product_variants` - Product variants
-- `carts` - Shopping carts
-- `cart_items` - Items in shopping carts
-- `orders` - Customer orders
-- `order_items` - Items in orders
+### Users and Authentication
+
+- `users` - User accounts and authentication information
+
+### Products
+
+- `categories` - Product categories with hierarchical structure
+- `products` - Product information including name, description, price, and stock
+- `product_variants` - Variations of products with different attributes (size, color, etc.)
+
+### Shopping
+
+- `carts` - Shopping carts for registered users
+- `cart_items` - Items in shopping carts with product and quantity
+
+### Orders
+
+- `orders` - Customer orders with status, amounts, and addresses
+- `order_items` - Individual items in orders
+
+### Payments
+
+- `payment_transactions` - Record of payment attempts, successes, and failures
+
+### Discounts
+
+- `discounts` - Promotion codes with various discount types and rules
+
+### Shipping
+
+- `shipping_methods` - Available shipping methods
+- `shipping_zones` - Geographic shipping zones
+- `shipping_rates` - Shipping pricing based on weight, value, or other factors
+
+### Webhooks
+
+- `webhooks` - Configuration for external service webhook endpoints
 
 ## Development
 
@@ -333,19 +323,21 @@ using the cli tool to generate migration files, then you can use the following c
 migrate create -ext sql -dir migrations -seq add_friendly_numbers
 ```
 
-otherwise you can create them manually wher `migrations` is the migrations folder, the `sequence` is the 6 digits in front and `migration_name` is a short description
+otherwise you can create them manually using:
 
 ```bash
 touch migrations/[sequence]_[migration_name].up.sql
 touch migrations/[sequence]_[migration_name].down.sql
 ```
 
+Where `migrations` is the migrations folder, the `sequence` is the 6 digits in front and `migration_name` is a short description
+
 ## Multi-Provider Payment System
 
 The application supports multiple payment providers through a flexible payment service architecture:
 
 - **Stripe**: Credit card payments
-- **PayPal**: PayPal account payments
+- **MobilePay** Mobile payments
 - **Mock**: Test payment provider for development
 
 Payment providers can be enabled/disabled through configuration, and new providers can be added by implementing the `PaymentService` interface.
@@ -358,3 +350,70 @@ The system uses user-friendly identifiers for better readability:
 - **Product Numbers**: Format `PROD-000001` (sequential numbering)
 
 These identifiers make it easier to reference orders and products in the UI and customer communications.
+
+## Payment Provider Implementations
+
+### Stripe Payment Provider
+
+Commercify implements Stripe as a payment provider following Clean Architecture principles. The implementation:
+
+- Supports credit card payments using Stripe's Payment Intents API
+- Handles 3D Secure authentication flows
+- Provides webhook integration for asynchronous event handling
+- Manages payment lifecycle (authorize, capture, refund, cancel)
+
+#### Stripe Setup
+
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Get your API keys from the Stripe Dashboard
+3. Set the following environment variables:
+
+```
+STRIPE_ENABLED=true
+STRIPE_SECRET_KEY=sk_test_your_key
+STRIPE_PUBLIC_KEY=pk_test_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret
+STRIPE_PAYMENT_DESCRIPTION=Commercify Store Purchase
+```
+
+#### Webhook Configuration
+
+To handle asynchronous payment events (3D Secure authentication, payment success/failure):
+
+1. Create a webhook endpoint in your Stripe Dashboard
+2. Point it to: `https://your-domain.com/api/webhooks/stripe`
+3. Select the following events to listen for:
+   - `payment_intent.succeeded`
+   - `payment_intent.payment_failed`
+   - `payment_intent.canceled`
+   - `payment_intent.requires_action`
+   - `payment_intent.processing`
+   - `payment_intent.amount_capturable_updated`
+   - `charge.succeeded`
+   - `charge.failed`
+   - `charge.refunded`
+   - `charge.dispute.created`
+   - `charge.dispute.closed`
+4. Copy the signing secret and set it as `STRIPE_WEBHOOK_SECRET` in your environment
+
+#### Payment Flows
+
+Commercify supports several payment flows with Stripe:
+
+**Direct Payment**
+Payment is authorized and captured immediately.
+
+**Authorization and Capture**
+Payment is first authorized, then captured later when the order is fulfilled.
+
+**3D Secure Authentication**
+When required by the bank, customers will be redirected to complete 3D Secure authentication.
+
+#### Testing Stripe Integration
+
+Use Stripe's test cards for development:
+- `4242 4242 4242 4242` - Successful payment
+- `4000 0000 0000 3220` - 3D Secure authentication required
+- `4000 0000 0000 9995` - Payment declined
+
+For more test card numbers, visit [Stripe's testing documentation](https://stripe.com/docs/testing).

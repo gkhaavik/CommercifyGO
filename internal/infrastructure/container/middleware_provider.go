@@ -9,6 +9,7 @@ import (
 // MiddlewareProvider provides access to all middlewares
 type MiddlewareProvider interface {
 	AuthMiddleware() *middleware.AuthMiddleware
+	CorsMiddleware() *middleware.CorsMiddleware
 }
 
 // middlewareProvider is the concrete implementation of MiddlewareProvider
@@ -17,6 +18,7 @@ type middlewareProvider struct {
 	mu        sync.Mutex
 
 	authMiddleware *middleware.AuthMiddleware
+	corsMiddleware *middleware.CorsMiddleware
 }
 
 // NewMiddlewareProvider creates a new middleware provider
@@ -38,4 +40,17 @@ func (p *middlewareProvider) AuthMiddleware() *middleware.AuthMiddleware {
 		)
 	}
 	return p.authMiddleware
+}
+
+// CorsMiddleware returns the CORS middleware
+func (p *middlewareProvider) CorsMiddleware() *middleware.CorsMiddleware {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.corsMiddleware == nil {
+		p.corsMiddleware = middleware.NewCorsMiddleware(
+			p.container.Config(),
+		)
+	}
+	return p.corsMiddleware
 }

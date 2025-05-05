@@ -112,12 +112,12 @@ func main() {
 		fmt.Println("Shipping rates seeded successfully")
 	}
 
-	if *allFlag || *webhooksFlag {
-		if err := seedWebhooks(db); err != nil {
-			log.Fatalf("Failed to seed webhooks: %v", err)
-		}
-		fmt.Println("Webhooks seeded successfully")
-	}
+	// if *allFlag || *webhooksFlag {
+	// 	if err := seedWebhooks(db); err != nil {
+	// 		log.Fatalf("Failed to seed webhooks: %v", err)
+	// 	}
+	// 	fmt.Println("Webhooks seeded successfully")
+	// }
 
 	if *allFlag || *cartsFlag {
 		if err := seedCarts(db); err != nil {
