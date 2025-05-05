@@ -1,7 +1,4 @@
 Features:
-+ Add capturing payments api endpoint DONE v0.3.0-Beta
-+ Add cancel payments api endpoint    DONE v0.3.0-Beta
-+ Add refund payments api endpoint    DONE v0.3.0-Beta
 + Add configurable currencies
 + Add GraphQL integration
 + Add a payment repository, to keep track of captured and refunded amount etc.
