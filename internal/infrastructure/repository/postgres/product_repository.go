@@ -326,9 +326,9 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 	if len(product.Prices) > 0 {
 		// Use an upsert query to update or insert prices
 		query := `
-			INSERT INTO product_prices (product_id, currency, price)
+			INSERT INTO product_prices (product_id, currency_code, price)
 			VALUES ($1, $2, $3)
-			ON CONFLICT (product_id, currency)
+			ON CONFLICT (product_id, currency_code)
 			DO UPDATE SET price = EXCLUDED.price
 		`
 		for _, price := range product.Prices {
