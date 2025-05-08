@@ -324,15 +324,16 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 
 	// Update currency-specific prices if they exist
 	if len(product.Prices) > 0 {
-		// First, delete existing prices (to handle removes)
-		if _, err := r.db.Exec("DELETE FROM product_prices WHERE product_id = $1", product.ID); err != nil {
-			return err
-		}
-
-		// Then add all current prices
-		for i := range product.Prices {
-			product.Prices[i].ProductID = product.ID
-			if err := r.createProductPrice(&product.Prices[i]); err != nil {
+		// Use an upsert query to update or insert prices
+		query := `
+			INSERT INTO product_prices (product_id, currency, price)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (product_id, currency)
+			DO UPDATE SET price = EXCLUDED.price
+		`
+		for _, price := range product.Prices {
+			_, err := r.db.Exec(query, product.ID, price.CurrencyCode, price.Price)
+			if err != nil {
 				return err
 			}
 		}

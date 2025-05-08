@@ -166,6 +166,17 @@ func (p *useCaseProvider) CurrencyUsecase() *usecase.CurrencyUseCase {
 		p.currencyUseCase = usecase.NewCurrencyUseCase(
 			p.container.Repositories().CurrencyRepository(),
 		)
+
+		var defaultCurrency usecase.CurrencyInput = usecase.CurrencyInput{
+			Code:         p.container.Config().DefaultCurrency,
+			Name:         "Default Currency",
+			Symbol:       "$",
+			ExchangeRate: 1.0,
+			IsEnabled:    true,
+			IsDefault:    true,
+		}
+
+		p.currencyUseCase.CreateCurrency(defaultCurrency)
 	}
 	return p.currencyUseCase
 }

@@ -207,7 +207,12 @@ func (uc *ProductUseCase) GetProductByCurrency(id uint, currencyCode string) (*e
 
 	// If no specific currency requested, return as is
 	if currencyCode == "" {
-		return product, nil
+		defaultCurr, err := uc.currencyRepo.GetDefault()
+		if err != nil {
+			return nil, err
+		}
+
+		currencyCode = defaultCurr.Code
 	}
 
 	// Validate currency exists
@@ -216,16 +221,17 @@ func (uc *ProductUseCase) GetProductByCurrency(id uint, currencyCode string) (*e
 		return nil, errors.New("invalid currency code: " + currencyCode)
 	}
 
-	// If it's the default currency, return as is
-	defaultCurrency, err := uc.currencyRepo.GetDefault()
-	if err != nil {
-		return nil, err
+	currencyPrice, found := product.GetPriceInCurrency(currency.Code)
+	if !found {
+		return nil, errors.New("product not available in the requested currency")
 	}
 
-	if currency.Code == defaultCurrency.Code {
-		// Already in default currency
-		return product, nil
-	}
+	// comparePrice, found := product.GetComparePriceInCurrency(currency.Code)
+	// if found {
+	// 	product.ComparePrice = comparePrice
+	// }
+
+	product.Price = currencyPrice
 
 	return product, nil
 }
@@ -652,7 +658,13 @@ func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.P
 	// If currency is specified and not the default, convert price ranges
 	var minPriceCents, maxPriceCents int64
 
-	if input.CurrencyCode != "" && input.CurrencyCode != "USD" {
+	// TODO: Default currency should be in memory
+	defaultCurr, err := uc.currencyRepo.GetDefault()
+	if err != nil {
+		return nil, err
+	}
+
+	if input.CurrencyCode != "" && input.CurrencyCode != defaultCurr.Code {
 		// Get the currency
 		currency, err := uc.currencyRepo.GetByCode(input.CurrencyCode)
 		if err != nil {

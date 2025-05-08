@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	errors "github.com/zenfulcode/commercify/internal/domain/error"
 	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
@@ -181,7 +182,7 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		h.logger.Error("Failed to get product: %v", err)
-		if err.Error() == "product not found" {
+		if err.Error() == errors.ProductNotFoundError {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)

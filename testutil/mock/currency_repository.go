@@ -8,12 +8,21 @@ import (
 )
 
 type MockCurrencyRepository struct {
-	currencies map[string]*entity.Currency
+	currencies      map[string]*entity.Currency
+	defaultCurrency *entity.Currency
 }
 
 func NewMockCurrencyRepository() *MockCurrencyRepository {
 	return &MockCurrencyRepository{
 		currencies: make(map[string]*entity.Currency),
+		defaultCurrency: &entity.Currency{
+			Code:         "USD",
+			Name:         "US Dollar",
+			Symbol:       "$",
+			ExchangeRate: 1.0,
+			IsEnabled:    true,
+			IsDefault:    true,
+		},
 	}
 }
 
@@ -47,12 +56,7 @@ func (r *MockCurrencyRepository) GetByCode(code string) (*entity.Currency, error
 	return nil, fmt.Errorf("currency with code %s does not exist", code)
 }
 func (r *MockCurrencyRepository) GetDefault() (*entity.Currency, error) {
-	for _, currency := range r.currencies {
-		if currency.IsDefault {
-			return currency, nil
-		}
-	}
-	return nil, fmt.Errorf("no default currency found")
+	return r.defaultCurrency, nil
 }
 func (r *MockCurrencyRepository) List() ([]*entity.Currency, error) {
 	var currencies []*entity.Currency
@@ -74,10 +78,13 @@ func (r *MockCurrencyRepository) SetDefault(code string) error {
 	if _, exists := r.currencies[code]; !exists {
 		return fmt.Errorf("currency with code %s does not exist", code)
 	}
+
 	for _, currency := range r.currencies {
 		currency.IsDefault = false
 	}
+
 	r.currencies[code].IsDefault = true
+	r.defaultCurrency = r.currencies[code]
 	return nil
 }
 
