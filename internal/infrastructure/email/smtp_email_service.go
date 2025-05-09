@@ -65,13 +65,17 @@ func (s *SMTPEmailService) SendEmail(data service.EmailData) error {
 	}
 
 	// Format email message
+	// Sanitize email subject and body
+	sanitizedSubject := template.HTMLEscapeString(data.Subject)
+	sanitizedBody := template.HTMLEscapeString(body)
+
 	msg := []byte(fmt.Sprintf("From: %s <%s>\r\n"+
 		"To: %s\r\n"+
 		"Subject: %s\r\n"+
 		"MIME-Version: 1.0\r\n"+
 		"Content-Type: %s; charset=UTF-8\r\n"+
 		"\r\n"+
-		"%s", s.config.FromName, s.config.FromEmail, data.To, data.Subject, contentType, body))
+		"%s", s.config.FromName, s.config.FromEmail, data.To, sanitizedSubject, contentType, sanitizedBody))
 
 	// Send email
 	err = smtp.SendMail(
