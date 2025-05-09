@@ -16,6 +16,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test category
 		category := &entity.Category{
@@ -29,6 +30,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Create product input
@@ -65,6 +67,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test category
 		category := &entity.Category{
@@ -78,6 +81,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Create product input with variants
@@ -133,12 +137,14 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create use case with mocks
 		productUseCase := usecase.NewProductUseCase(
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Create product input with invalid category
@@ -169,6 +175,7 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product
 		product := &entity.Product{
@@ -189,6 +196,7 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute
@@ -206,12 +214,14 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create use case with mocks
 		productUseCase := usecase.NewProductUseCase(
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute with non-existent ID
@@ -229,6 +239,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create test category and product
 		category := &entity.Category{
@@ -261,6 +272,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Update input
@@ -291,6 +303,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product
 		product := &entity.Product{
@@ -311,6 +324,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Update input with different seller
@@ -334,6 +348,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product without variants
 		product := &entity.Product{
@@ -354,6 +369,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Add variant input
@@ -396,6 +412,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product with variants
 		product := &entity.Product{
@@ -445,6 +462,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Update variant input
@@ -487,6 +505,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product with variants
 		product := &entity.Product{
@@ -536,6 +555,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute - delete the non-default variant
@@ -560,6 +580,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product with variants
 		product := &entity.Product{
@@ -609,6 +630,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute - delete the default variant
@@ -632,6 +654,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product with one variant
 		product := &entity.Product{
@@ -667,6 +690,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute - try to delete the only variant
@@ -684,6 +708,7 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create test products
 		product1 := &entity.Product{
@@ -760,6 +785,7 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Search by shirt
@@ -817,6 +843,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product
 		product := &entity.Product{
@@ -837,6 +864,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute
@@ -856,6 +884,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
+		currencyRepo := mock.NewMockCurrencyRepository()
 
 		// Create a test product
 		product := &entity.Product{
@@ -876,6 +905,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
+			currencyRepo,
 		)
 
 		// Execute with different seller ID

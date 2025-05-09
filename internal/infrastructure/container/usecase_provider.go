@@ -15,6 +15,7 @@ type UseCaseProvider interface {
 	DiscountUseCase() *usecase.DiscountUseCase
 	WebhookUseCase() *usecase.WebhookUseCase
 	ShippingUseCase() *usecase.ShippingUseCase
+	CurrencyUsecase() *usecase.CurrencyUseCase
 }
 
 // useCaseProvider is the concrete implementation of UseCaseProvider
@@ -29,6 +30,7 @@ type useCaseProvider struct {
 	discountUseCase *usecase.DiscountUseCase
 	webhookUseCase  *usecase.WebhookUseCase
 	shippingUseCase *usecase.ShippingUseCase
+	currencyUseCase *usecase.CurrencyUseCase
 }
 
 // NewUseCaseProvider creates a new use case provider
@@ -61,6 +63,7 @@ func (p *useCaseProvider) ProductUseCase() *usecase.ProductUseCase {
 			p.container.Repositories().ProductRepository(),
 			p.container.Repositories().CategoryRepository(),
 			p.container.Repositories().ProductVariantRepository(),
+			p.container.Repositories().CurrencyRepository(),
 		)
 	}
 	return p.productUseCase
@@ -152,4 +155,28 @@ func (p *useCaseProvider) InitializeShippingUseCase() *usecase.ShippingUseCase {
 		)
 	}
 	return p.shippingUseCase
+}
+
+// CurrencyUsecase returns the currency use case
+func (p *useCaseProvider) CurrencyUsecase() *usecase.CurrencyUseCase {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.currencyUseCase == nil {
+		p.currencyUseCase = usecase.NewCurrencyUseCase(
+			p.container.Repositories().CurrencyRepository(),
+		)
+
+		var defaultCurrency usecase.CurrencyInput = usecase.CurrencyInput{
+			Code:         p.container.Config().DefaultCurrency,
+			Name:         "Default Currency",
+			Symbol:       "$",
+			ExchangeRate: 1.0,
+			IsEnabled:    true,
+			IsDefault:    true,
+		}
+
+		p.currencyUseCase.CreateCurrency(defaultCurrency)
+	}
+	return p.currencyUseCase
 }

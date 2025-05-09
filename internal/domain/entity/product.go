@@ -14,7 +14,7 @@ type Product struct {
 	ProductNumber string            `json:"product_number"`
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
-	Price         int64             `json:"price"` // Stored as cents
+	Price         int64             `json:"price"` // Stored as cents (in default currency)
 	Stock         int               `json:"stock"`
 	Weight        float64           `json:"weight"` // Weight in kg
 	CategoryID    uint              `json:"category_id"`
@@ -22,6 +22,7 @@ type Product struct {
 	Images        []string          `json:"images"`
 	HasVariants   bool              `json:"has_variants"`
 	Variants      []*ProductVariant `json:"variants,omitempty"`
+	Prices        []ProductPrice    `json:"prices,omitempty"` // Prices in different currencies
 	CreatedAt     time.Time         `json:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at"`
 }
@@ -68,6 +69,7 @@ func (p *Product) UpdateStock(quantity int) error {
 	if newStock < 0 {
 		return errors.New("insufficient stock")
 	}
+
 	p.Stock = newStock
 	p.UpdatedAt = time.Now()
 	return nil
@@ -171,6 +173,42 @@ func (p *Product) GetTotalWeight(quantity int) float64 {
 // GetPriceDollars returns the price in dollars
 func (p *Product) GetPriceDollars() float64 {
 	return money.FromCents(p.Price)
+}
+
+// GetPriceInCurrency returns the price for a specific currency
+func (p *Product) GetPriceInCurrency(currencyCode string) (int64, bool) {
+	// If no currency specified or matches default currency, return base price
+	if currencyCode == "" {
+		return p.Price, true
+	}
+
+	// Look for price in the specified currency
+	for _, price := range p.Prices {
+		if price.CurrencyCode == currencyCode {
+			return price.Price, true
+		}
+	}
+
+	// Currency price not found
+	return 0, false
+}
+
+// GetComparePriceInCurrency returns the compare price for a specific currency
+func (p *Product) GetComparePriceInCurrency(currencyCode string) (int64, bool) {
+	// If no currency specified, return base compare price
+	if currencyCode == "" {
+		return 0, false
+	}
+
+	// Look for price in the specified currency
+	for _, price := range p.Prices {
+		if price.CurrencyCode == currencyCode {
+			return price.ComparePrice, price.ComparePrice > 0
+		}
+	}
+
+	// Currency compare price not found
+	return 0, false
 }
 
 // Category represents a product category

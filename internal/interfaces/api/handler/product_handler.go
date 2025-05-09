@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	errors "github.com/zenfulcode/commercify/internal/domain/error"
 	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
@@ -167,10 +168,25 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get product (use case returns entity with cents)
-	product, err := h.productUseCase.GetProductByID(uint(id))
+	currencyCode := vars["currency"]
+
+	var product *entity.Product
+
+	if currencyCode != "" {
+		// Get product with specific currency prices
+		product, err = h.productUseCase.GetProductByCurrency(uint(id), currencyCode)
+	} else {
+		// Get product with default currency prices
+		product, err = h.productUseCase.GetProductByID(uint(id))
+	}
+
 	if err != nil {
 		h.logger.Error("Failed to get product: %v", err)
-		http.Error(w, "Product not found", http.StatusNotFound)
+		if err.Error() == errors.ProductNotFoundError {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 

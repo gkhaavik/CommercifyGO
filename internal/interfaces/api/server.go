@@ -78,6 +78,7 @@ func (s *Server) setupRoutes() {
 	webhookHandler := s.container.Handlers().WebhookHandler()
 	discountHandler := s.container.Handlers().DiscountHandler()
 	shippingHandler := s.container.Handlers().ShippingHandler()
+	currencyHandler := s.container.Handlers().CurrencyHandler()
 
 	// Extract middleware from container
 	authMiddleware := s.container.Middlewares().AuthMiddleware()
@@ -94,6 +95,11 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/categories", productHandler.ListCategories).Methods(http.MethodGet)
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
 	api.HandleFunc("/discounts/validate", discountHandler.ValidateDiscountCode).Methods(http.MethodPost)
+
+	// Public currency routes
+	api.HandleFunc("/currencies", currencyHandler.ListEnabledCurrencies).Methods(http.MethodGet)
+	api.HandleFunc("/currencies/default", currencyHandler.GetDefaultCurrency).Methods(http.MethodGet)
+	api.HandleFunc("/currencies/convert", currencyHandler.ConvertAmount).Methods(http.MethodPost)
 
 	// Public shipping routes
 	api.HandleFunc("/shipping/methods", shippingHandler.ListShippingMethods).Methods(http.MethodGet)
@@ -171,6 +177,13 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/users", userHandler.ListUsers).Methods(http.MethodGet)
 	admin.HandleFunc("/orders", orderHandler.ListAllOrders).Methods(http.MethodGet)
 	admin.HandleFunc("/orders/{id:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
+
+	// Admin currency routes
+	admin.HandleFunc("/currencies/all", currencyHandler.ListCurrencies).Methods(http.MethodGet)
+	admin.HandleFunc("/currencies", currencyHandler.CreateCurrency).Methods(http.MethodPost)
+	admin.HandleFunc("/currencies", currencyHandler.UpdateCurrency).Methods(http.MethodPut)
+	admin.HandleFunc("/currencies", currencyHandler.DeleteCurrency).Methods(http.MethodDelete)
+	admin.HandleFunc("/currencies/default", currencyHandler.SetDefaultCurrency).Methods(http.MethodPut)
 
 	// Shipping management routes (admin only)
 	admin.HandleFunc("/shipping/methods", shippingHandler.CreateShippingMethod).Methods(http.MethodPost)
