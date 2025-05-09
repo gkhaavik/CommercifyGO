@@ -9,16 +9,19 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
-// ProductRepository implements the product repository interface using PostgreSQL
+// ProductRepository is the PostgreSQL implementation of the ProductRepository interface
 type ProductRepository struct {
 	db *sql.DB
 }
 
 // NewProductRepository creates a new ProductRepository
-func NewProductRepository(db *sql.DB) *ProductRepository {
-	return &ProductRepository{db: db}
+func NewProductRepository(db *sql.DB) repository.ProductRepository {
+	return &ProductRepository{
+		db: db,
+	}
 }
 
 // Create creates a new product
@@ -55,17 +58,58 @@ func (r *ProductRepository) Create(product *entity.Product) error {
 	// Generate and set the product number
 	product.SetProductNumber(product.ID)
 
-	// Update the product with the generated product number
-	_, err = r.db.Exec(
-		"UPDATE products SET product_number = $1 WHERE id = $2",
-		product.ProductNumber,
-		product.ID,
-	)
+	// Update the product number in the database
+	updateQuery := "UPDATE products SET product_number = $1 WHERE id = $2"
+	_, err = r.db.Exec(updateQuery, product.ProductNumber, product.ID)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// If the product has currency-specific prices, save them
+	if len(product.Prices) > 0 {
+		for i := range product.Prices {
+			product.Prices[i].ProductID = product.ID
+			if err = r.createProductPrice(&product.Prices[i]); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
-// GetByID retrieves a product by ID
+// createProductPrice creates a product price entry for a specific currency
+func (r *ProductRepository) createProductPrice(price *entity.ProductPrice) error {
+	query := `
+		INSERT INTO product_prices (product_id, currency_code, price, compare_price, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (product_id, currency_code) DO UPDATE SET
+			price = EXCLUDED.price,
+			compare_price = EXCLUDED.compare_price,
+			updated_at = EXCLUDED.updated_at
+		RETURNING id
+	`
+
+	var comparePrice sql.NullInt64
+	if price.ComparePrice > 0 {
+		comparePrice.Int64 = price.ComparePrice
+		comparePrice.Valid = true
+	}
+
+	now := time.Now()
+
+	return r.db.QueryRow(
+		query,
+		price.ProductID,
+		price.CurrencyCode,
+		price.Price,
+		comparePrice,
+		now,
+		now,
+	).Scan(&price.ID)
+}
+
+// GetByID gets a product by ID
 func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 	query := `
 		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
@@ -92,12 +136,10 @@ func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 		&product.CreatedAt,
 		&product.UpdatedAt,
 	)
-
-	if err == sql.ErrNoRows {
-		return nil, errors.New("product not found")
-	}
-
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("product not found")
+		}
 		return nil, err
 	}
 
@@ -111,18 +153,71 @@ func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 		return nil, err
 	}
 
+	// Load currency-specific prices
+	prices, err := r.getProductPrices(product.ID)
+	if err != nil {
+		return nil, err
+	}
+	product.Prices = prices
+
 	return product, nil
 }
 
-// GetByIDWithVariants retrieves a product by ID including its variants
+// getProductPrices retrieves all prices for a product in different currencies
+func (r *ProductRepository) getProductPrices(productID uint) ([]entity.ProductPrice, error) {
+	query := `
+		SELECT id, product_id, currency_code, price, compare_price, created_at, updated_at
+		FROM product_prices
+		WHERE product_id = $1
+	`
+
+	rows, err := r.db.Query(query, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var prices []entity.ProductPrice
+	for rows.Next() {
+		var price entity.ProductPrice
+		var comparePrice sql.NullInt64
+
+		err := rows.Scan(
+			&price.ID,
+			&price.ProductID,
+			&price.CurrencyCode,
+			&price.Price,
+			&comparePrice,
+			&price.CreatedAt,
+			&price.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if comparePrice.Valid {
+			price.ComparePrice = comparePrice.Int64
+		}
+
+		prices = append(prices, price)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return prices, nil
+}
+
+// GetByIDWithVariants gets a product by ID with variants
 func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error) {
-	// First get the product
+	// Get the base product
 	product, err := r.GetByID(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// If product has variants, fetch them
+	// If product has variants, get them
 	if product.HasVariants {
 		query := `
 			SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
@@ -141,12 +236,14 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 		for rows.Next() {
 			var attributesJSON, imagesJSON []byte
 			variant := &entity.ProductVariant{}
+			var comparePrice sql.NullInt64
+
 			err := rows.Scan(
 				&variant.ID,
 				&variant.ProductID,
 				&variant.SKU,
 				&variant.Price,
-				&variant.ComparePrice,
+				&comparePrice,
 				&variant.Stock,
 				&attributesJSON,
 				&imagesJSON,
@@ -158,38 +255,27 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 				return nil, err
 			}
 
-			// Initialize empty attributes array
-			variant.Attributes = []entity.VariantAttribute{}
-
-			// Unmarshal attributes JSON
-			// Handle both array format and object format for backward compatibility
-			var rawAttributes interface{}
-			if err := json.Unmarshal(attributesJSON, &rawAttributes); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+			// Set compare price if valid
+			if comparePrice.Valid {
+				variant.ComparePrice = comparePrice.Int64
 			}
 
-			// Check if the attributes are in array format
-			if attrsArray, ok := rawAttributes.([]interface{}); ok {
-				// Handle array format
-				for _, attr := range attrsArray {
-					if attrMap, ok := attr.(map[string]interface{}); ok {
-						name, _ := attrMap["name"].(string)
-						value, _ := attrMap["value"].(string)
-						variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
-							Name:  name,
-							Value: value,
-						})
-					}
-				}
-			} else if attrsMap, ok := rawAttributes.(map[string]interface{}); ok {
-				// Handle object format (key-value pairs)
-				for name, value := range attrsMap {
-					if strValue, ok := value.(string); ok {
-						variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
-							Name:  name,
-							Value: strValue,
-						})
-					}
+			// Unmarshal attributes JSON
+			var attributes []map[string]interface{}
+			if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
+				return nil, err
+			}
+
+			// Convert attributes to VariantAttribute
+			variant.Attributes = make([]entity.VariantAttribute, 0, len(attributes))
+			for _, attr := range attributes {
+				name, ok1 := attr["name"].(string)
+				value, ok2 := attr["value"].(string)
+				if ok1 && ok2 {
+					variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
+						Name:  name,
+						Value: value,
+					})
 				}
 			}
 
@@ -232,8 +318,28 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 		time.Now(),
 		product.ID,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Update currency-specific prices if they exist
+	if len(product.Prices) > 0 {
+		// Use an upsert query to update or insert prices
+		query := `
+			INSERT INTO product_prices (product_id, currency_code, price)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (product_id, currency_code)
+			DO UPDATE SET price = EXCLUDED.price
+		`
+		for _, price := range product.Prices {
+			_, err := r.db.Exec(query, product.ID, price.CurrencyCode, price.Price)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Delete deletes a product
@@ -264,7 +370,7 @@ func (r *ProductRepository) Delete(id uint) error {
 	return tx.Commit()
 }
 
-// List retrieves all products with pagination
+// List lists products with pagination
 func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 	query := `
 		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
@@ -314,7 +420,18 @@ func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 			return nil, err
 		}
 
+		// Load currency-specific prices
+		prices, err := r.getProductPrices(product.ID)
+		if err != nil {
+			return nil, err
+		}
+		product.Prices = prices
+
 		products = append(products, product)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return products, nil
@@ -402,13 +519,20 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPriceCents,
 			return nil, err
 		}
 
+		// Load currency-specific prices
+		prices, err := r.getProductPrices(product.ID)
+		if err != nil {
+			return nil, err
+		}
+		product.Prices = prices
+
 		products = append(products, product)
 	}
 
 	return products, nil
 }
 
-// GetBySeller retrieves products by seller ID
+// GetBySeller gets products by seller ID with pagination
 func (r *ProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error) {
 	query := `
 		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
@@ -458,6 +582,13 @@ func (r *ProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*en
 		if err := json.Unmarshal(imagesJSON, &product.Images); err != nil {
 			return nil, err
 		}
+
+		// Load currency-specific prices
+		prices, err := r.getProductPrices(product.ID)
+		if err != nil {
+			return nil, err
+		}
+		product.Prices = prices
 
 		products = append(products, product)
 	}

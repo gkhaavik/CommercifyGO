@@ -100,6 +100,10 @@ Example response:
 
 Get details of a specific product.
 
+**Query Parameters:**
+
+- `currency` (optional): Currency code to display prices in (e.g., "EUR", "GBP")
+
 Example response:
 
 ```json
@@ -175,6 +179,7 @@ Search products based on various criteria.
 - `category` (optional): Category ID
 - `min_price` (optional): Minimum price
 - `max_price` (optional): Maximum price
+- `currency_code` (optional): Currency code for price filtering and display
 - `offset` (optional): Pagination offset (default: 0)
 - `limit` (optional): Pagination limit (default: 10)
 
@@ -277,11 +282,24 @@ Create a new product (seller only).
   "name": "New Product",
   "description": "Product description",
   "price": 199.99,
+  "compare_price": 249.99,
   "stock": 100,
   "weight": 1.5,
   "category_id": 1,
   "images": ["product.jpg"],
-  "has_variants": false
+  "has_variants": false,
+  "currency_prices": [
+    {
+      "currency_code": "EUR",
+      "price": 169.99,
+      "compare_price": 212.49
+    },
+    {
+      "currency_code": "GBP",
+      "price": 149.99,
+      "compare_price": 187.49
+    }
+  ]
 }
 ```
 
@@ -326,7 +344,19 @@ Update an existing product (seller only).
   "stock": 75,
   "weight": 1.6,
   "category_id": 1,
-  "images": ["updated-product.jpg"]
+  "images": ["updated-product.jpg"],
+  "currency_prices": [
+    {
+      "currency_code": "EUR",
+      "price": 212.49,
+      "compare_price": 254.99
+    },
+    {
+      "currency_code": "GBP",
+      "price": 187.49,
+      "compare_price": 224.99
+    }
+  ]
 }
 ```
 
@@ -462,7 +492,19 @@ Add a variant to a product (seller only).
     "size": "Medium"
   },
   "images": ["red-shirt.jpg"],
-  "is_default": true
+  "is_default": true,
+  "currency_prices": [
+    {
+      "currency_code": "EUR",
+      "price": 25.49,
+      "compare_price": 33.99
+    },
+    {
+      "currency_code": "GBP",
+      "price": 22.49,
+      "compare_price": 29.99
+    }
+  ]
 }
 ```
 
@@ -514,7 +556,19 @@ Update a product variant (seller only).
     "size": "Medium"
   },
   "images": ["red-shirt-updated.jpg"],
-  "is_default": true
+  "is_default": true,
+  "currency_prices": [
+    {
+      "currency_code": "EUR",
+      "price": 21.24,
+      "compare_price": 29.74
+    },
+    {
+      "currency_code": "GBP",
+      "price": 18.74,
+      "compare_price": 26.24
+    }
+  ]
 }
 ```
 
@@ -561,6 +615,28 @@ Delete a product variant (seller only).
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Not authorized (not the seller of this product)
 - `404 Not Found`: Product or variant not found
+
+## Multi-Currency Product Management
+
+### Setting Product Currency Prices
+
+When creating or updating products and their variants, you can specify prices in multiple currencies using the `currency_prices` array property. Each entry in this array should include:
+
+- `currency_code`: The three-letter ISO code of the currency (e.g., "USD", "EUR", "GBP")
+- `price`: The price in the specified currency
+- `compare_price` (optional): The compare price (original/before discount price) in the specified currency
+
+The system always requires a price in the default currency, and additional currency prices are optional. If a currency price is not specified for a particular currency, the system will automatically convert the price from the default currency using the current exchange rate when needed.
+
+### Retrieving Products with Specific Currency Prices
+
+When retrieving products, you can specify a currency code in the query parameters to get prices in that currency:
+
+```
+GET /api/products/1?currency=EUR
+```
+
+This will return the product with prices in euros, either using the explicitly set euro prices or converting from the default currency if no specific euro prices are set.
 
 ## Example Workflow
 

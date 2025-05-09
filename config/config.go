@@ -8,15 +8,16 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Server    ServerConfig
-	Database  DatabaseConfig
-	Auth      AuthConfig
-	Payment   PaymentConfig
-	Email     EmailConfig
-	Stripe    StripeConfig
-	PayPal    PayPalConfig
-	MobilePay MobilePayConfig
-	CORS      CORSConfig
+	Server          ServerConfig
+	Database        DatabaseConfig
+	Auth            AuthConfig
+	Payment         PaymentConfig
+	Email           EmailConfig
+	Stripe          StripeConfig
+	PayPal          PayPalConfig
+	MobilePay       MobilePayConfig
+	CORS            CORSConfig
+	DefaultCurrency string // Default currency for the store
 }
 
 // ServerConfig holds server-specific configuration
@@ -224,6 +225,7 @@ func LoadConfig() (*Config, error) {
 			AllowedOrigins:  []string{"*"},
 			AllowAllOrigins: true,
 		},
+		DefaultCurrency: getEnv("DEFAULT_CURRENCY", "USD"),
 	}, nil
 }
 

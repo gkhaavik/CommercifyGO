@@ -3,7 +3,6 @@ package container
 
 import (
 	"database/sql"
-	"sync"
 
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -48,9 +47,6 @@ type DIContainer struct {
 	useCases     UseCaseProvider
 	handlers     HandlerProvider
 	middlewares  MiddlewareProvider
-
-	// Mutex for thread-safe initialization
-	mu sync.Mutex
 }
 
 // NewContainer creates a new dependency injection container
