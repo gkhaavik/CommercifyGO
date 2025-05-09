@@ -151,11 +151,6 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid MOBILEPAY_TEST_MODE: %w", err)
 	}
 
-	defaultCurrency := getEnv("DEFAULT_CURRENCY", "USD")
-	if defaultCurrency == "" {
-		return nil, fmt.Errorf("DEFAULT_CURRENCY is required")
-	}
-
 	// Parse enabled payment providers
 	enabledProviders := []string{"mock"} // Always enable mock provider for testing
 	if stripeEnabled {
@@ -230,7 +225,7 @@ func LoadConfig() (*Config, error) {
 			AllowedOrigins:  []string{"*"},
 			AllowAllOrigins: true,
 		},
-		DefaultCurrency: defaultCurrency,
+		DefaultCurrency: getEnv("DEFAULT_CURRENCY", "USD"),
 	}, nil
 }
 
