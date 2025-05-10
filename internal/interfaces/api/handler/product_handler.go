@@ -12,6 +12,7 @@ import (
 	errors "github.com/zenfulcode/commercify/internal/domain/error"
 	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
+	"github.com/zenfulcode/commercify/internal/interfaces/api/pagination"
 )
 
 // ProductHandler handles product-related HTTP requests
@@ -413,14 +414,10 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 // ListProducts handles listing products with pagination
 func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	// Parse pagination parameters
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 {
-		limit = 10 // Default limit
-	}
+	params := pagination.ParsePaginationParams(r)
 
 	// Get products (use case returns entities with cents)
-	products, err := h.productUseCase.ListProducts(offset, limit)
+	products, total, err := h.productUseCase.ListProducts(params.Offset, params.Limit)
 	if err != nil {
 		h.logger.Error("Failed to list products: %v", err)
 		http.Error(w, "Failed to list products", http.StatusInternalServerError)
@@ -428,7 +425,13 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert entities to response structs (converts cents to dollars)
-	response := toProductListResponse(products)
+	productsResponse := toProductListResponse(products)
+
+	// Set pagination headers
+	pagination.SetPaginationHeaders(w, params, total)
+
+	// Create paginated response
+	response := pagination.NewPaginationResponse(params, total, productsResponse)
 
 	// Return products response
 	w.Header().Set("Content-Type", "application/json")
@@ -442,8 +445,7 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 	categoryIDStr := r.URL.Query().Get("category")
 	minPriceStr := r.URL.Query().Get("min_price")
 	maxPriceStr := r.URL.Query().Get("max_price")
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
+	params := pagination.ParsePaginationParams(r)
 
 	// Convert parameters to appropriate types
 	var categoryID uint
@@ -462,31 +464,28 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		maxPrice, _ = strconv.ParseFloat(maxPriceStr, 64)
 	}
 
-	offset, _ := strconv.Atoi(offsetStr)
-	limit, _ := strconv.Atoi(limitStr)
-	if limit <= 0 {
-		limit = 10 // Default limit
-	}
-
 	// Search products (use case expects float64 dollars)
 	input := usecase.SearchProductsInput{
 		Query:      query,
 		CategoryID: categoryID,
 		MinPrice:   minPrice, // Pass dollars
 		MaxPrice:   maxPrice, // Pass dollars
-		Offset:     offset,
-		Limit:      limit,
+		Offset:     params.Offset,
+		Limit:      params.Limit,
 	}
 
-	products, err := h.productUseCase.SearchProducts(input)
+	products, total, err := h.productUseCase.SearchProducts(input)
 	if err != nil {
 		h.logger.Error("Failed to search products: %v", err)
 		http.Error(w, "Failed to search products", http.StatusInternalServerError)
 		return
 	}
 
-	// Convert entities to response structs (converts cents to dollars)
-	response := toProductListResponse(products)
+	productsResponse := toProductListResponse(products)
+
+	pagination.SetPaginationHeaders(w, params, total)
+
+	response := pagination.NewPaginationResponse(params, total, productsResponse)
 
 	// Return products response
 	w.Header().Set("Content-Type", "application/json")
@@ -502,15 +501,10 @@ func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Parse pagination parameters
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 {
-		limit = 10 // Default limit
-	}
+	params := pagination.ParsePaginationParams(r)
 
 	// Get seller's products (use case returns entities with cents)
-	products, err := h.productUseCase.ListProductsBySeller(userID, offset, limit)
+	products, total, err := h.productUseCase.ListProductsBySeller(userID, params.Offset, params.Limit)
 	if err != nil {
 		h.logger.Error("Failed to list seller products: %v", err)
 		http.Error(w, "Failed to list products", http.StatusInternalServerError)
@@ -518,7 +512,13 @@ func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Convert entities to response structs (converts cents to dollars)
-	response := toProductListResponse(products)
+	productsResponse := toProductListResponse(products)
+
+	// Set pagination headers
+	pagination.SetPaginationHeaders(w, params, total)
+
+	// Create paginated response
+	response := pagination.NewPaginationResponse(params, total, productsResponse)
 
 	// Return products response
 	w.Header().Set("Content-Type", "application/json")

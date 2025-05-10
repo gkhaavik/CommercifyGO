@@ -13,6 +13,9 @@ type ProductRepository interface {
 	// Search expects minPriceCents and maxPriceCents as int64 (cents)
 	Search(query string, categoryID uint, minPriceCents, maxPriceCents int64, offset, limit int) ([]*entity.Product, error)
 	GetBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error)
+	Count() (int, error)
+	CountBySeller(sellerID uint) (int, error)
+	CountSearch(searchQuery string, categoryID uint, minPriceCents, maxPriceCents int64) (int, error)
 }
 
 // CategoryRepository defines the interface for category data access
