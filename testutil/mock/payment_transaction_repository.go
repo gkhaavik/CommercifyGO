@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockPaymentTransactionRepository implements a mock payment transaction repository for testing
@@ -16,7 +17,7 @@ type MockPaymentTransactionRepository struct {
 }
 
 // NewMockPaymentTransactionRepository creates a new mock payment transaction repository
-func NewMockPaymentTransactionRepository() *MockPaymentTransactionRepository {
+func NewMockPaymentTransactionRepository() repository.PaymentTransactionRepository {
 	return &MockPaymentTransactionRepository{
 		transactions:    make(map[uint]*entity.PaymentTransaction),
 		byOrderID:       make(map[uint][]*entity.PaymentTransaction),

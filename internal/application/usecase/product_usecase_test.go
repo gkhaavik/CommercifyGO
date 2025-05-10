@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -741,45 +742,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 		}
 		productRepo.Create(product3)
 
-		// Configure mock search function
-		productRepo.MockSearch = func(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error) {
-			results := make([]*entity.Product, 0)
-
-			// Simple implementation that checks if query is in name or description
-			for _, p := range []*entity.Product{product1, product2, product3} {
-				if query == "" ||
-					(len(query) > 0 && (contains(p.Name, query) || contains(p.Description, query))) {
-
-					// Apply category filter
-					if categoryID > 0 && p.CategoryID != categoryID {
-						continue
-					}
-
-					// Apply price filters
-					if minPrice > 0 && p.Price < minPrice {
-						continue
-					}
-					if maxPrice > 0 && p.Price > maxPrice {
-						continue
-					}
-
-					results = append(results, p)
-				}
-			}
-
-			// Apply offset and limit
-			if offset >= len(results) {
-				return []*entity.Product{}, nil
-			}
-
-			end := offset + limit
-			if end > len(results) {
-				end = len(results)
-			}
-
-			return results[offset:end], nil
-		}
-
 		// Create use case with mocks
 		productUseCase := usecase.NewProductUseCase(
 			productRepo,
@@ -795,6 +757,9 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			Limit:  10,
 		}
 		results, err := productUseCase.SearchProducts(input)
+
+		// print results
+		fmt.Println(results)
 
 		// Assert
 		assert.NoError(t, err)

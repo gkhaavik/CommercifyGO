@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // OrderRepository implements the order repository interface using PostgreSQL
@@ -15,7 +16,7 @@ type OrderRepository struct {
 }
 
 // NewOrderRepository creates a new OrderRepository
-func NewOrderRepository(db *sql.DB) *OrderRepository {
+func NewOrderRepository(db *sql.DB) repository.OrderRepository {
 	return &OrderRepository{db: db}
 }
 

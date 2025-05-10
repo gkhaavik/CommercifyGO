@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockDiscountRepository is a mock implementation of the discount repository
@@ -14,7 +15,7 @@ type MockDiscountRepository struct {
 }
 
 // NewMockDiscountRepository creates a new instance of MockDiscountRepository
-func NewMockDiscountRepository() *MockDiscountRepository {
+func NewMockDiscountRepository() repository.DiscountRepository {
 	return &MockDiscountRepository{
 		discounts:      make(map[uint]*entity.Discount),
 		discountByCode: make(map[string]*entity.Discount),

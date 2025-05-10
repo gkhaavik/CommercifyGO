@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // CartRepository implements the cart repository interface using PostgreSQL
@@ -14,7 +15,7 @@ type CartRepository struct {
 }
 
 // NewCartRepository creates a new CartRepository
-func NewCartRepository(db *sql.DB) *CartRepository {
+func NewCartRepository(db *sql.DB) repository.CartRepository {
 	return &CartRepository{db: db}
 }
 

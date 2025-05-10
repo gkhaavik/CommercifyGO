@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // ShippingRateRepository implements the shipping rate repository interface using PostgreSQL
@@ -18,7 +19,7 @@ type ShippingRateRepository struct {
 }
 
 // NewShippingRateRepository creates a new ShippingRateRepository
-func NewShippingRateRepository(db *sql.DB) *ShippingRateRepository {
+func NewShippingRateRepository(db *sql.DB) repository.ShippingRateRepository {
 	return &ShippingRateRepository{db: db}
 }
 

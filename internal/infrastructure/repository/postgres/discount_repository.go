@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // DiscountRepository implements the discount repository interface using PostgreSQL
@@ -15,7 +16,7 @@ type DiscountRepository struct {
 }
 
 // NewDiscountRepository creates a new DiscountRepository
-func NewDiscountRepository(db *sql.DB) *DiscountRepository {
+func NewDiscountRepository(db *sql.DB) repository.DiscountRepository {
 	return &DiscountRepository{db: db}
 }
 

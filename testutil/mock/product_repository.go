@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockProductRepository is a mock implementation of product repository for testing
@@ -17,12 +18,17 @@ type MockProductRepository struct {
 }
 
 // NewMockProductRepository creates a new instance of MockProductRepository
-func NewMockProductRepository() *MockProductRepository {
+func NewMockProductRepository() repository.ProductRepository {
 	return &MockProductRepository{
 		products: make(map[uint]*entity.Product),
 		bySeller: make(map[uint][]*entity.Product),
 		lastID:   0,
 	}
+}
+
+// Count returns the number of products in the repository
+func (r *MockProductRepository) Count() (int, error) {
+	return len(r.products), nil
 }
 
 // Create adds a product to the repository

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockUserRepository is a mock implementation of user repository for testing
@@ -14,7 +15,7 @@ type MockUserRepository struct {
 }
 
 // NewMockUserRepository creates a new instance of MockUserRepository
-func NewMockUserRepository() *MockUserRepository {
+func NewMockUserRepository() repository.UserRepository {
 	return &MockUserRepository{
 		users:       make(map[uint]*entity.User),
 		userByEmail: make(map[string]*entity.User),

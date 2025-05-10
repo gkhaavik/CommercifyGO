@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // ShippingMethodRepository implements the shipping method repository interface using PostgreSQL
@@ -14,7 +15,7 @@ type ShippingMethodRepository struct {
 }
 
 // NewShippingMethodRepository creates a new ShippingMethodRepository
-func NewShippingMethodRepository(db *sql.DB) *ShippingMethodRepository {
+func NewShippingMethodRepository(db *sql.DB) repository.ShippingMethodRepository {
 	return &ShippingMethodRepository{db: db}
 }
 

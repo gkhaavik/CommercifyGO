@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // CategoryRepository implements the category repository interface using PostgreSQL
@@ -14,7 +15,7 @@ type CategoryRepository struct {
 }
 
 // NewCategoryRepository creates a new CategoryRepository
-func NewCategoryRepository(db *sql.DB) *CategoryRepository {
+func NewCategoryRepository(db *sql.DB) repository.CategoryRepository {
 	return &CategoryRepository{db: db}
 }
 

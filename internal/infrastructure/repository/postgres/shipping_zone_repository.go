@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // ShippingZoneRepository implements the shipping zone repository interface using PostgreSQL
@@ -15,7 +16,7 @@ type ShippingZoneRepository struct {
 }
 
 // NewShippingZoneRepository creates a new ShippingZoneRepository
-func NewShippingZoneRepository(db *sql.DB) *ShippingZoneRepository {
+func NewShippingZoneRepository(db *sql.DB) repository.ShippingZoneRepository {
 	return &ShippingZoneRepository{db: db}
 }
 
