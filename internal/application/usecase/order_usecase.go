@@ -60,7 +60,7 @@ type CreateOrderInput struct {
 	Email            string         `json:"email,omitempty"`
 	PhoneNumber      string         `json:"phone_number,omitempty"`
 	FullName         string         `json:"full_name,omitempty"`
-	ShippingMethodID uint           `json:"shipping_method_id,omitempty"`
+	ShippingMethodID uint           `json:"shipping_method_id"`
 }
 
 // CreateOrderFromCart creates an order from a user's cart
@@ -79,6 +79,11 @@ func (uc *OrderUseCase) CreateOrderFromCart(input CreateOrderInput) (*entity.Ord
 
 // createOrderFromUserCart creates an order from an authenticated user's cart
 func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity.Order, error) {
+	// Validate shipping method ID
+	if input.ShippingMethodID == 0 {
+		return nil, errors.New("shipping method ID is required")
+	}
+
 	// Get user's cart
 	cart, err := uc.cartRepo.GetByUserID(input.UserID)
 	if err != nil {
@@ -145,8 +150,11 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 	// Set the total weight
 	order.TotalWeight = totalWeight
 
+	// Set shipping method ID
+	order.ShippingMethodID = input.ShippingMethodID
+
 	// Apply shipping method if specified
-	if input.ShippingMethodID > 0 && uc.shippingUseCase != nil {
+	if uc.shippingUseCase != nil {
 		shippingMethod, err := uc.shippingUseCase.GetShippingMethodByID(input.ShippingMethodID)
 		if err != nil {
 			return nil, errors.New("shipping method not found")
@@ -197,6 +205,11 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 
 	if input.FullName == "" {
 		return nil, errors.New("full name is required for guest checkout")
+	}
+
+	// Validate shipping method ID
+	if input.ShippingMethodID == 0 {
+		return nil, errors.New("shipping method ID is required")
 	}
 
 	// Get guest's cart
@@ -261,8 +274,11 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 	// Set the total weight
 	order.TotalWeight = totalWeight
 
+	// Set shipping method ID
+	order.ShippingMethodID = input.ShippingMethodID
+
 	// Apply shipping method if specified
-	if input.ShippingMethodID > 0 && uc.shippingUseCase != nil {
+	if uc.shippingUseCase != nil {
 		shippingMethod, err := uc.shippingUseCase.GetShippingMethodByID(input.ShippingMethodID)
 		if err != nil {
 			return nil, errors.New("shipping method not found")

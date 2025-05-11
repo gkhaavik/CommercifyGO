@@ -36,6 +36,12 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate shipping method ID
+	if input.ShippingMethodID == 0 {
+		http.Error(w, "Shipping method ID is required", http.StatusBadRequest)
+		return
+	}
+
 	// Check if user is authenticated
 	userID, ok := r.Context().Value("user_id").(uint)
 
