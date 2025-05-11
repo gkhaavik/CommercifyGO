@@ -544,7 +544,7 @@ func seedProductVariants(db *sql.DB) error {
 			price        float64
 			comparePrice float64
 			stock        int
-			attributes   map[string]string
+			attributes   []map[string]string
 			isDefault    bool
 			productID    int
 			images       string
@@ -565,7 +565,7 @@ func seedProductVariants(db *sql.DB) error {
 						price        float64
 						comparePrice float64
 						stock        int
-						attributes   map[string]string
+						attributes   []map[string]string
 						isDefault    bool
 						productID    int
 						images       string
@@ -574,10 +574,13 @@ func seedProductVariants(db *sql.DB) error {
 						price:        basePrice,
 						comparePrice: comparePrice,
 						stock:        50 - (i * 10) - (j * 5),
-						attributes:   map[string]string{"color": color, "capacity": capacity, "title": fmt.Sprintf("%s - %s, %s", product.name, color, capacity)},
-						isDefault:    isDefault,
-						productID:    product.id,
-						images:       fmt.Sprintf(`["%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
+						attributes: []map[string]string{
+							{"name": "Color", "value": color},
+							{"name": "Capacity", "value": capacity},
+						},
+						isDefault: isDefault,
+						productID: product.id,
+						images:    fmt.Sprintf(`["%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
 					})
 				}
 			}
@@ -599,7 +602,7 @@ func seedProductVariants(db *sql.DB) error {
 						price        float64
 						comparePrice float64
 						stock        int
-						attributes   map[string]string
+						attributes   []map[string]string
 						isDefault    bool
 						productID    int
 						images       string
@@ -608,12 +611,10 @@ func seedProductVariants(db *sql.DB) error {
 						price:        basePrice,
 						comparePrice: comparePrice,
 						stock:        20 - (i * 2) - (j * 1),
-						attributes: map[string]string{
-							"color":       color,
-							"size":        size,
-							"material":    materialOptions[i%len(materialOptions)],
-							"title":       fmt.Sprintf("%s - %s, Size %s", product.name, color, size),
-							"description": fmt.Sprintf("%s in %s, Size %s", product.name, color, size),
+						attributes: []map[string]string{
+							{"name": "Color", "value": color},
+							{"name": "Size", "value": size},
+							{"name": "Material", "value": materialOptions[i%len(materialOptions)]},
 						},
 						isDefault: isDefault,
 						productID: product.id,
@@ -638,7 +639,7 @@ func seedProductVariants(db *sql.DB) error {
 						price        float64
 						comparePrice float64
 						stock        int
-						attributes   map[string]string
+						attributes   []map[string]string
 						isDefault    bool
 						productID    int
 						images       string
@@ -647,11 +648,9 @@ func seedProductVariants(db *sql.DB) error {
 						price:        basePrice,
 						comparePrice: comparePrice,
 						stock:        15 - (i * 3) - (j * 2),
-						attributes: map[string]string{
-							"ram":         ram,
-							"storage":     storage,
-							"title":       fmt.Sprintf("%s - %s RAM, %s Storage", product.name, ram, storage),
-							"description": fmt.Sprintf("%s with %s RAM and %s storage", product.name, ram, storage),
+						attributes: []map[string]string{
+							{"name": "RAM", "value": ram},
+							{"name": "Storage", "value": storage},
 						},
 						isDefault: isDefault,
 						productID: product.id,

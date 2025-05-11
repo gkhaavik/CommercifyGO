@@ -14,13 +14,15 @@ import (
 
 // ProductRepository is the PostgreSQL implementation of the ProductRepository interface
 type ProductRepository struct {
-	db *sql.DB
+	db                *sql.DB
+	variantRepository repository.ProductVariantRepository
 }
 
 // NewProductRepository creates a new ProductRepository
-func NewProductRepository(db *sql.DB) repository.ProductRepository {
+func NewProductRepository(db *sql.DB, variantRepository repository.ProductVariantRepository) repository.ProductRepository {
 	return &ProductRepository{
-		db: db,
+		db:                db,
+		variantRepository: variantRepository,
 	}
 }
 
@@ -210,77 +212,21 @@ func (r *ProductRepository) getProductPrices(productID uint) ([]entity.ProductPr
 }
 
 // GetByIDWithVariants gets a product by ID with variants
-func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error) {
+func (r *ProductRepository) GetByIDWithVariants(productId uint) (*entity.Product, error) {
 	// Get the base product
-	product, err := r.GetByID(id)
+	product, err := r.GetByID(productId)
 	if err != nil {
 		return nil, err
 	}
 
 	// If product has variants, get them
 	if product.HasVariants {
-		query := `
-				SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
-				FROM product_variants
-				WHERE product_id = $1
-				ORDER BY is_default DESC, id ASC
-				`
-
-		rows, err := r.db.Query(query, id)
+		variants, err := r.variantRepository.GetByProduct(productId)
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
 
-		product.Variants = []*entity.ProductVariant{}
-		for rows.Next() {
-			var attributesJSON, imagesJSON []byte
-			variant := &entity.ProductVariant{}
-			var comparePrice sql.NullInt64
-
-			err := rows.Scan(
-				&variant.ID,
-				&variant.ProductID,
-				&variant.SKU,
-				&variant.Price,
-				&comparePrice,
-				&variant.Stock,
-				&attributesJSON,
-				&imagesJSON,
-				&variant.IsDefault,
-				&variant.CreatedAt,
-				&variant.UpdatedAt,
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			// Set compare price if valid
-			if comparePrice.Valid {
-				variant.ComparePrice = comparePrice.Int64
-			}
-
-			var attributes map[string]string
-			if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
-				return nil, err
-			}
-
-			// Convert attributes to VariantAttribute
-			variant.Attributes = make([]entity.VariantAttribute, 0, len(attributes))
-			for name, value := range attributes {
-				variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
-					Name:  name,
-					Value: value,
-				})
-			}
-
-			// Unmarshal images JSON
-			if err := json.Unmarshal(imagesJSON, &variant.Images); err != nil {
-				return nil, err
-			}
-
-			product.Variants = append(product.Variants, variant)
-		}
+		product.Variants = variants
 	}
 
 	return product, nil
