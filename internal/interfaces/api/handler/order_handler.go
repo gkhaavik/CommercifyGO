@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/common"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -48,7 +49,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Guest checkout
 		// Get session ID from cookie
-		cookie, cookieErr := r.Cookie(sessionCookieName)
+		cookie, cookieErr := r.Cookie(common.SessionCookieName)
 		if cookieErr != nil || cookie.Value == "" {
 			http.Error(w, "No cart session found", http.StatusBadRequest)
 			return
@@ -198,7 +199,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Only allow payment processing for guest orders if they have a valid cookie
-		cookie, cookieErr := r.Cookie(sessionCookieName)
+		cookie, cookieErr := r.Cookie(common.SessionCookieName)
 		if cookieErr != nil || cookie.Value == "" {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return

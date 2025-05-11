@@ -94,7 +94,10 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/products/search", productHandler.SearchProducts).Methods(http.MethodGet)
 	api.HandleFunc("/categories", productHandler.ListCategories).Methods(http.MethodGet)
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
+
+	// Public discount routes
 	api.HandleFunc("/discounts/validate", discountHandler.ValidateDiscountCode).Methods(http.MethodPost)
+	api.HandleFunc("/guest/discounts/apply/{orderId:[0-9]+}", discountHandler.ApplyDiscountToGuestOrder).Methods(http.MethodPost)
 
 	// Public currency routes
 	api.HandleFunc("/currencies", currencyHandler.ListEnabledCurrencies).Methods(http.MethodGet)
