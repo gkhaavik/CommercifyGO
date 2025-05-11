@@ -796,12 +796,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 	})
 }
 
-// Helper function for the search test
-func contains(s, substr string) bool {
-	return s != "" && substr != "" && (len(s) >= len(substr) && s[0:len(substr)] == substr ||
-		s != "" && substr != "" && (len(s) >= len(substr)) && s[len(s)-len(substr):] == substr)
-}
-
 func TestProductUseCase_DeleteProduct(t *testing.T) {
 	t.Run("Delete product successfully", func(t *testing.T) {
 		// Setup mocks

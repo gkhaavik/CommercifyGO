@@ -9,6 +9,7 @@ import (
 	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 	"github.com/zenfulcode/commercify/internal/domain/service"
+	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
 )
 
 // OrderUseCase implements order-related use cases
@@ -571,9 +572,15 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 	if order.Status != string(entity.OrderStatusPaid) {
 		return errors.New("payment capture not allowed in current order status")
 	}
+
 	// Check if the amount is valid
 	if amount <= 0 {
 		return errors.New("capture amount must be greater than zero")
+	}
+
+	// Check if amount is greater than the order amount
+	if amount > order.FinalAmount {
+		return errors.New("capture amount cannot exceed the original payment amount")
 	}
 
 	providerType := service.PaymentProviderType(order.PaymentProvider)
@@ -598,19 +605,18 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 			}
 		}
 
+		uc.paymentTxnRepo.Update(txn)
+
 		return fmt.Errorf("failed to capture payment: %v", err)
 	}
 
-	// Update order status if needed
-	if order.Status != string(entity.OrderStatusCaptured) {
-		if err := order.UpdateStatus(entity.OrderStatusCaptured); err != nil {
-			return fmt.Errorf("failed to update order status: %v", err)
-		}
+	if err := order.UpdateStatus(entity.OrderStatusCaptured); err != nil {
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
 
-		// Save the updated order in repository
-		if err := uc.orderRepo.Update(order); err != nil {
-			return fmt.Errorf("failed to save order status: %v", err)
-		}
+	// Save the updated order in repository
+	if err := uc.orderRepo.Update(order); err != nil {
+		return fmt.Errorf("failed to save order status: %v", err)
 	}
 
 	// Record successful capture transaction
@@ -642,6 +648,8 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 			log.Printf("Failed to save capture transaction: %v\n", err)
 		}
 	}
+
+	uc.paymentTxnRepo.Update(txn)
 
 	return nil
 }
@@ -718,6 +726,7 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 		}
 	}
 
+	uc.paymentTxnRepo.Update(txn)
 	return nil
 }
 
@@ -887,4 +896,31 @@ func (uc *OrderUseCase) RecordPaymentTransaction(transaction *entity.PaymentTran
 
 	// Create transaction record
 	return uc.paymentTxnRepo.Create(transaction)
+}
+
+func (uc *OrderUseCase) UpdatePaymentTransaction(transactionID string, status entity.TransactionStatus, metadata map[string]string) error {
+	txn, err := uc.paymentTxnRepo.GetByTransactionID(transactionID)
+	if err != nil {
+		return fmt.Errorf("failed to get payment transaction: %w", err)
+	}
+
+	txn.UpdateStatus(status)
+
+	for key, value := range metadata {
+		txn.AddMetadata(key, value)
+	}
+
+	return uc.paymentTxnRepo.Update(txn)
+}
+
+// ForceApproveMobilePayPayment force approves a MobilePay payment
+func (uc *OrderUseCase) ForceApproveMobilePayPayment(paymentID string, phoneNumber string) error {
+	// Get the payment service
+	paymentSvc, ok := uc.paymentSvc.(*payment.MultiProviderPaymentService)
+	if !ok {
+		return errors.New("invalid payment service")
+	}
+
+	// Force approve the payment
+	return paymentSvc.ForceApprovePayment(paymentID, phoneNumber, service.PaymentProviderMobilePay)
 }

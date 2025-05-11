@@ -170,14 +170,29 @@ func (h *WebhookHandler) HandleMobilePayAuthorized(event *models.WebhookEvent) e
 		Status:  entity.OrderStatusPaid,
 	}
 
-	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
-	if err2 != nil {
-		h.logger.Error("Failed to update order status for MobilePay payment: %v", err2)
-		return err2
+	order, err := h.orderUseCase.UpdateOrderStatus(input)
+	if err != nil {
+		h.logger.Error("Failed to update order status for MobilePay payment: %v", err)
+		return err
+	}
+
+	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusSuccessful, event)
+	if err != nil {
+		h.logger.Error("Failed to record payment transaction: %v", err)
+		return err
 	}
 
 	h.logger.Info("MobilePay payment authorized for order %d", orderID)
 	return nil
+}
+
+func (h *WebhookHandler) recordMobilePayPaymentTransaction(order *entity.Order, transactionStatus entity.TransactionStatus, event *models.WebhookEvent) error {
+	return h.orderUseCase.UpdatePaymentTransaction(order.PaymentID, transactionStatus, map[string]string{
+		"pspReference":   event.Reference,
+		"amount":         strconv.FormatInt(int64(event.Amount.Value), 10),
+		"name":           string(event.Name),
+		"idempotencyKey": event.IdempotencyKey,
+	})
 }
 
 // HandleMobilePayCaptured handles the CAPTURED event
@@ -195,12 +210,19 @@ func (h *WebhookHandler) HandleMobilePayCaptured(event *models.WebhookEvent) err
 		Status:  entity.OrderStatusCaptured,
 	}
 
-	_, err = h.orderUseCase.UpdateOrderStatus(input)
+	order, err := h.orderUseCase.UpdateOrderStatus(input)
 	if err != nil {
 		h.logger.Error("Failed to update order status for MobilePay payment: %v", err)
 		return err
 	}
 
+	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusSuccessful, event)
+	if err != nil {
+		h.logger.Error("Failed to record payment transaction: %v", err)
+		return err
+	}
+
+	h.logger.Info("MobilePay payment captured for order %d", orderID)
 	return nil
 }
 
@@ -218,10 +240,16 @@ func (h *WebhookHandler) HandleMobilePayCancelled(event *models.WebhookEvent) er
 		Status:  entity.OrderStatusCancelled,
 	}
 
-	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	order, err2 := h.orderUseCase.UpdateOrderStatus(input)
 	if err2 != nil {
 		h.logger.Error("Failed to cancel order for MobilePay payment: %v", err2)
 		return err2
+	}
+
+	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusFailed, event)
+	if err != nil {
+		h.logger.Error("Failed to record payment transaction: %v", err)
+		return err
 	}
 
 	h.logger.Info("MobilePay payment cancelled for order %d", orderID)
@@ -242,10 +270,16 @@ func (h *WebhookHandler) HandleMobilePayRefunded(event *models.WebhookEvent) err
 		Status:  entity.OrderStatusRefunded,
 	}
 
-	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	order, err2 := h.orderUseCase.UpdateOrderStatus(input)
 	if err2 != nil {
 		h.logger.Error("Failed to mark order as refunded for MobilePay payment: %v", err2)
 		return err2
+	}
+
+	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusSuccessful, event)
+	if err != nil {
+		h.logger.Error("Failed to record payment transaction: %v", err)
+		return err
 	}
 
 	h.logger.Info("MobilePay payment refunded for order %d", orderID)
@@ -266,10 +300,16 @@ func (h *WebhookHandler) HandleMobilePayAborted(event *models.WebhookEvent) erro
 		Status:  entity.OrderStatusCancelled,
 	}
 
-	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	order, err2 := h.orderUseCase.UpdateOrderStatus(input)
 	if err2 != nil {
 		h.logger.Error("Failed to cancel order for MobilePay aborted payment: %v", err2)
 		return err2
+	}
+
+	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusFailed, event)
+	if err != nil {
+		h.logger.Error("Failed to record payment transaction: %v", err)
+		return err
 	}
 
 	h.logger.Info("MobilePay payment aborted for order %d", orderID)
@@ -290,10 +330,16 @@ func (h *WebhookHandler) HandleMobilePayExpired(event *models.WebhookEvent) erro
 		Status:  entity.OrderStatusCancelled,
 	}
 
-	_, err2 := h.orderUseCase.UpdateOrderStatus(input)
+	order, err2 := h.orderUseCase.UpdateOrderStatus(input)
 	if err2 != nil {
 		h.logger.Error("Failed to cancel order for MobilePay expired payment: %v", err2)
 		return err2
+	}
+
+	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusFailed, event)
+	if err != nil {
+		h.logger.Error("Failed to record payment transaction: %v", err)
+		return err
 	}
 
 	h.logger.Info("MobilePay payment expired for order %d", orderID)

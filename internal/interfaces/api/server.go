@@ -205,6 +205,7 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/payments/{paymentId}/capture", paymentHandler.CapturePayment).Methods(http.MethodPost)
 	admin.HandleFunc("/payments/{paymentId}/cancel", paymentHandler.CancelPayment).Methods(http.MethodPost)
 	admin.HandleFunc("/payments/{paymentId}/refund", paymentHandler.RefundPayment).Methods(http.MethodPost)
+	admin.HandleFunc("/payments/{paymentId}/force-approve", paymentHandler.ForceApproveMobilePayPayment).Methods(http.MethodPost)
 
 	// Webhook management routes (admin only)
 	admin.HandleFunc("/webhooks", webhookHandler.ListWebhooks).Methods(http.MethodGet)

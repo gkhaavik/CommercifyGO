@@ -160,3 +160,7 @@ func (s *MockPaymentService) CancelPayment(transactionID string, provider servic
 	// Always succeed for mock service
 	return nil
 }
+
+func (s *MockPaymentService) ForceApprovePayment(transactionID string, phoneNumber string, provider service.PaymentProviderType) error {
+	return nil
+}

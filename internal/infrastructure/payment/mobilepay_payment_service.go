@@ -219,6 +219,28 @@ func (s *MobilePayPaymentService) CancelPayment(transactionID string, provider s
 	return nil
 }
 
+func (s *MobilePayPaymentService) ForceApprovePayment(transactionID string, phoneNumber string, provider service.PaymentProviderType) error {
+	if provider != service.PaymentProviderMobilePay {
+		return errors.New("invalid payment provider")
+	}
+
+	if transactionID == "" {
+		return errors.New("transaction ID is required")
+	}
+
+	if phoneNumber == "" {
+		return errors.New("phone number is required")
+	}
+
+	err := s.epayment.ForceApprove(transactionID, phoneNumber)
+
+	if err != nil {
+		return fmt.Errorf("failed to force approve payment: %v", err)
+	}
+
+	return nil
+}
+
 func (s *MobilePayPaymentService) GetAccessToken() error {
 	err := s.vippsClient.EnsureValidToken()
 	if err != nil {

@@ -126,19 +126,19 @@ func main() {
 		fmt.Println("Carts seeded successfully")
 	}
 
-	if *allFlag || *ordersFlag {
-		if err := seedOrders(db); err != nil {
-			log.Fatalf("Failed to seed orders: %v", err)
-		}
-		fmt.Println("Orders seeded successfully")
-	}
+	// if *allFlag || *ordersFlag {
+	// 	if err := seedOrders(db); err != nil {
+	// 		log.Fatalf("Failed to seed orders: %v", err)
+	// 	}
+	// 	fmt.Println("Orders seeded successfully")
+	// }
 
-	if *allFlag || *paymentTransactionsFlag {
-		if err := seedPaymentTransactions(db); err != nil {
-			log.Fatalf("Failed to seed payment transactions: %v", err)
-		}
-		fmt.Println("Payment transactions seeded successfully")
-	}
+	// if *allFlag || *paymentTransactionsFlag {
+	// 	if err := seedPaymentTransactions(db); err != nil {
+	// 		log.Fatalf("Failed to seed payment transactions: %v", err)
+	// 	}
+	// 	fmt.Println("Payment transactions seeded successfully")
+	// }
 
 	if !*allFlag && !*usersFlag && !*categoriesFlag && !*productsFlag && !*productVariantsFlag &&
 		!*ordersFlag && !*clearFlag && !*discountsFlag && !*cartsFlag && !*webhooksFlag &&

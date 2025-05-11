@@ -360,6 +360,10 @@ func (s *StripePaymentService) CancelPayment(transactionID string, provider serv
 	return nil
 }
 
+func (s *StripePaymentService) ForceApprovePayment(transactionID string, phoneNumber string, provider service.PaymentProviderType) error {
+	return errors.New("not implemented")
+}
+
 // CreateSetupIntent creates a setup intent for saving a payment method without charging
 func (s *StripePaymentService) CreateSetupIntent(customerEmail string) (string, string, error) {
 	// This method could be used to save payment methods for future use
