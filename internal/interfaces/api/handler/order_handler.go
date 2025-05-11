@@ -9,7 +9,9 @@ import (
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/common"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/service"
+	"github.com/zenfulcode/commercify/internal/dto"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
@@ -30,28 +32,24 @@ func NewOrderHandler(orderUseCase *usecase.OrderUseCase, logger logger.Logger) *
 // CreateOrder handles order creation for both authenticated users and guests
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
-	var input usecase.CreateOrderInput
+	var input dto.CreateOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Validate shipping method ID
-	if input.ShippingMethodID == 0 {
-		http.Error(w, "Shipping method ID is required", http.StatusBadRequest)
-		return
-	}
-
 	// Check if user is authenticated
 	userID, ok := r.Context().Value("user_id").(uint)
+	if !ok {
+		userID = 0 // Set to 0 for guest orders
+	}
 
 	var order *entity.Order
 	var err error
 
-	if ok && userID > 0 {
+	if userID > 0 {
 		// Authenticated user checkout
-		input.UserID = userID
-		order, err = h.orderUseCase.CreateOrderFromCart(input)
+		order, err = h.orderUseCase.CreateOrderFromCart(convertToCreateOrderInput(input, userID, ""))
 	} else {
 		// Guest checkout
 		// Get session ID from cookie
@@ -62,13 +60,13 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Validate required guest fields
-		if input.Email == "" || input.FullName == "" {
-			http.Error(w, "Email and full name are required for guest checkout", http.StatusBadRequest)
+		if input.FirstName == "" || input.LastName == "" {
+			http.Error(w, "First name and last name are required for guest checkout", http.StatusBadRequest)
 			return
 		}
 
-		input.SessionID = cookie.Value
-		order, err = h.orderUseCase.CreateOrderFromCart(input)
+		// Set session ID from cookie
+		order, err = h.orderUseCase.CreateOrderFromCart(convertToCreateOrderInput(input, 0, cookie.Value))
 	}
 
 	if err != nil {
@@ -77,10 +75,13 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert order to DTO
+	orderDTO := convertToOrderDTO(order)
+
 	// Return created order
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(order)
+	json.NewEncoder(w).Encode(orderDTO)
 }
 
 // GetOrder handles getting an order by ID
@@ -117,9 +118,12 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Convert order to DTO
+	orderDTO := convertToOrderDTO(order)
+
 	// Return order
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+	json.NewEncoder(w).Encode(orderDTO)
 }
 
 // ListOrders handles listing orders for a user
@@ -146,9 +150,28 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert orders to DTOs
+	orderDTOs := make([]dto.OrderDTO, len(orders))
+	for i, order := range orders {
+		orderDTOs[i] = convertToOrderDTO(order)
+	}
+
+	// Create response
+	response := dto.OrderListResponse{
+		ListResponseDTO: dto.ListResponseDTO[dto.OrderDTO]{
+			Success: true,
+			Data:    orderDTOs,
+			Pagination: dto.PaginationDTO{
+				Page:     offset/limit + 1,
+				PageSize: limit,
+				Total:    len(orderDTOs),
+			},
+		},
+	}
+
 	// Return orders
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(orders)
+	json.NewEncoder(w).Encode(response)
 }
 
 // ProcessPayment handles payment processing for an order
@@ -170,14 +193,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request body
-	var paymentInput struct {
-		PaymentMethod   string                 `json:"payment_method"`
-		PaymentProvider string                 `json:"payment_provider"`
-		CardDetails     *service.CardDetails   `json:"card_details,omitempty"`
-		PayPalDetails   *service.PayPalDetails `json:"paypal_details,omitempty"`
-		BankDetails     *service.BankDetails   `json:"bank_details,omitempty"`
-		PhoneNumber     string                 `json:"phone_number,omitempty"`
-	}
+	var paymentInput dto.ProcessPaymentRequest
 	if err := json.NewDecoder(r.Body).Decode(&paymentInput); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -210,9 +226,6 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
 		}
-
-		// We could add additional validation here if needed
-		// For example, match email in request with the email stored in the order
 	}
 
 	// Set up payment method based on input
@@ -220,10 +233,10 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 	switch paymentInput.PaymentMethod {
 	case "credit_card":
 		paymentMethod = service.PaymentMethodCreditCard
-	case "paypal":
-		paymentMethod = service.PaymentMethodPayPal
-	case "bank_transfer":
-		paymentMethod = service.PaymentMethodBankTransfer
+		if paymentInput.CardDetails == nil {
+			http.Error(w, "Card details are required for credit card payment", http.StatusBadRequest)
+			return
+		}
 	case "wallet":
 		paymentMethod = service.PaymentMethodWallet
 	default:
@@ -247,15 +260,28 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get customer email based on order type
+	customerEmail := ""
+	if order.IsGuestOrder {
+		customerEmail = order.GuestEmail
+	} else {
+		// For registered users, get email from user repository
+		user, err := h.orderUseCase.GetUserByID(order.UserID)
+		if err != nil {
+			h.logger.Error("Failed to get user: %v", err)
+			http.Error(w, "Failed to process payment", http.StatusInternalServerError)
+			return
+		}
+		customerEmail = user.Email
+	}
+
 	// Process payment
 	input := usecase.ProcessPaymentInput{
 		OrderID:         uint(id),
 		PaymentMethod:   paymentMethod,
 		PaymentProvider: paymentProvider,
 		CardDetails:     paymentInput.CardDetails,
-		PayPalDetails:   paymentInput.PayPalDetails,
-		BankDetails:     paymentInput.BankDetails,
-		CustomerEmail:   order.GuestEmail,
+		CustomerEmail:   customerEmail,
 		PhoneNumber:     paymentInput.PhoneNumber,
 	}
 
@@ -266,9 +292,12 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert order to DTO
+	orderDTO := convertToOrderDTO(updatedOrder)
+
 	// Return updated order
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedOrder)
+	json.NewEncoder(w).Encode(orderDTO)
 }
 
 // ListAllOrders handles listing all orders (admin only)
@@ -300,9 +329,28 @@ func (h *OrderHandler) ListAllOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert orders to DTOs
+	orderDTOs := make([]dto.OrderDTO, len(orders))
+	for i, order := range orders {
+		orderDTOs[i] = convertToOrderDTO(order)
+	}
+
+	// Create response
+	response := dto.OrderListResponse{
+		ListResponseDTO: dto.ListResponseDTO[dto.OrderDTO]{
+			Success: true,
+			Data:    orderDTOs,
+			Pagination: dto.PaginationDTO{
+				Page:     offset/limit + 1,
+				PageSize: limit,
+				Total:    len(orderDTOs),
+			},
+		},
+	}
+
 	// Return orders
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(orders)
+	json.NewEncoder(w).Encode(response)
 }
 
 // UpdateOrderStatus handles updating an order's status (admin only)
@@ -337,7 +385,106 @@ func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Convert order to DTO
+	orderDTO := convertToOrderDTO(updatedOrder)
+
 	// Return updated order
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedOrder)
+	json.NewEncoder(w).Encode(orderDTO)
+}
+
+// Helper functions to convert between entities and DTOs
+
+func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
+	// Convert order items to DTOs
+	items := make([]dto.OrderItemDTO, len(order.Items))
+	for i, item := range order.Items {
+		items[i] = dto.OrderItemDTO{
+			BaseDTO: dto.BaseDTO{
+				ID:        item.ID,
+				CreatedAt: order.CreatedAt,
+				UpdatedAt: order.UpdatedAt,
+			},
+			OrderID:    order.ID,
+			ProductID:  item.ProductID,
+			Quantity:   item.Quantity,
+			UnitPrice:  money.FromCents(item.Price),
+			TotalPrice: money.FromCents(item.Subtotal),
+		}
+	}
+
+	// Convert addresses to DTOs
+	shippingAddr := dto.AddressDTO{
+		AddressLine1: order.ShippingAddr.Street,
+		City:         order.ShippingAddr.City,
+		State:        order.ShippingAddr.State,
+		PostalCode:   order.ShippingAddr.PostalCode,
+		Country:      order.ShippingAddr.Country,
+	}
+
+	billingAddr := dto.AddressDTO{
+		AddressLine1: order.BillingAddr.Street,
+		City:         order.BillingAddr.City,
+		State:        order.BillingAddr.State,
+		PostalCode:   order.BillingAddr.PostalCode,
+		Country:      order.BillingAddr.Country,
+	}
+
+	return dto.OrderDTO{
+		BaseDTO: dto.BaseDTO{
+			ID:        order.ID,
+			CreatedAt: order.CreatedAt,
+			UpdatedAt: order.UpdatedAt,
+		},
+		UserID:            order.UserID,
+		Status:            dto.OrderStatus(order.Status),
+		TotalAmount:       money.FromCents(order.TotalAmount),
+		Currency:          "USD",
+		Items:             items,
+		ShippingAddress:   shippingAddr,
+		BillingAddress:    billingAddr,
+		PaymentProvider:   dto.PaymentProvider(order.PaymentProvider),
+		ShippingMethod:    order.ShippingMethod.Name,
+		ShippingCost:      money.FromCents(order.ShippingCost),
+		DiscountAmount:    money.FromCents(order.DiscountAmount),
+		TrackingNumber:    order.TrackingCode,
+		EstimatedDelivery: order.CompletedAt,
+	}
+}
+
+func convertToCreateOrderInput(input dto.CreateOrderRequest, userID uint, sessionID string) usecase.CreateOrderInput {
+	// Convert addresses
+	shippingAddr := entity.Address{
+		Street:     input.ShippingAddress.AddressLine1,
+		City:       input.ShippingAddress.City,
+		State:      input.ShippingAddress.State,
+		PostalCode: input.ShippingAddress.PostalCode,
+		Country:    input.ShippingAddress.Country,
+	}
+
+	billingAddr := entity.Address{
+		Street:     input.BillingAddress.AddressLine1,
+		City:       input.BillingAddress.City,
+		State:      input.BillingAddress.State,
+		PostalCode: input.BillingAddress.PostalCode,
+		Country:    input.BillingAddress.Country,
+	}
+
+	// Parse shipping method ID from string
+	shippingMethodID, err := strconv.ParseUint(input.ShippingMethod, 10, 32)
+	if err != nil {
+		// If parsing fails, default to 0 (will be caught by validation in use case)
+		shippingMethodID = 0
+	}
+
+	return usecase.CreateOrderInput{
+		UserID:           userID,
+		SessionID:        sessionID,
+		ShippingAddr:     shippingAddr,
+		BillingAddr:      billingAddr,
+		Email:            input.Email,
+		PhoneNumber:      input.PhoneNumber,
+		FullName:         input.FirstName + " " + input.LastName,
+		ShippingMethodID: uint(shippingMethodID),
+	}
 }

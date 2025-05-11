@@ -54,8 +54,8 @@ func (uc *OrderUseCase) GetAvailablePaymentProviders() []service.PaymentProvider
 
 // CreateOrderInput contains the data needed to create an order
 type CreateOrderInput struct {
-	UserID           uint           `json:"user_id,omitempty"`
-	SessionID        string         `json:"session_id,omitempty"`
+	UserID           uint           `json:"user_id"`
+	SessionID        string         `json:"session_id"`
 	ShippingAddr     entity.Address `json:"shipping_address"`
 	BillingAddr      entity.Address `json:"billing_address"`
 	Email            string         `json:"email,omitempty"`
@@ -352,9 +352,9 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	}
 
 	// Check if order is already paid
-	if order.Status == string(entity.OrderStatusPaid) ||
-		order.Status == string(entity.OrderStatusShipped) ||
-		order.Status == string(entity.OrderStatusDelivered) {
+	if order.Status == entity.OrderStatusPaid ||
+		order.Status == entity.OrderStatusShipped ||
+		order.Status == entity.OrderStatusDelivered {
 		return nil, errors.New("order is already paid")
 	}
 
@@ -565,11 +565,11 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 	}
 
 	// Check if the order is already captured
-	if order.Status == string(entity.OrderStatusCaptured) {
+	if order.Status == entity.OrderStatusCaptured {
 		return errors.New("payment already captured")
 	}
 	// Check if the order is in a state that allows capture
-	if order.Status != string(entity.OrderStatusPaid) {
+	if order.Status != entity.OrderStatusPaid {
 		return errors.New("payment capture not allowed in current order status")
 	}
 
@@ -663,11 +663,11 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 	}
 
 	// Check if the order is already canceled
-	if order.Status == string(entity.OrderStatusCancelled) {
+	if order.Status == entity.OrderStatusCancelled {
 		return errors.New("payment already canceled")
 	}
 	// Check if the order is in a state that allows cancellation
-	if order.Status != string(entity.OrderStatusPendingAction) {
+	if order.Status != entity.OrderStatusPendingAction {
 		return errors.New("payment cancellation not allowed in current order status")
 	}
 	// Check if the transaction ID is valid
@@ -739,11 +739,11 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error 
 	}
 
 	// Check if the order is already refunded
-	if order.Status == string(entity.OrderStatusRefunded) {
+	if order.Status == entity.OrderStatusRefunded {
 		return errors.New("payment already refunded")
 	}
 	// Check if the order is in a state that allows refund
-	if order.Status != string(entity.OrderStatusPaid) && order.Status != string(entity.OrderStatusCaptured) {
+	if order.Status != entity.OrderStatusPaid && order.Status != entity.OrderStatusCaptured {
 		return errors.New("payment refund not allowed in current order status")
 	}
 	// Check if the amount is valid
@@ -817,7 +817,7 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error 
 	)
 	if err == nil {
 		txn.AddMetadata("full_refund", fmt.Sprintf("%t", isFullRefund))
-		txn.AddMetadata("previous_status", order.Status)
+		txn.AddMetadata("previous_status", string(order.Status))
 
 		// Record total refunded amount including this transaction
 		totalRefunded := totalRefundedSoFar + amount
@@ -923,4 +923,9 @@ func (uc *OrderUseCase) ForceApproveMobilePayPayment(paymentID string, phoneNumb
 
 	// Force approve the payment
 	return paymentSvc.ForceApprovePayment(paymentID, phoneNumber, service.PaymentProviderMobilePay)
+}
+
+// GetUserByID retrieves a user by ID
+func (uc *OrderUseCase) GetUserByID(id uint) (*entity.User, error) {
+	return uc.userRepo.GetByID(id)
 }

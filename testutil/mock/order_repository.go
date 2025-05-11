@@ -109,7 +109,7 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
 	var orders []*entity.Order
 	for _, order := range r.orders {
-		if order.Status == string(status) {
+		if order.Status == status {
 			clone := *order
 			orders = append(orders, &clone)
 		}

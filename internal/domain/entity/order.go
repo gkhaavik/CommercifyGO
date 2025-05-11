@@ -28,7 +28,7 @@ type Order struct {
 	UserID          uint // 0 for guest orders
 	Items           []OrderItem
 	TotalAmount     int64 // stored in cents
-	Status          string
+	Status          OrderStatus
 	ShippingAddr    Address
 	BillingAddr     Address
 	PaymentID       string
@@ -115,7 +115,7 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 		ShippingCost:   0, // Default to 0, will be set later
 		DiscountAmount: 0,
 		FinalAmount:    totalAmount, // Initially same as total amount
-		Status:         string(OrderStatusPending),
+		Status:         OrderStatusPending,
 		ShippingAddr:   shippingAddr,
 		BillingAddr:    billingAddr,
 		CreatedAt:      now,
@@ -157,7 +157,7 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		ShippingCost:   0, // Default to 0, will be set later
 		DiscountAmount: 0,
 		FinalAmount:    totalAmount, // Initially same as total amount
-		Status:         string(OrderStatusPending),
+		Status:         OrderStatusPending,
 		ShippingAddr:   shippingAddr,
 		BillingAddr:    billingAddr,
 		CreatedAt:      now,
@@ -177,7 +177,7 @@ func (o *Order) UpdateStatus(status OrderStatus) error {
 		return errors.New("invalid status transition: " + string(OrderStatus(o.Status)) + " -> " + string(status))
 	}
 
-	o.Status = string(status)
+	o.Status = status
 	o.UpdatedAt = time.Now()
 
 	// If the status is delivered or cancelled, set the completed_at timestamp

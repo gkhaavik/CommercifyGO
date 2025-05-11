@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	errors "github.com/zenfulcode/commercify/internal/domain/error"
 	"github.com/zenfulcode/commercify/internal/domain/money"
+	"github.com/zenfulcode/commercify/internal/dto"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
-	"github.com/zenfulcode/commercify/internal/interfaces/api/pagination"
 )
 
 // ProductHandler handles product-related HTTP requests
@@ -29,95 +28,65 @@ func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Log
 	}
 }
 
-// --- Response Structs --- //
-
-// ProductVariantResponse is the API representation of a product variant (prices in dollars)
-type ProductVariantResponse struct {
-	ID           uint                      `json:"id"`
-	ProductID    uint                      `json:"product_id"`
-	SKU          string                    `json:"sku"`
-	Price        float64                   `json:"price"`
-	ComparePrice float64                   `json:"compare_price,omitempty"`
-	Stock        int                       `json:"stock"`
-	Attributes   []entity.VariantAttribute `json:"attributes"`
-	Images       []string                  `json:"images,omitempty"`
-	IsDefault    bool                      `json:"is_default"`
-	CreatedAt    time.Time                 `json:"created_at"`
-	UpdatedAt    time.Time                 `json:"updated_at"`
-}
-
-// ProductResponse is the API representation of a product (prices in dollars)
-type ProductResponse struct {
-	ID            uint                      `json:"id"`
-	ProductNumber string                    `json:"product_number"`
-	Name          string                    `json:"name"`
-	Description   string                    `json:"description"`
-	Price         float64                   `json:"price"`
-	Stock         int                       `json:"stock"`
-	Weight        float64                   `json:"weight"`
-	CategoryID    uint                      `json:"category_id"`
-	SellerID      uint                      `json:"seller_id"`
-	Images        []string                  `json:"images"`
-	HasVariants   bool                      `json:"has_variants"`
-	Variants      []*ProductVariantResponse `json:"variants,omitempty"`
-	CreatedAt     time.Time                 `json:"created_at"`
-	UpdatedAt     time.Time                 `json:"updated_at"`
-}
-
 // --- Helper Functions --- //
 
-func toProductVariantResponse(variant *entity.ProductVariant) *ProductVariantResponse {
+func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
 	if variant == nil {
-		return nil
+		return dto.VariantDTO{}
 	}
-	return &ProductVariantResponse{
-		ID:           variant.ID,
-		ProductID:    variant.ProductID,
-		SKU:          variant.SKU,
-		Price:        money.FromCents(variant.Price),
-		ComparePrice: money.FromCents(variant.ComparePrice),
-		Stock:        variant.Stock,
-		Attributes:   variant.Attributes,
-		Images:       variant.Images,
-		IsDefault:    variant.IsDefault,
-		CreatedAt:    variant.CreatedAt, // Assign directly
-		UpdatedAt:    variant.UpdatedAt, // Assign directly
+
+	attributesDTO := make([]dto.VariantAttributeDTO, len(variant.Attributes))
+	for i, a := range variant.Attributes {
+		attributesDTO[i] = dto.VariantAttributeDTO{
+			Name:  a.Name,
+			Value: a.Value,
+		}
+	}
+
+	return dto.VariantDTO{
+		BaseDTO: dto.BaseDTO{
+			ID:        variant.ID,
+			CreatedAt: variant.CreatedAt,
+			UpdatedAt: variant.UpdatedAt,
+		},
+		ProductID:     variant.ProductID,
+		SKU:           variant.SKU,
+		Price:         money.FromCents(variant.Price),
+		ComparePrice:  money.FromCents(variant.ComparePrice),
+		StockQuantity: variant.Stock,
+		Attributes:    attributesDTO,
+		Images:        variant.Images,
+		IsDefault:     variant.IsDefault,
 	}
 }
 
-func toProductResponse(product *entity.Product) *ProductResponse {
+func toProductDTO(product *entity.Product) dto.ProductDTO {
 	if product == nil {
-		return nil
+		return dto.ProductDTO{}
 	}
-	variantsResponse := make([]*ProductVariantResponse, len(product.Variants))
+	variantsDTO := make([]dto.VariantDTO, len(product.Variants))
 	for i, v := range product.Variants {
-		variantsResponse[i] = toProductVariantResponse(v)
+		variantsDTO[i] = toVariantDTO(v)
 	}
 
-	return &ProductResponse{
-		ID:            product.ID,
-		ProductNumber: product.ProductNumber,
+	return dto.ProductDTO{
+		BaseDTO: dto.BaseDTO{
+			ID:        product.ID,
+			CreatedAt: product.CreatedAt,
+			UpdatedAt: product.UpdatedAt,
+		},
 		Name:          product.Name,
 		Description:   product.Description,
+		SKU:           product.ProductNumber,
 		Price:         money.FromCents(product.Price),
-		Stock:         product.Stock,
+		StockQuantity: product.Stock,
 		Weight:        product.Weight,
 		CategoryID:    product.CategoryID,
 		SellerID:      product.SellerID,
 		Images:        product.Images,
 		HasVariants:   product.HasVariants,
-		Variants:      variantsResponse,
-		CreatedAt:     product.CreatedAt, // Assign directly
-		UpdatedAt:     product.UpdatedAt, // Assign directly
+		Variants:      variantsDTO,
 	}
-}
-
-func toProductListResponse(products []*entity.Product) []*ProductResponse {
-	list := make([]*ProductResponse, len(products))
-	for i, p := range products {
-		list[i] = toProductResponse(p)
-	}
-	return list
 }
 
 // --- Handlers --- //
@@ -127,32 +96,63 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Parse request body (expects float64 for prices)
-	var input usecase.CreateProductInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Parse request body
+	var request dto.CreateProductRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid request body",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Set seller ID from authenticated user
-	input.SellerID = userID
+	// Convert DTO to usecase input
+	input := usecase.CreateProductInput{
+		SellerID:    userID,
+		Name:        request.Name,
+		Description: request.Description,
+		Price:       request.Price,
+		Stock:       request.StockQuantity,
+		Weight:      request.Weight,
+		CategoryID:  request.CategoryID,
+		Images:      request.Images,
+	}
 
-	// Create product (use case handles conversion to cents)
+	// Create product
 	product, err := h.productUseCase.CreateProduct(input)
 	if err != nil {
 		h.logger.Error("Failed to create product: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Convert entity to response struct (converts cents to dollars)
-	response := toProductResponse(product)
+	// Convert to DTO
+	productDTO := toProductDTO(product)
 
-	// Return created product response
+	response := dto.ResponseDTO[dto.ProductDTO]{
+		Success: true,
+		Data:    productDTO,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
@@ -164,37 +164,50 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid product ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Get product (use case returns entity with cents)
+	// Get product
 	currencyCode := vars["currency"]
-
 	var product *entity.Product
 
 	if currencyCode != "" {
-		// Get product with specific currency prices
 		product, err = h.productUseCase.GetProductByCurrency(uint(id), currencyCode)
 	} else {
-		// Get product with default currency prices
 		product, err = h.productUseCase.GetProductByID(uint(id))
 	}
 
 	if err != nil {
 		h.logger.Error("Failed to get product: %v", err)
-		if err.Error() == errors.ProductNotFoundError {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
 		}
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == errors.ProductNotFoundError {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Convert entity to response struct (converts cents to dollars)
-	response := toProductResponse(product)
+	// Convert to DTO
+	productDTO := toProductDTO(product)
 
-	// Return product response
+	response := dto.ResponseDTO[dto.ProductDTO]{
+		Success: true,
+		Data:    productDTO,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -204,7 +217,13 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -212,33 +231,65 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid product ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Parse request body (expects float64 for prices)
-	var input usecase.UpdateProductInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Parse request body
+	var request dto.UpdateProductRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid request body",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Update product (use case handles conversion to cents)
+	// Convert DTO to usecase input
+	input := usecase.UpdateProductInput{
+		Name:        request.Name,
+		Description: request.Description,
+		Price:       *request.Price,
+		Stock:       *request.StockQuantity,
+		CategoryID:  *request.CategoryID,
+		Images:      request.Images,
+	}
+
+	// Update product
 	product, err := h.productUseCase.UpdateProduct(uint(id), userID, input)
 	if err != nil {
 		h.logger.Error("Failed to update product: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
 		}
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == "unauthorized: not the seller of this product" {
+			w.WriteHeader(http.StatusForbidden)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Convert entity to response struct (converts cents to dollars)
-	response := toProductResponse(product)
+	// Convert to DTO
+	productDTO := toProductDTO(product)
 
-	// Return updated product response
+	response := dto.ResponseDTO[dto.ProductDTO]{
+		Success: true,
+		Data:    productDTO,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -248,7 +299,13 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -256,68 +313,325 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid product ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	// Delete product
-	if err := h.productUseCase.DeleteProduct(uint(id), userID); err != nil {
+	err = h.productUseCase.DeleteProduct(uint(id), userID)
+	if err != nil {
 		h.logger.Error("Failed to delete product: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
 		}
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == "unauthorized: not the seller of this product" {
+			w.WriteHeader(http.StatusForbidden)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	response := dto.ResponseDTO[any]{
+		Success: true,
+		Message: "Product deleted successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
-// AddVariant handles adding a variant to a product
+// ListProducts handles listing all products
+func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+	if pageSize <= 0 {
+		pageSize = 10 // Default page size
+	}
+
+	offset := (page - 1) * pageSize
+	products, total, err := h.productUseCase.ListProducts(offset, pageSize)
+	if err != nil {
+		h.logger.Error("Failed to list products: %v", err)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Failed to list products",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Convert to DTOs
+	productDTOs := make([]dto.ProductDTO, len(products))
+	for i, product := range products {
+		productDTOs[i] = toProductDTO(product)
+	}
+
+	response := dto.ProductListResponse{
+		ListResponseDTO: dto.ListResponseDTO[dto.ProductDTO]{
+			Success: true,
+			Data:    productDTOs,
+			Pagination: dto.PaginationDTO{
+				Page:     page,
+				PageSize: pageSize,
+				Total:    total,
+			},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// SearchProducts handles searching products
+func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
+	var request dto.ProductSearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid request body",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Convert DTO to usecase input
+	input := usecase.SearchProductsInput{
+		Query:  request.Query,
+		Offset: (request.Page - 1) * request.PageSize,
+		Limit:  request.PageSize,
+	}
+
+	// Handle optional fields
+	if request.CategoryID != nil {
+		input.CategoryID = *request.CategoryID
+	}
+	if request.MinPrice != nil {
+		input.MinPrice = *request.MinPrice
+	}
+	if request.MaxPrice != nil {
+		input.MaxPrice = *request.MaxPrice
+	}
+
+	products, total, err := h.productUseCase.SearchProducts(input)
+	if err != nil {
+		h.logger.Error("Failed to search products: %v", err)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Failed to search products",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Convert to DTOs
+	productDTOs := make([]dto.ProductDTO, len(products))
+	for i, product := range products {
+		productDTOs[i] = toProductDTO(product)
+	}
+
+	response := dto.ProductListResponse{
+		ListResponseDTO: dto.ListResponseDTO[dto.ProductDTO]{
+			Success: true,
+			Data:    productDTOs,
+			Pagination: dto.PaginationDTO{
+				Page:     request.Page,
+				PageSize: request.PageSize,
+				Total:    total,
+			},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// ListSellerProducts handles listing products for a seller
+func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userID, ok := r.Context().Value("user_id").(uint)
+	if !ok {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+	if pageSize <= 0 {
+		pageSize = 10 // Default page size
+	}
+
+	offset := (page - 1) * pageSize
+	products, total, err := h.productUseCase.ListProductsBySeller(userID, offset, pageSize)
+	if err != nil {
+		h.logger.Error("Failed to list seller products: %v", err)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Failed to list seller products",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Convert to DTOs
+	productDTOs := make([]dto.ProductDTO, len(products))
+	for i, product := range products {
+		productDTOs[i] = toProductDTO(product)
+	}
+
+	response := dto.ProductListResponse{
+		ListResponseDTO: dto.ListResponseDTO[dto.ProductDTO]{
+			Success: true,
+			Data:    productDTOs,
+			Pagination: dto.PaginationDTO{
+				Page:     page,
+				PageSize: pageSize,
+				Total:    total,
+			},
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// ListCategories handles listing all product categories
+func (h *ProductHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
+	categories, err := h.productUseCase.ListCategories()
+	if err != nil {
+		h.logger.Error("Failed to list categories: %v", err)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Failed to list categories",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := dto.ResponseDTO[[]*entity.Category]{
+		Success: true,
+		Data:    categories,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// AddVariant handles adding a new variant to a product
 func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Parse request body
+	var request dto.CreateVariantRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid request body",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
+	productID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid product ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Parse request body (expects float64 for prices)
-	var input usecase.AddVariantInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+	attributesDTO := make([]entity.VariantAttribute, len(request.Attributes))
+	for i, a := range request.Attributes {
+		attributesDTO[i] = entity.VariantAttribute{
+			Name:  a.Name,
+			Value: a.Value,
+		}
 	}
 
-	// Set product ID from URL
-	input.ProductID = uint(productID)
+	// Convert DTO to usecase input
+	input := usecase.AddVariantInput{
+		ProductID:    uint(productID),
+		SKU:          request.SKU,
+		Price:        request.Price,
+		ComparePrice: request.ComparePrice,
+		Stock:        request.StockQuantity,
+		Attributes:   attributesDTO,
+		Images:       request.Images,
+		IsDefault:    request.IsDefault,
+	}
 
-	// Add variant (use case handles conversion to cents)
+	// Add variant
 	variant, err := h.productUseCase.AddVariant(userID, input)
 	if err != nil {
 		h.logger.Error("Failed to add variant: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
 		}
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == "unauthorized: not the seller of this product" {
+			w.WriteHeader(http.StatusForbidden)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Convert entity to response struct (converts cents to dollars)
-	response := toProductVariantResponse(variant)
+	// Convert to DTO
+	variantDTO := toVariantDTO(variant)
 
-	// Return created variant response
+	response := dto.ResponseDTO[dto.VariantDTO]{
+		Success: true,
+		Data:    variantDTO,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
@@ -328,47 +642,100 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Get product and variant IDs from URL
+	// Get IDs from URL
 	vars := mux.Vars(r)
-	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
+	productID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid product ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	variantID, err := strconv.ParseUint(vars["variantId"], 10, 32)
+	variantID, err := strconv.ParseUint(vars["variant_id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid variant ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid variant ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Parse request body (expects float64 for prices)
-	var input usecase.UpdateVariantInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Parse request body
+	var request dto.CreateVariantRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid request body",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Update variant (use case handles conversion to cents)
+	attributesDTO := make([]entity.VariantAttribute, len(request.Attributes))
+	for i, a := range request.Attributes {
+		attributesDTO[i] = entity.VariantAttribute{
+			Name:  a.Name,
+			Value: a.Value,
+		}
+	}
+
+	// Convert DTO to usecase input
+	input := usecase.UpdateVariantInput{
+		SKU:          request.SKU,
+		Price:        request.Price,
+		ComparePrice: request.ComparePrice,
+		Stock:        request.StockQuantity,
+		Attributes:   attributesDTO,
+		Images:       request.Images,
+		IsDefault:    request.IsDefault,
+	}
+
+	// Update variant
 	variant, err := h.productUseCase.UpdateVariant(uint(productID), uint(variantID), userID, input)
 	if err != nil {
 		h.logger.Error("Failed to update variant: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
 		}
+		w.Header().Set("Content-Type", "application/json")
+		if err.Error() == "unauthorized: not the seller of this product" {
+			w.WriteHeader(http.StatusForbidden)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Convert entity to response struct (converts cents to dollars)
-	response := toProductVariantResponse(variant)
+	// Convert to DTO
+	variantDTO := toVariantDTO(variant)
 
-	// Return updated variant response
+	response := dto.ResponseDTO[dto.VariantDTO]{
+		Success: true,
+		Data:    variantDTO,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -378,164 +745,65 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(uint)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Get product and variant IDs from URL
+	// Get IDs from URL
 	vars := mux.Vars(r)
-	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
+	productID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid product ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	variantID, err := strconv.ParseUint(vars["variantId"], 10, 32)
+	variantID, err := strconv.ParseUint(vars["variant_id"], 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid variant ID", http.StatusBadRequest)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Invalid variant ID",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	// Delete variant
-	if err := h.productUseCase.DeleteVariant(uint(productID), uint(variantID), userID); err != nil {
+	err = h.productUseCase.DeleteVariant(uint(productID), uint(variantID), userID)
+	if err != nil {
 		h.logger.Error("Failed to delete variant: %v", err)
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
 		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
+			w.WriteHeader(http.StatusForbidden)
 		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// ListProducts handles listing products with pagination
-func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
-	// Parse pagination parameters
-	params := pagination.ParsePaginationParams(r)
-
-	// Get products (use case returns entities with cents)
-	products, total, err := h.productUseCase.ListProducts(params.Offset, params.Limit)
-	if err != nil {
-		h.logger.Error("Failed to list products: %v", err)
-		http.Error(w, "Failed to list products", http.StatusInternalServerError)
-		return
+	response := dto.ResponseDTO[any]{
+		Success: true,
+		Message: "Variant deleted successfully",
 	}
 
-	// Convert entities to response structs (converts cents to dollars)
-	productsResponse := toProductListResponse(products)
-
-	// Set pagination headers
-	pagination.SetPaginationHeaders(w, params, total)
-
-	// Create paginated response
-	response := pagination.NewPaginationResponse(params, total, productsResponse)
-
-	// Return products response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-}
-
-// SearchProducts handles searching for products
-func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
-	// Parse search parameters (prices are float64 dollars)
-	query := r.URL.Query().Get("q")
-	categoryIDStr := r.URL.Query().Get("category")
-	minPriceStr := r.URL.Query().Get("min_price")
-	maxPriceStr := r.URL.Query().Get("max_price")
-	params := pagination.ParsePaginationParams(r)
-
-	// Convert parameters to appropriate types
-	var categoryID uint
-	if categoryIDStr != "" {
-		id, err := strconv.ParseUint(categoryIDStr, 10, 32)
-		if err == nil {
-			categoryID = uint(id)
-		}
-	}
-
-	var minPrice, maxPrice float64
-	if minPriceStr != "" {
-		minPrice, _ = strconv.ParseFloat(minPriceStr, 64)
-	}
-	if maxPriceStr != "" {
-		maxPrice, _ = strconv.ParseFloat(maxPriceStr, 64)
-	}
-
-	// Search products (use case expects float64 dollars)
-	input := usecase.SearchProductsInput{
-		Query:      query,
-		CategoryID: categoryID,
-		MinPrice:   minPrice, // Pass dollars
-		MaxPrice:   maxPrice, // Pass dollars
-		Offset:     params.Offset,
-		Limit:      params.Limit,
-	}
-
-	products, total, err := h.productUseCase.SearchProducts(input)
-	if err != nil {
-		h.logger.Error("Failed to search products: %v", err)
-		http.Error(w, "Failed to search products", http.StatusInternalServerError)
-		return
-	}
-
-	productsResponse := toProductListResponse(products)
-
-	pagination.SetPaginationHeaders(w, params, total)
-
-	response := pagination.NewPaginationResponse(params, total, productsResponse)
-
-	// Return products response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// ListSellerProducts handles listing products for a seller
-func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	params := pagination.ParsePaginationParams(r)
-
-	// Get seller's products (use case returns entities with cents)
-	products, total, err := h.productUseCase.ListProductsBySeller(userID, params.Offset, params.Limit)
-	if err != nil {
-		h.logger.Error("Failed to list seller products: %v", err)
-		http.Error(w, "Failed to list products", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert entities to response structs (converts cents to dollars)
-	productsResponse := toProductListResponse(products)
-
-	// Set pagination headers
-	pagination.SetPaginationHeaders(w, params, total)
-
-	// Create paginated response
-	response := pagination.NewPaginationResponse(params, total, productsResponse)
-
-	// Return products response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// ListCategories handles listing all categories
-func (h *ProductHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	// Get categories
-	categories, err := h.productUseCase.ListCategories()
-	if err != nil {
-		h.logger.Error("Failed to list categories: %v", err)
-		http.Error(w, "Failed to list categories", http.StatusInternalServerError)
-		return
-	}
-
-	// Return categories
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(categories)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/common"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/dto"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
 
@@ -73,19 +74,18 @@ func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert entity to DTO
+	cartDTO := convertToCartDTO(cart)
+
 	// Return cart
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	json.NewEncoder(w).Encode(cartDTO)
 }
 
 // AddToCart handles adding an item to the cart
 func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
-	var input struct {
-		ProductID uint `json:"product_id"`
-		VariantID uint `json:"variant_id,omitempty"` // Added variant ID
-		Quantity  int  `json:"quantity"`
-	}
+	var input dto.AddToCartRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -103,7 +103,7 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 
 	cartInput := usecase.AddToCartInput{
 		ProductID: input.ProductID,
-		VariantID: input.VariantID, // Pass variant ID to use case
+		VariantID: input.VariantID,
 		Quantity:  input.Quantity,
 	}
 
@@ -128,9 +128,12 @@ func (h *CartHandler) AddToCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert entity to DTO
+	cartDTO := convertToCartDTO(cart)
+
 	// Return updated cart
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	json.NewEncoder(w).Encode(cartDTO)
 }
 
 // UpdateCartItem handles updating the quantity of an item in the cart
@@ -144,10 +147,7 @@ func (h *CartHandler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request body
-	var input struct {
-		Quantity  int  `json:"quantity"`
-		VariantID uint `json:"variant_id,omitempty"` // Added variant ID
-	}
+	var input dto.UpdateCartItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -159,9 +159,12 @@ func (h *CartHandler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get variant ID from query parameters
+	variantID, _ := strconv.ParseUint(r.URL.Query().Get("variantId"), 10, 32)
+
 	updateInput := usecase.UpdateCartItemInput{
 		ProductID: uint(productID),
-		VariantID: input.VariantID, // Pass variant ID to use case
+		VariantID: uint(variantID),
 		Quantity:  input.Quantity,
 	}
 
@@ -185,9 +188,12 @@ func (h *CartHandler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert entity to DTO
+	cartDTO := convertToCartDTO(cart)
+
 	// Return updated cart
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	json.NewEncoder(w).Encode(cartDTO)
 }
 
 // RemoveFromCart handles removing an item from the cart
@@ -223,9 +229,12 @@ func (h *CartHandler) RemoveFromCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert entity to DTO
+	cartDTO := convertToCartDTO(cart)
+
 	// Return updated cart
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	json.NewEncoder(w).Encode(cartDTO)
 }
 
 // ClearCart handles emptying the cart
@@ -259,9 +268,12 @@ func (h *CartHandler) ClearCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Convert entity to DTO
+	cartDTO := convertToCartDTO(cart)
+
 	// Return empty cart
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	json.NewEncoder(w).Encode(cartDTO)
 }
 
 // ConvertGuestCartToUserCart converts a guest cart to a user cart
@@ -284,8 +296,11 @@ func (h *CartHandler) ConvertGuestCartToUserCart(w http.ResponseWriter, r *http.
 			return
 		}
 
+		// Convert entity to DTO
+		cartDTO := convertToCartDTO(cart)
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(cart)
+		json.NewEncoder(w).Encode(cartDTO)
 		return
 	}
 
@@ -308,7 +323,52 @@ func (h *CartHandler) ConvertGuestCartToUserCart(w http.ResponseWriter, r *http.
 		SameSite: http.SameSiteLaxMode,
 	})
 
+	// Convert entity to DTO
+	cartDTO := convertToCartDTO(cart)
+
 	// Return updated cart
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	json.NewEncoder(w).Encode(cartDTO)
+}
+
+// convertToCartDTO converts a cart entity to a DTO
+func convertToCartDTO(cart *entity.Cart) dto.CartDTO {
+	// Convert cart items to DTOs
+	items := make([]dto.CartItemDTO, len(cart.Items))
+	for i, item := range cart.Items {
+		items[i] = dto.CartItemDTO{
+			BaseDTO: dto.BaseDTO{
+				ID:        item.ID,
+				CreatedAt: item.CreatedAt,
+				UpdatedAt: item.UpdatedAt,
+			},
+			ProductID: uint(item.ProductID),
+			Quantity:  item.Quantity,
+		}
+		if item.ProductVariantID > 0 {
+			items[i].VariantID = uint(item.ProductVariantID)
+		}
+	}
+
+	// Create cart DTO
+	cartDTO := dto.CartDTO{
+		BaseDTO: dto.BaseDTO{
+			ID:        cart.ID,
+			CreatedAt: cart.CreatedAt,
+			UpdatedAt: cart.UpdatedAt,
+		},
+		Items: items,
+	}
+
+	// Set user ID if it exists
+	if cart.UserID > 0 {
+		cartDTO.UserID = cart.UserID
+	}
+
+	// Set session ID if it exists
+	if cart.SessionID != "" {
+		cartDTO.SessionID = cart.SessionID
+	}
+
+	return cartDTO
 }
