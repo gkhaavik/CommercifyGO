@@ -61,7 +61,7 @@ func (h *ShippingHandler) CalculateShippingOptions(w http.ResponseWriter, r *htt
 func (h *ShippingHandler) GetShippingMethodByID(w http.ResponseWriter, r *http.Request) {
 	// Get method ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingMethodId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping method ID", http.StatusBadRequest)
 		return
@@ -125,7 +125,7 @@ func (h *ShippingHandler) CreateShippingMethod(w http.ResponseWriter, r *http.Re
 func (h *ShippingHandler) UpdateShippingMethod(w http.ResponseWriter, r *http.Request) {
 	// Get method ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingMethodId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping method ID", http.StatusBadRequest)
 		return
@@ -181,7 +181,7 @@ func (h *ShippingHandler) CreateShippingZone(w http.ResponseWriter, r *http.Requ
 func (h *ShippingHandler) GetShippingZoneByID(w http.ResponseWriter, r *http.Request) {
 	// Get zone ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingZoneId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping zone ID", http.StatusBadRequest)
 		return
@@ -222,7 +222,7 @@ func (h *ShippingHandler) ListShippingZones(w http.ResponseWriter, r *http.Reque
 func (h *ShippingHandler) UpdateShippingZone(w http.ResponseWriter, r *http.Request) {
 	// Get zone ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingZoneId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping zone ID", http.StatusBadRequest)
 		return
@@ -278,7 +278,7 @@ func (h *ShippingHandler) CreateShippingRate(w http.ResponseWriter, r *http.Requ
 func (h *ShippingHandler) GetShippingRateByID(w http.ResponseWriter, r *http.Request) {
 	// Get rate ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingRateId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping rate ID", http.StatusBadRequest)
 		return
@@ -301,7 +301,7 @@ func (h *ShippingHandler) GetShippingRateByID(w http.ResponseWriter, r *http.Req
 func (h *ShippingHandler) UpdateShippingRate(w http.ResponseWriter, r *http.Request) {
 	// Get rate ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingRateId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping rate ID", http.StatusBadRequest)
 		return
@@ -380,7 +380,7 @@ func (h *ShippingHandler) CreateValueBasedRate(w http.ResponseWriter, r *http.Re
 func (h *ShippingHandler) GetShippingCost(w http.ResponseWriter, r *http.Request) {
 	// Get rate ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["shippingRateId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid shipping rate ID", http.StatusBadRequest)
 		return

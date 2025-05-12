@@ -49,14 +49,14 @@ func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
 			CreatedAt: variant.CreatedAt,
 			UpdatedAt: variant.UpdatedAt,
 		},
-		ProductID:     variant.ProductID,
-		SKU:           variant.SKU,
-		Price:         money.FromCents(variant.Price),
-		ComparePrice:  money.FromCents(variant.ComparePrice),
-		StockQuantity: variant.Stock,
-		Attributes:    attributesDTO,
-		Images:        variant.Images,
-		IsDefault:     variant.IsDefault,
+		ProductID:    variant.ProductID,
+		SKU:          variant.SKU,
+		Price:        money.FromCents(variant.Price),
+		ComparePrice: money.FromCents(variant.ComparePrice),
+		Stock:        variant.Stock,
+		Attributes:   attributesDTO,
+		Images:       variant.Images,
+		IsDefault:    variant.IsDefault,
 	}
 }
 
@@ -75,17 +75,17 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 			CreatedAt: product.CreatedAt,
 			UpdatedAt: product.UpdatedAt,
 		},
-		Name:          product.Name,
-		Description:   product.Description,
-		SKU:           product.ProductNumber,
-		Price:         money.FromCents(product.Price),
-		StockQuantity: product.Stock,
-		Weight:        product.Weight,
-		CategoryID:    product.CategoryID,
-		SellerID:      product.SellerID,
-		Images:        product.Images,
-		HasVariants:   product.HasVariants,
-		Variants:      variantsDTO,
+		Name:        product.Name,
+		Description: product.Description,
+		SKU:         product.ProductNumber,
+		Price:       money.FromCents(product.Price),
+		Stock:       product.Stock,
+		Weight:      product.Weight,
+		CategoryID:  product.CategoryID,
+		SellerID:    product.SellerID,
+		Images:      product.Images,
+		HasVariants: product.HasVariants,
+		Variants:    variantsDTO,
 	}
 }
 
@@ -125,7 +125,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		Name:        request.Name,
 		Description: request.Description,
 		Price:       request.Price,
-		Stock:       request.StockQuantity,
+		Stock:       request.Stock,
 		Weight:      request.Weight,
 		CategoryID:  request.CategoryID,
 		Images:      request.Images,
@@ -162,7 +162,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["productId"], 10, 32)
 	if err != nil {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -229,7 +229,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["productId"], 10, 32)
 	if err != nil {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -311,7 +311,7 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["productId"], 10, 32)
 	if err != nil {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -397,34 +397,53 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 // SearchProducts handles searching products
 func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
-	var request dto.ProductSearchRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		response := dto.ResponseDTO[any]{
-			Success: false,
-			Error:   "Invalid request body",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(response)
-		return
+	// Parse query parameters
+	query := r.URL.Query().Get("query")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+	if pageSize <= 0 {
+		pageSize = 10 // Default page size
 	}
 
-	// Convert DTO to usecase input
+	// Parse optional parameters
+	var categoryID *uint
+	if catIDStr := r.URL.Query().Get("category_id"); catIDStr != "" {
+		if catID, err := strconv.ParseUint(catIDStr, 10, 32); err == nil {
+			catIDUint := uint(catID)
+			categoryID = &catIDUint
+		}
+	}
+
+	var minPrice *float64
+	if minPriceStr := r.URL.Query().Get("min_price"); minPriceStr != "" {
+		if minPriceVal, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
+			minPrice = &minPriceVal
+		}
+	}
+
+	var maxPrice *float64
+	if maxPriceStr := r.URL.Query().Get("max_price"); maxPriceStr != "" {
+		if maxPriceVal, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
+			maxPrice = &maxPriceVal
+		}
+	}
+
+	// Convert to usecase input
 	input := usecase.SearchProductsInput{
-		Query:  request.Query,
-		Offset: (request.Page - 1) * request.PageSize,
-		Limit:  request.PageSize,
+		Query:  query,
+		Offset: (page - 1) * pageSize,
+		Limit:  pageSize,
 	}
 
 	// Handle optional fields
-	if request.CategoryID != nil {
-		input.CategoryID = *request.CategoryID
+	if categoryID != nil {
+		input.CategoryID = *categoryID
 	}
-	if request.MinPrice != nil {
-		input.MinPrice = *request.MinPrice
+	if minPrice != nil {
+		input.MinPrice = *minPrice
 	}
-	if request.MaxPrice != nil {
-		input.MaxPrice = *request.MaxPrice
+	if maxPrice != nil {
+		input.MaxPrice = *maxPrice
 	}
 
 	products, total, err := h.productUseCase.SearchProducts(input)
@@ -451,8 +470,8 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 			Success: true,
 			Data:    productDTOs,
 			Pagination: dto.PaginationDTO{
-				Page:     request.Page,
-				PageSize: request.PageSize,
+				Page:     page,
+				PageSize: pageSize,
 				Total:    total,
 			},
 		},
@@ -574,7 +593,7 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	productID, err := strconv.ParseUint(vars["id"], 10, 32)
+	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
 	if err != nil {
 		response := dto.ResponseDTO[any]{
 			Success: false,
