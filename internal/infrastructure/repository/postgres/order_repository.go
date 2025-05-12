@@ -835,3 +835,78 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 
 	return order, nil
 }
+
+// ListAll lists all orders
+func (r *OrderRepository) ListAll(offset, limit int) ([]*entity.Order, error) {
+	query := `
+		SELECT id, order_number, user_id, total_amount, status,
+			payment_id, payment_provider, created_at, updated_at, completed_at,
+			discount_amount, discount_id, discount_code, final_amount,
+			guest_email, guest_phone, guest_full_name, is_guest_order, shipping_method_id, shipping_cost
+		FROM orders
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orders := []*entity.Order{}
+	for rows.Next() {
+		order := &entity.Order{}
+		var completedAt sql.NullTime
+		var userID sql.NullInt64
+		var guestEmail, guestPhone, guestFullName sql.NullString
+		var isGuestOrder sql.NullBool
+		var discountID sql.NullInt64
+		var discountCode sql.NullString
+
+		err := rows.Scan(
+			&order.ID,
+			&order.OrderNumber,
+			&userID,
+			&order.TotalAmount,
+			&order.Status,
+			&order.PaymentID,
+			&order.PaymentProvider,
+			&order.CreatedAt,
+			&order.UpdatedAt,
+			&completedAt,
+			&order.DiscountAmount,
+			&discountID,
+			&discountCode,
+			&order.FinalAmount,
+			&guestEmail,
+			&guestPhone,
+			&guestFullName,
+			&isGuestOrder,
+			&order.ShippingMethodID,
+			&order.ShippingCost,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if discountID.Valid {
+			order.AppliedDiscount = &entity.AppliedDiscount{
+				DiscountID:     uint(discountID.Int64),
+				DiscountCode:   discountCode.String,
+				DiscountAmount: order.DiscountAmount,
+			}
+		}
+
+		if order.ShippingMethodID != 0 {
+			order.ShippingMethod = &entity.ShippingMethod{
+				ID: order.ShippingMethodID,
+			}
+		}
+
+		orders = append(orders, order)
+	}
+
+	return orders, nil
+}

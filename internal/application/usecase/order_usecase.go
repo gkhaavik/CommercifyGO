@@ -929,3 +929,8 @@ func (uc *OrderUseCase) ForceApproveMobilePayPayment(paymentID string, phoneNumb
 func (uc *OrderUseCase) GetUserByID(id uint) (*entity.User, error) {
 	return uc.userRepo.GetByID(id)
 }
+
+// ListAllOrders lists all orders
+func (uc *OrderUseCase) ListAllOrders(offset, limit int) ([]*entity.Order, error) {
+	return uc.orderRepo.ListAll(offset, limit)
+}

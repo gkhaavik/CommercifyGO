@@ -318,9 +318,7 @@ func (h *OrderHandler) ListAllOrders(w http.ResponseWriter, r *http.Request) {
 	if status != "" {
 		orders, err = h.orderUseCase.ListOrdersByStatus(entity.OrderStatus(status), offset, limit)
 	} else {
-		// Get all orders (this would typically be implemented in OrderRepository)
-		// For now, just return an empty list
-		orders = []*entity.Order{}
+		orders, err = h.orderUseCase.ListAllOrders(offset, limit)
 	}
 
 	if err != nil {
@@ -397,37 +395,62 @@ func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 
 func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 	// Convert order items to DTOs
-	items := make([]dto.OrderItemDTO, len(order.Items))
-	for i, item := range order.Items {
-		items[i] = dto.OrderItemDTO{
-			BaseDTO: dto.BaseDTO{
-				ID:        item.ID,
-				CreatedAt: order.CreatedAt,
-				UpdatedAt: order.UpdatedAt,
-			},
-			OrderID:    order.ID,
-			ProductID:  item.ProductID,
-			Quantity:   item.Quantity,
-			UnitPrice:  money.FromCents(item.Price),
-			TotalPrice: money.FromCents(item.Subtotal),
+	var items []dto.OrderItemDTO
+	if len(order.Items) > 0 {
+		items = make([]dto.OrderItemDTO, len(order.Items))
+		for i, item := range order.Items {
+			items[i] = dto.OrderItemDTO{
+				BaseDTO: dto.BaseDTO{
+					ID:        item.ID,
+					CreatedAt: order.CreatedAt,
+					UpdatedAt: order.UpdatedAt,
+				},
+				OrderID:    order.ID,
+				ProductID:  item.ProductID,
+				Quantity:   item.Quantity,
+				UnitPrice:  money.FromCents(item.Price),
+				TotalPrice: money.FromCents(item.Subtotal),
+			}
 		}
 	}
 
 	// Convert addresses to DTOs
-	shippingAddr := dto.AddressDTO{
-		AddressLine1: order.ShippingAddr.Street,
-		City:         order.ShippingAddr.City,
-		State:        order.ShippingAddr.State,
-		PostalCode:   order.ShippingAddr.PostalCode,
-		Country:      order.ShippingAddr.Country,
+	var shippingAddr *dto.AddressDTO
+	if order.ShippingAddr.Street != "" {
+		shippingAddr = &dto.AddressDTO{
+			AddressLine1: order.ShippingAddr.Street,
+			City:         order.ShippingAddr.City,
+			State:        order.ShippingAddr.State,
+			PostalCode:   order.ShippingAddr.PostalCode,
+			Country:      order.ShippingAddr.Country,
+		}
 	}
 
-	billingAddr := dto.AddressDTO{
-		AddressLine1: order.BillingAddr.Street,
-		City:         order.BillingAddr.City,
-		State:        order.BillingAddr.State,
-		PostalCode:   order.BillingAddr.PostalCode,
-		Country:      order.BillingAddr.Country,
+	var billingAddr *dto.AddressDTO
+	if order.BillingAddr.Street != "" {
+		billingAddr = &dto.AddressDTO{
+			AddressLine1: order.BillingAddr.Street,
+			City:         order.BillingAddr.City,
+			State:        order.BillingAddr.State,
+			PostalCode:   order.BillingAddr.PostalCode,
+			Country:      order.BillingAddr.Country,
+		}
+	}
+
+	var customerDetails *dto.CustomerDetails
+	if order.IsGuestOrder {
+		customerDetails = &dto.CustomerDetails{
+			Email:    order.GuestEmail,
+			Phone:    order.GuestPhone,
+			FullName: order.GuestFullName,
+		}
+	}
+
+	var discountAmount float64
+	var discountCode string
+	if order.AppliedDiscount != nil {
+		discountAmount = money.FromCents(order.AppliedDiscount.DiscountAmount)
+		discountCode = order.AppliedDiscount.DiscountCode
 	}
 
 	return dto.OrderDTO{
@@ -436,19 +459,23 @@ func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 			CreatedAt: order.CreatedAt,
 			UpdatedAt: order.UpdatedAt,
 		},
-		UserID:            order.UserID,
-		Status:            dto.OrderStatus(order.Status),
-		TotalAmount:       money.FromCents(order.TotalAmount),
-		Currency:          "USD",
-		Items:             items,
-		ShippingAddress:   shippingAddr,
-		BillingAddress:    billingAddr,
-		PaymentProvider:   dto.PaymentProvider(order.PaymentProvider),
-		ShippingMethod:    order.ShippingMethod.Name,
-		ShippingCost:      money.FromCents(order.ShippingCost),
-		DiscountAmount:    money.FromCents(order.DiscountAmount),
-		TrackingNumber:    order.TrackingCode,
-		EstimatedDelivery: order.CompletedAt,
+		OrderNumber:      order.OrderNumber,
+		UserID:           order.UserID,
+		Status:           dto.OrderStatus(order.Status),
+		TotalAmount:      money.FromCents(order.TotalAmount),
+		FinalAmount:      money.FromCents(order.FinalAmount),
+		Currency:         "USD",
+		Items:            items,
+		ShippingAddress:  shippingAddr,
+		BillingAddress:   billingAddr,
+		PaymentProvider:  dto.PaymentProvider(order.PaymentProvider),
+		ShippingMethodID: order.ShippingMethodID,
+		ShippingCost:     money.FromCents(order.ShippingCost),
+		DiscountAmount:   discountAmount,
+		DiscountCode:     discountCode,
+		PaymentID:        order.PaymentID,
+		Customer:         customerDetails,
+		ActionURL:        order.ActionURL,
 	}
 }
 
@@ -470,13 +497,6 @@ func convertToCreateOrderInput(input dto.CreateOrderRequest, userID uint, sessio
 		Country:    input.BillingAddress.Country,
 	}
 
-	// Parse shipping method ID from string
-	shippingMethodID, err := strconv.ParseUint(input.ShippingMethod, 10, 32)
-	if err != nil {
-		// If parsing fails, default to 0 (will be caught by validation in use case)
-		shippingMethodID = 0
-	}
-
 	return usecase.CreateOrderInput{
 		UserID:           userID,
 		SessionID:        sessionID,
@@ -485,6 +505,6 @@ func convertToCreateOrderInput(input dto.CreateOrderRequest, userID uint, sessio
 		Email:            input.Email,
 		PhoneNumber:      input.PhoneNumber,
 		FullName:         input.FirstName + " " + input.LastName,
-		ShippingMethodID: uint(shippingMethodID),
+		ShippingMethodID: input.ShippingMethodID,
 	}
 }

@@ -9,24 +9,29 @@ import (
 // OrderDTO represents an order in the system
 type OrderDTO struct {
 	BaseDTO
-	UserID            uint            `json:"user_id"`
-	OrderNumber       string          `json:"order_number"`
-	Status            OrderStatus     `json:"status"`
-	TotalAmount       float64         `json:"total_amount"`
-	Currency          string          `json:"currency"`
-	Items             []OrderItemDTO  `json:"items"`
-	ShippingAddress   AddressDTO      `json:"shipping_address"`
-	BillingAddress    AddressDTO      `json:"billing_address"`
-	PaymentProvider   PaymentProvider `json:"payment_provider"`
-	PaymentID         string          `json:"payment_id"`
-	ShippingMethod    string          `json:"shipping_method"`
-	ShippingCost      float64         `json:"shipping_cost"`
-	TaxAmount         float64         `json:"tax_amount"`
-	DiscountAmount    float64         `json:"discount_amount"`
-	DiscountCode      string          `json:"discount_code,omitempty"`
-	TrackingNumber    string          `json:"tracking_number,omitempty"`
-	EstimatedDelivery *time.Time      `json:"estimated_delivery,omitempty"`
-	DeliveredAt       *time.Time      `json:"delivered_at,omitempty"`
+	UserID           uint             `json:"user_id"`
+	OrderNumber      string           `json:"order_number"`
+	Items            []OrderItemDTO   `json:"items,omitempty"`
+	Status           OrderStatus      `json:"status"`
+	TotalAmount      float64          `json:"total_amount"`
+	FinalAmount      float64          `json:"final_amount"`
+	Currency         string           `json:"currency"`
+	ShippingAddress  *AddressDTO      `json:"shipping_address,omitempty"`
+	BillingAddress   *AddressDTO      `json:"billing_address,omitempty"`
+	PaymentProvider  PaymentProvider  `json:"payment_provider"`
+	PaymentID        string           `json:"payment_id"`
+	ShippingMethodID uint             `json:"shipping_method_id"`
+	ShippingCost     float64          `json:"shipping_cost"`
+	DiscountAmount   float64          `json:"discount_amount"`
+	DiscountCode     string           `json:"discount_code,omitempty"`
+	Customer         *CustomerDetails `json:"customer,omitempty"`
+	ActionURL        string           `json:"action_url,omitempty"`
+}
+
+type CustomerDetails struct {
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	FullName string `json:"full_name"`
 }
 
 // OrderItemDTO represents an item in an order
@@ -35,8 +40,6 @@ type OrderItemDTO struct {
 	OrderID    uint    `json:"order_id"`
 	ProductID  uint    `json:"product_id"`
 	VariantID  uint    `json:"variant_id,omitempty"`
-	Name       string  `json:"name"`
-	SKU        string  `json:"sku"`
 	Quantity   int     `json:"quantity"`
 	UnitPrice  float64 `json:"unit_price"`
 	TotalPrice float64 `json:"total_price"`
@@ -54,13 +57,13 @@ type AddressDTO struct {
 
 // CreateOrderRequest represents the data needed to create a new order
 type CreateOrderRequest struct {
-	FirstName       string     `json:"first_name" validate:"required"`
-	LastName        string     `json:"last_name" validate:"required"`
-	Email           string     `json:"email" validate:"required,email"`
-	PhoneNumber     string     `json:"phone_number,omitempty"`
-	ShippingAddress AddressDTO `json:"shipping_address" validate:"required"`
-	BillingAddress  AddressDTO `json:"billing_address" validate:"required"`
-	ShippingMethod  string     `json:"shipping_method" validate:"required"`
+	FirstName        string     `json:"first_name" validate:"required"`
+	LastName         string     `json:"last_name" validate:"required"`
+	Email            string     `json:"email" validate:"required,email"`
+	PhoneNumber      string     `json:"phone_number,omitempty"`
+	ShippingAddress  AddressDTO `json:"shipping_address" validate:"required"`
+	BillingAddress   AddressDTO `json:"billing_address" validate:"required"`
+	ShippingMethodID uint       `json:"shipping_method_id" validate:"required"`
 }
 
 // CreateOrderItemRequest represents the data needed to create a new order item
