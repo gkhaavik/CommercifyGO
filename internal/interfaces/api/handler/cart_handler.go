@@ -159,12 +159,9 @@ func (h *CartHandler) UpdateCartItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get variant ID from query parameters
-	variantID, _ := strconv.ParseUint(r.URL.Query().Get("variantId"), 10, 32)
-
 	updateInput := usecase.UpdateCartItemInput{
 		ProductID: uint(productID),
-		VariantID: uint(variantID),
+		VariantID: input.VariantID,
 		Quantity:  input.Quantity,
 	}
 
