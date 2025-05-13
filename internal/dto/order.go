@@ -57,20 +57,20 @@ type AddressDTO struct {
 
 // CreateOrderRequest represents the data needed to create a new order
 type CreateOrderRequest struct {
-	FirstName        string     `json:"first_name" validate:"required"`
-	LastName         string     `json:"last_name" validate:"required"`
-	Email            string     `json:"email" validate:"required,email"`
+	FirstName        string     `json:"first_name"`
+	LastName         string     `json:"last_name"`
+	Email            string     `json:"email"`
 	PhoneNumber      string     `json:"phone_number,omitempty"`
-	ShippingAddress  AddressDTO `json:"shipping_address" validate:"required"`
-	BillingAddress   AddressDTO `json:"billing_address" validate:"required"`
-	ShippingMethodID uint       `json:"shipping_method_id" validate:"required"`
+	ShippingAddress  AddressDTO `json:"shipping_address"`
+	BillingAddress   AddressDTO `json:"billing_address"`
+	ShippingMethodID uint       `json:"shipping_method_id"`
 }
 
 // CreateOrderItemRequest represents the data needed to create a new order item
 type CreateOrderItemRequest struct {
-	ProductID uint `json:"product_id" validate:"required"`
+	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id,omitempty"`
-	Quantity  int  `json:"quantity" validate:"required,gt=0"`
+	Quantity  int  `json:"quantity"`
 }
 
 // UpdateOrderRequest represents the data needed to update an existing order
@@ -98,8 +98,8 @@ type OrderSearchRequest struct {
 
 // ProcessPaymentRequest represents the data needed to process a payment
 type ProcessPaymentRequest struct {
-	PaymentMethod   PaymentMethod        `json:"payment_method" validate:"required"`
-	PaymentProvider PaymentProvider      `json:"payment_provider" validate:"required"`
+	PaymentMethod   PaymentMethod        `json:"payment_method"`
+	PaymentProvider PaymentProvider      `json:"payment_provider"`
 	CardDetails     *service.CardDetails `json:"card_details,omitempty"`
 	PhoneNumber     string               `json:"phone_number,omitempty"`
 }

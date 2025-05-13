@@ -18,7 +18,7 @@ type CartItemDTO struct {
 
 // AddToCartRequest represents the data needed to add an item to the cart
 type AddToCartRequest struct {
-	ProductID uint `json:"product_id" validate:"required"`
+	ProductID uint `json:"product_id"`
 	VariantID uint `json:"variant_id,omitempty"`
 	Quantity  int  `json:"quantity"`
 }

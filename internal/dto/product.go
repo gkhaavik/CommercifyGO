@@ -36,24 +36,24 @@ type VariantAttributeDTO struct {
 
 // CreateProductRequest represents the data needed to create a new product
 type CreateProductRequest struct {
-	Name        string                 `json:"name" validate:"required"`
-	Description string                 `json:"description" validate:"required"`
-	SKU         string                 `json:"sku" validate:"required"`
-	Price       float64                `json:"price" validate:"required,gt=0"`
-	Stock       int                    `json:"stock" validate:"required,gte=0"`
-	Weight      float64                `json:"weight" validate:"required,gte=0"`
-	CategoryID  uint                   `json:"category_id" validate:"required"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	SKU         string                 `json:"sku"`
+	Price       float64                `json:"price"`
+	Stock       int                    `json:"stock"`
+	Weight      float64                `json:"weight"`
+	CategoryID  uint                   `json:"category_id"`
 	Images      []string               `json:"images"`
 	Variants    []CreateVariantRequest `json:"variants,omitempty"`
 }
 
 // CreateVariantRequest represents the data needed to create a new product variant
 type CreateVariantRequest struct {
-	SKU           string                `json:"sku" validate:"required"`
-	Price         float64               `json:"price" validate:"required,gt=0"`
+	SKU           string                `json:"sku"`
+	Price         float64               `json:"price"`
 	ComparePrice  float64               `json:"compare_price,omitempty"`
-	StockQuantity int                   `json:"stock" validate:"required,gte=0"`
-	Attributes    []VariantAttributeDTO `json:"attributes" validate:"required"`
+	StockQuantity int                   `json:"stock"`
+	Attributes    []VariantAttributeDTO `json:"attributes"`
 	Images        []string              `json:"images,omitempty"`
 	IsDefault     bool                  `json:"is_default"`
 }

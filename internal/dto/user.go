@@ -17,11 +17,10 @@ type UserDTO struct {
 
 // CreateUserRequest represents the data needed to create a new user
 type CreateUserRequest struct {
-	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required,min=8"`
-	FirstName string `json:"first_name" validate:"required"`
-	LastName  string `json:"last_name" validate:"required"`
-	Role      string `json:"role" validate:"required,oneof=admin user seller"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 // UpdateUserRequest represents the data needed to update an existing user
@@ -32,8 +31,8 @@ type UpdateUserRequest struct {
 
 // UserLoginRequest represents the data needed for user login
 type UserLoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // UserLoginResponse represents the response after successful login
@@ -51,6 +50,6 @@ type UserListResponse struct {
 
 // ChangePasswordRequest represents the data needed to change a user's password
 type ChangePasswordRequest struct {
-	CurrentPassword string `json:"current_password" validate:"required"`
-	NewPassword     string `json:"new_password" validate:"required,min=8"`
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }

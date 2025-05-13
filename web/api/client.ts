@@ -8,8 +8,6 @@ import {
   UpdateUserRequest,
   ResponseDTO,
   ListResponseDTO,
-  ProductSearchRequest,
-  PaginationDTO,
 } from "../types/api";
 
 export class CommercifyClient {
@@ -63,11 +61,11 @@ export class CommercifyClient {
 
   // Cart endpoints
   async getCart(): Promise<ResponseDTO<CartDTO>> {
-    return this.request<ResponseDTO<CartDTO>>("/api/cart");
+    return this.request<ResponseDTO<CartDTO>>("/guest/cart");
   }
 
   async addToCart(data: AddToCartRequest): Promise<ResponseDTO<CartDTO>> {
-    return this.request<ResponseDTO<CartDTO>>("/api/cart/items", {
+    return this.request<ResponseDTO<CartDTO>>("/guest/cart/items", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -77,14 +75,14 @@ export class CommercifyClient {
   async createOrder(
     orderData: CreateOrderRequest
   ): Promise<ResponseDTO<OrderDTO>> {
-    return this.request<ResponseDTO<OrderDTO>>("/api/orders", {
+    return this.request<ResponseDTO<OrderDTO>>("/guest/orders", {
       method: "POST",
       body: JSON.stringify(orderData),
     });
   }
 
   async getOrder(orderId: string): Promise<ResponseDTO<OrderDTO>> {
-    return this.request<ResponseDTO<OrderDTO>>(`/api/orders/${orderId}`);
+    return this.request<ResponseDTO<OrderDTO>>(`/orders/${orderId}`);
   }
 
   // Product endpoints
@@ -94,11 +92,7 @@ export class CommercifyClient {
     category_id?: number;
     currency?: string;
   }): Promise<ListResponseDTO<ProductDTO>> {
-    return this.request<ListResponseDTO<ProductDTO>>(
-      "/api/products",
-      {},
-      params
-    );
+    return this.request<ListResponseDTO<ProductDTO>>("/products", {}, params);
   }
 
   async getProduct(
@@ -106,28 +100,36 @@ export class CommercifyClient {
     currency?: string
   ): Promise<ResponseDTO<ProductDTO>> {
     return this.request<ResponseDTO<ProductDTO>>(
-      `/api/products/${productId}`,
+      `/products/${productId}`,
       {},
       currency ? { currency } : undefined
     );
   }
 
-  async searchProducts(
-    params: ProductSearchRequest
-  ): Promise<ListResponseDTO<ProductDTO>> {
-    return this.request<ListResponseDTO<ProductDTO>>("/api/products/search", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
+  async searchProducts(params: {
+    query: string;
+    category_id?: number;
+    min_price?: number;
+    max_price?: number;
+    page?: number;
+    page_size?: number;
+  }): Promise<ListResponseDTO<ProductDTO>> {
+    return this.request<ListResponseDTO<ProductDTO>>(
+      "/products/search",
+      {
+        method: "POST",
+      },
+      params
+    );
   }
 
   // User endpoints
   async getCurrentUser(): Promise<ResponseDTO<UserDTO>> {
-    return this.request<ResponseDTO<UserDTO>>("/api/user/me");
+    return this.request<ResponseDTO<UserDTO>>("/user/me");
   }
 
   async updateUser(userData: UpdateUserRequest): Promise<ResponseDTO<UserDTO>> {
-    return this.request<ResponseDTO<UserDTO>>("/api/user", {
+    return this.request<ResponseDTO<UserDTO>>("/user", {
       method: "PUT",
       body: JSON.stringify(userData),
     });

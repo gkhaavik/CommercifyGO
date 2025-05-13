@@ -237,7 +237,7 @@ export interface ProductDTO {
   description: string;
   sku: string;
   price: number /* float64 */;
-  stock_quantity: number /* int */;
+  stock: number /* int */;
   weight: number /* float64 */;
   category_id: number /* uint */;
   seller_id: number /* uint */;
@@ -254,7 +254,7 @@ export interface VariantDTO {
   sku: string;
   price: number /* float64 */;
   compare_price?: number /* float64 */;
-  stock_quantity: number /* int */;
+  stock: number /* int */;
   attributes: VariantAttributeDTO[];
   images?: string[];
   is_default: boolean;
@@ -271,7 +271,7 @@ export interface CreateProductRequest {
   description: string;
   sku: string;
   price: number /* float64 */;
-  stock_quantity: number /* int */;
+  stock: number /* int */;
   weight: number /* float64 */;
   category_id: number /* uint */;
   images: string[];
@@ -284,7 +284,7 @@ export interface CreateVariantRequest {
   sku: string;
   price: number /* float64 */;
   compare_price?: number /* float64 */;
-  stock_quantity: number /* int */;
+  stock: number /* int */;
   attributes: VariantAttributeDTO[];
   images?: string[];
   is_default: boolean;
@@ -296,7 +296,7 @@ export interface UpdateProductRequest {
   name?: string;
   description?: string;
   price?: number /* float64 */;
-  stock_quantity?: number /* int */;
+  stock?: number /* int */;
   weight?: number /* float64 */;
   category_id?: number /* uint */;
   images?: string[];
@@ -306,16 +306,6 @@ export interface UpdateProductRequest {
  */
 export interface ProductListResponse {
   ListResponseDTO: ListResponseDTO<ProductDTO>;
-}
-/**
- * ProductSearchRequest represents the parameters for searching products
- */
-export interface ProductSearchRequest {
-  query: string;
-  category_id?: number /* uint */;
-  min_price?: number /* float64 */;
-  max_price?: number /* float64 */;
-  PaginationDTO: PaginationDTO;
 }
 
 //////////
