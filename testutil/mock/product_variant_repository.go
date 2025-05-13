@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockProductVariantRepository is a mock implementation of product variant repository for testing
@@ -15,7 +16,7 @@ type MockProductVariantRepository struct {
 }
 
 // NewMockProductVariantRepository creates a new instance of MockProductVariantRepository
-func NewMockProductVariantRepository() *MockProductVariantRepository {
+func NewMockProductVariantRepository() repository.ProductVariantRepository {
 	return &MockProductVariantRepository{
 		variants:          make(map[uint]*entity.ProductVariant),
 		variantsBySKU:     make(map[string]*entity.ProductVariant),

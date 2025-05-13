@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // ShippingZoneRepository implements the shipping zone repository interface using PostgreSQL
@@ -15,7 +16,7 @@ type ShippingZoneRepository struct {
 }
 
 // NewShippingZoneRepository creates a new ShippingZoneRepository
-func NewShippingZoneRepository(db *sql.DB) *ShippingZoneRepository {
+func NewShippingZoneRepository(db *sql.DB) repository.ShippingZoneRepository {
 	return &ShippingZoneRepository{db: db}
 }
 
@@ -58,7 +59,7 @@ func (r *ShippingZoneRepository) Create(zone *entity.ShippingZone) error {
 }
 
 // GetByID retrieves a shipping zone by ID
-func (r *ShippingZoneRepository) GetByID(id uint) (*entity.ShippingZone, error) {
+func (r *ShippingZoneRepository) GetByID(zoneID uint) (*entity.ShippingZone, error) {
 	query := `
 		SELECT id, name, description, countries, states, zip_codes, active, created_at, updated_at
 		FROM shipping_zones
@@ -67,7 +68,7 @@ func (r *ShippingZoneRepository) GetByID(id uint) (*entity.ShippingZone, error) 
 
 	var countriesJSON, statesJSON, zipCodesJSON []byte
 	zone := &entity.ShippingZone{}
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, zoneID).Scan(
 		&zone.ID,
 		&zone.Name,
 		&zone.Description,
@@ -209,8 +210,8 @@ func (r *ShippingZoneRepository) Update(zone *entity.ShippingZone) error {
 }
 
 // Delete deletes a shipping zone
-func (r *ShippingZoneRepository) Delete(id uint) error {
+func (r *ShippingZoneRepository) Delete(zoneID uint) error {
 	query := `DELETE FROM shipping_zones WHERE id = $1`
-	_, err := r.db.Exec(query, id)
+	_, err := r.db.Exec(query, zoneID)
 	return err
 }

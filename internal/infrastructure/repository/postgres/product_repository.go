@@ -14,22 +14,24 @@ import (
 
 // ProductRepository is the PostgreSQL implementation of the ProductRepository interface
 type ProductRepository struct {
-	db *sql.DB
+	db                *sql.DB
+	variantRepository repository.ProductVariantRepository
 }
 
 // NewProductRepository creates a new ProductRepository
-func NewProductRepository(db *sql.DB) repository.ProductRepository {
+func NewProductRepository(db *sql.DB, variantRepository repository.ProductVariantRepository) repository.ProductRepository {
 	return &ProductRepository{
-		db: db,
+		db:                db,
+		variantRepository: variantRepository,
 	}
 }
 
 // Create creates a new product
 func (r *ProductRepository) Create(product *entity.Product) error {
 	query := `
-		INSERT INTO products (name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id
+	INSERT INTO products (name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	RETURNING id
 	`
 
 	imagesJSON, err := json.Marshal(product.Images)
@@ -84,11 +86,11 @@ func (r *ProductRepository) createProductPrice(price *entity.ProductPrice) error
 		INSERT INTO product_prices (product_id, currency_code, price, compare_price, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (product_id, currency_code) DO UPDATE SET
-			price = EXCLUDED.price,
-			compare_price = EXCLUDED.compare_price,
-			updated_at = EXCLUDED.updated_at
+		price = EXCLUDED.price,
+		compare_price = EXCLUDED.compare_price,
+		updated_at = EXCLUDED.updated_at
 		RETURNING id
-	`
+		`
 
 	var comparePrice sql.NullInt64
 	if price.ComparePrice > 0 {
@@ -110,18 +112,18 @@ func (r *ProductRepository) createProductPrice(price *entity.ProductPrice) error
 }
 
 // GetByID gets a product by ID
-func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
+func (r *ProductRepository) GetByID(productID uint) (*entity.Product, error) {
 	query := `
-		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
-		FROM products
-		WHERE id = $1
-	`
+			SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
+			FROM products
+			WHERE id = $1
+			`
 
 	var imagesJSON []byte
 	product := &entity.Product{}
 	var productNumber sql.NullString
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, productID).Scan(
 		&product.ID,
 		&productNumber,
 		&product.Name,
@@ -166,10 +168,10 @@ func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 // getProductPrices retrieves all prices for a product in different currencies
 func (r *ProductRepository) getProductPrices(productID uint) ([]entity.ProductPrice, error) {
 	query := `
-		SELECT id, product_id, currency_code, price, compare_price, created_at, updated_at
-		FROM product_prices
-		WHERE product_id = $1
-	`
+			SELECT id, product_id, currency_code, price, compare_price, created_at, updated_at
+			FROM product_prices
+			WHERE product_id = $1
+			`
 
 	rows, err := r.db.Query(query, productID)
 	if err != nil {
@@ -210,82 +212,21 @@ func (r *ProductRepository) getProductPrices(productID uint) ([]entity.ProductPr
 }
 
 // GetByIDWithVariants gets a product by ID with variants
-func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error) {
+func (r *ProductRepository) GetByIDWithVariants(productID uint) (*entity.Product, error) {
 	// Get the base product
-	product, err := r.GetByID(id)
+	product, err := r.GetByID(productID)
 	if err != nil {
 		return nil, err
 	}
 
 	// If product has variants, get them
 	if product.HasVariants {
-		query := `
-			SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
-			FROM product_variants
-			WHERE product_id = $1
-			ORDER BY is_default DESC, id ASC
-		`
-
-		rows, err := r.db.Query(query, id)
+		variants, err := r.variantRepository.GetByProduct(productID)
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
 
-		product.Variants = []*entity.ProductVariant{}
-		for rows.Next() {
-			var attributesJSON, imagesJSON []byte
-			variant := &entity.ProductVariant{}
-			var comparePrice sql.NullInt64
-
-			err := rows.Scan(
-				&variant.ID,
-				&variant.ProductID,
-				&variant.SKU,
-				&variant.Price,
-				&comparePrice,
-				&variant.Stock,
-				&attributesJSON,
-				&imagesJSON,
-				&variant.IsDefault,
-				&variant.CreatedAt,
-				&variant.UpdatedAt,
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			// Set compare price if valid
-			if comparePrice.Valid {
-				variant.ComparePrice = comparePrice.Int64
-			}
-
-			// Unmarshal attributes JSON
-			var attributes []map[string]interface{}
-			if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
-				return nil, err
-			}
-
-			// Convert attributes to VariantAttribute
-			variant.Attributes = make([]entity.VariantAttribute, 0, len(attributes))
-			for _, attr := range attributes {
-				name, ok1 := attr["name"].(string)
-				value, ok2 := attr["value"].(string)
-				if ok1 && ok2 {
-					variant.Attributes = append(variant.Attributes, entity.VariantAttribute{
-						Name:  name,
-						Value: value,
-					})
-				}
-			}
-
-			// Unmarshal images JSON
-			if err := json.Unmarshal(imagesJSON, &variant.Images); err != nil {
-				return nil, err
-			}
-
-			product.Variants = append(product.Variants, variant)
-		}
+		product.Variants = variants
 	}
 
 	return product, nil
@@ -294,11 +235,11 @@ func (r *ProductRepository) GetByIDWithVariants(id uint) (*entity.Product, error
 // Update updates a product
 func (r *ProductRepository) Update(product *entity.Product) error {
 	query := `
-		UPDATE products
-		SET name = $1, description = $2, price = $3, stock = $4, weight = $5, category_id = $6, 
+			UPDATE products
+			SET name = $1, description = $2, price = $3, stock = $4, weight = $5, category_id = $6, 
 		    images = $7, has_variants = $8, updated_at = $9
-		WHERE id = $10
-	`
+			WHERE id = $10
+			`
 
 	imagesJSON, err := json.Marshal(product.Images)
 	if err != nil {
@@ -343,7 +284,7 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 }
 
 // Delete deletes a product
-func (r *ProductRepository) Delete(id uint) error {
+func (r *ProductRepository) Delete(productID uint) error {
 	// Start a transaction to delete variants as well
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -356,13 +297,13 @@ func (r *ProductRepository) Delete(id uint) error {
 	}()
 
 	// Delete variants first
-	_, err = tx.Exec("DELETE FROM product_variants WHERE product_id = $1", id)
+	_, err = tx.Exec("DELETE FROM product_variants WHERE product_id = $1", productID)
 	if err != nil {
 		return err
 	}
 
 	// Delete the product
-	_, err = tx.Exec("DELETE FROM products WHERE id = $1", id)
+	_, err = tx.Exec("DELETE FROM products WHERE id = $1", productID)
 	if err != nil {
 		return err
 	}
@@ -530,6 +471,74 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPriceCents,
 	}
 
 	return products, nil
+}
+
+func (r *ProductRepository) Count() (int, error) {
+	query := `
+		SELECT COUNT(*) FROM products
+	`
+
+	var count int
+	err := r.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *ProductRepository) CountBySeller(sellerID uint) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM products
+		WHERE seller_id = $1
+	`
+
+	var count int
+	err := r.db.QueryRow(query, sellerID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *ProductRepository) CountSearch(searchQuery string, categoryID uint, minPriceCents, maxPriceCents int64) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM products
+		WHERE 1=1
+	`
+
+	queryParams := []any{}
+	paramCounter := 1
+
+	if searchQuery != "" {
+		query += fmt.Sprintf(" AND (name ILIKE $%d OR description ILIKE $%d)", paramCounter, paramCounter)
+		queryParams = append(queryParams, "%"+searchQuery+"%")
+		paramCounter++
+	}
+
+	if categoryID > 0 {
+		query += fmt.Sprintf(" AND category_id = $%d", paramCounter)
+		queryParams = append(queryParams, categoryID)
+		paramCounter++
+	}
+
+	if minPriceCents > 0 {
+		query += fmt.Sprintf(" AND price >= $%d", paramCounter)
+		queryParams = append(queryParams, minPriceCents)
+		paramCounter++
+	}
+
+	if maxPriceCents > 0 {
+		query += fmt.Sprintf(" AND price <= $%d", paramCounter)
+		queryParams = append(queryParams, maxPriceCents)
+		paramCounter++
+	}
+
+	var count int
+	err := r.db.QueryRow(query, queryParams...).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // GetBySeller gets products by seller ID with pagination

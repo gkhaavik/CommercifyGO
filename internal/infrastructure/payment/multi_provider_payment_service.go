@@ -185,3 +185,12 @@ func (s *MultiProviderPaymentService) CancelPayment(transactionID string, provid
 func contains(slice []string, item string) bool {
 	return slices.Contains(slice, item)
 }
+
+func (s *MultiProviderPaymentService) ForceApprovePayment(transactionID string, phoneNumber string, provider service.PaymentProviderType) error {
+	paymentProvider, exists := s.providers[provider]
+	if !exists {
+		return fmt.Errorf("payment provider %s not available", provider)
+	}
+
+	return paymentProvider.ForceApprovePayment(transactionID, phoneNumber, provider)
+}

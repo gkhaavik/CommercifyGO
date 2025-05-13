@@ -5,6 +5,7 @@ import (
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/money"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 type MockCurrencyRepository struct {
@@ -12,7 +13,7 @@ type MockCurrencyRepository struct {
 	defaultCurrency *entity.Currency
 }
 
-func NewMockCurrencyRepository() *MockCurrencyRepository {
+func NewMockCurrencyRepository() repository.CurrencyRepository {
 	return &MockCurrencyRepository{
 		currencies: make(map[string]*entity.Currency),
 		defaultCurrency: &entity.Currency{

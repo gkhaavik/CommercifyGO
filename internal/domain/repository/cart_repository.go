@@ -8,6 +8,6 @@ type CartRepository interface {
 	GetByUserID(userID uint) (*entity.Cart, error)
 	GetBySessionID(sessionID string) (*entity.Cart, error)
 	Update(cart *entity.Cart) error
-	Delete(id uint) error
+	Delete(cartID uint) error
 	ConvertGuestCartToUserCart(sessionID string, userID uint) (*entity.Cart, error)
 }

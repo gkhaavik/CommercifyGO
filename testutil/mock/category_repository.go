@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockCategoryRepository is a mock implementation of the category repository
@@ -13,7 +14,7 @@ type MockCategoryRepository struct {
 }
 
 // NewMockCategoryRepository creates a new instance of MockCategoryRepository
-func NewMockCategoryRepository() *MockCategoryRepository {
+func NewMockCategoryRepository() repository.CategoryRepository {
 	return &MockCategoryRepository{
 		categories: make(map[uint]*entity.Category),
 		lastID:     0,

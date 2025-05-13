@@ -654,21 +654,21 @@ type SearchProductsInput struct {
 }
 
 // SearchProducts searches for products based on criteria
-func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.Product, error) {
+func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.Product, int, error) {
 	// If currency is specified and not the default, convert price ranges
 	var minPriceCents, maxPriceCents int64
 
 	// TODO: Default currency should be in memory
 	defaultCurr, err := uc.currencyRepo.GetDefault()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if input.CurrencyCode != "" && input.CurrencyCode != defaultCurr.Code {
 		// Get the currency
 		currency, err := uc.currencyRepo.GetByCode(input.CurrencyCode)
 		if err != nil {
-			return nil, errors.New("invalid currency code: " + input.CurrencyCode)
+			return nil, 0, errors.New("invalid currency code: " + input.CurrencyCode)
 		}
 
 		// Convert min/max prices to default currency using exchange rate
@@ -683,7 +683,7 @@ func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.P
 		maxPriceCents = money.ToCents(input.MaxPrice)
 	}
 
-	return uc.productRepo.Search(
+	products, err := uc.productRepo.Search(
 		input.Query,
 		input.CategoryID,
 		minPriceCents, // Pass cents
@@ -691,16 +691,51 @@ func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.P
 		input.Offset,
 		input.Limit,
 	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := uc.productRepo.CountSearch(
+		input.Query,
+		input.CategoryID,
+		minPriceCents, // Pass cents
+		maxPriceCents, // Pass cents
+	)
+	if err != nil {
+		return products, 0, err
+	}
+
+	return products, total, nil
 }
 
 // ListProductsBySeller lists products by seller
-func (uc *ProductUseCase) ListProductsBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error) {
-	return uc.productRepo.GetBySeller(sellerID, offset, limit)
+func (uc *ProductUseCase) ListProductsBySeller(sellerID uint, offset, limit int) ([]*entity.Product, int, error) {
+	products, err := uc.productRepo.GetBySeller(sellerID, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := uc.productRepo.CountBySeller(sellerID)
+	if err != nil {
+		return products, 0, err
+	}
+
+	return products, total, nil
 }
 
-// ListProducts lists all products with pagination
-func (uc *ProductUseCase) ListProducts(offset, limit int) ([]*entity.Product, error) {
-	return uc.productRepo.List(offset, limit)
+// ListProducts lists all products with pagination and returns total count
+func (uc *ProductUseCase) ListProducts(offset, limit int) ([]*entity.Product, int, error) {
+	products, err := uc.productRepo.List(offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := uc.productRepo.Count()
+	if err != nil {
+		return products, 0, err
+	}
+
+	return products, total, nil
 }
 
 // ListCategories lists all product categories

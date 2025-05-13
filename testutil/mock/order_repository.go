@@ -4,20 +4,24 @@ import (
 	"errors"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // OrderRepository is a mock implementation of the order repository interface
 type OrderRepository struct {
-	orders               map[uint]*entity.Order
-	paymentIDIndex       map[string]*entity.Order // Index to find orders by payment ID
-	MockIsDiscountIdUsed func(id uint) (bool, error)
+	orders           map[uint]*entity.Order
+	paymentIDIndex   map[string]*entity.Order // Index to find orders by payment ID
+	isDiscountIdUsed bool
 }
 
 // NewMockOrderRepository creates a new mock order repository
-func NewMockOrderRepository() *OrderRepository {
+func NewMockOrderRepository(
+	isDiscountIdUsed bool,
+) repository.OrderRepository {
 	return &OrderRepository{
-		orders:         make(map[uint]*entity.Order),
-		paymentIDIndex: make(map[string]*entity.Order),
+		orders:           make(map[uint]*entity.Order),
+		paymentIDIndex:   make(map[string]*entity.Order),
+		isDiscountIdUsed: isDiscountIdUsed,
 	}
 }
 
@@ -120,11 +124,14 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 	return orders[offset:end], nil
 }
 
+func (r *OrderRepository) SetIsDiscountIdUsed(isDiscountIdUsed bool) {
+	r.isDiscountIdUsed = isDiscountIdUsed
+}
+
 // IsDiscountIdUsed checks if a discount is used by any order in the mock repository
 func (r *OrderRepository) IsDiscountIdUsed(discountID uint) (bool, error) {
-	// If a mock function is provided, use it
-	if r.MockIsDiscountIdUsed != nil {
-		return r.MockIsDiscountIdUsed(discountID)
+	if r.isDiscountIdUsed {
+		return true, nil
 	}
 
 	// Otherwise fall back to the default implementation

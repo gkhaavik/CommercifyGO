@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // CartRepository implements the cart repository interface using PostgreSQL
@@ -14,7 +15,7 @@ type CartRepository struct {
 }
 
 // NewCartRepository creates a new CartRepository
-func NewCartRepository(db *sql.DB) *CartRepository {
+func NewCartRepository(db *sql.DB) repository.CartRepository {
 	return &CartRepository{db: db}
 }
 
@@ -277,9 +278,9 @@ func (r *CartRepository) Update(cart *entity.Cart) error {
 }
 
 // Delete deletes a cart
-func (r *CartRepository) Delete(id uint) error {
+func (r *CartRepository) Delete(cartID uint) error {
 	query := `DELETE FROM carts WHERE id = $1`
-	_, err := r.db.Exec(query, id)
+	_, err := r.db.Exec(query, cartID)
 	return err
 }
 

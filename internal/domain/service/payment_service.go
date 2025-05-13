@@ -96,4 +96,7 @@ type PaymentService interface {
 
 	// CancelPayment cancels a payment
 	CancelPayment(transactionID string, provider PaymentProviderType) error
+
+	// ForceApprovePayment force approves a payment
+	ForceApprovePayment(transactionID string, phoneNumber string, provider PaymentProviderType) error
 }

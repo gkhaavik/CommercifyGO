@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // ShippingMethodRepository implements the shipping method repository interface using PostgreSQL
@@ -14,7 +15,7 @@ type ShippingMethodRepository struct {
 }
 
 // NewShippingMethodRepository creates a new ShippingMethodRepository
-func NewShippingMethodRepository(db *sql.DB) *ShippingMethodRepository {
+func NewShippingMethodRepository(db *sql.DB) repository.ShippingMethodRepository {
 	return &ShippingMethodRepository{db: db}
 }
 
@@ -40,7 +41,7 @@ func (r *ShippingMethodRepository) Create(method *entity.ShippingMethod) error {
 }
 
 // GetByID retrieves a shipping method by ID
-func (r *ShippingMethodRepository) GetByID(id uint) (*entity.ShippingMethod, error) {
+func (r *ShippingMethodRepository) GetByID(methodID uint) (*entity.ShippingMethod, error) {
 	query := `
 		SELECT id, name, description, estimated_delivery_days, active, created_at, updated_at
 		FROM shipping_methods
@@ -48,7 +49,7 @@ func (r *ShippingMethodRepository) GetByID(id uint) (*entity.ShippingMethod, err
 	`
 
 	method := &entity.ShippingMethod{}
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, methodID).Scan(
 		&method.ID,
 		&method.Name,
 		&method.Description,
@@ -140,8 +141,8 @@ func (r *ShippingMethodRepository) Update(method *entity.ShippingMethod) error {
 }
 
 // Delete deletes a shipping method
-func (r *ShippingMethodRepository) Delete(id uint) error {
+func (r *ShippingMethodRepository) Delete(methodID uint) error {
 	query := `DELETE FROM shipping_methods WHERE id = $1`
-	_, err := r.db.Exec(query, id)
+	_, err := r.db.Exec(query, methodID)
 	return err
 }

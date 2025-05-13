@@ -32,8 +32,8 @@ type repositoryProvider struct {
 	mu        sync.Mutex
 
 	userRepo           repository.UserRepository
-	productRepo        repository.ProductRepository
 	productVariantRepo repository.ProductVariantRepository
+	productRepo        repository.ProductRepository
 	categoryRepo       repository.CategoryRepository
 	orderRepo          repository.OrderRepository
 	cartRepo           repository.CartRepository
@@ -71,7 +71,11 @@ func (p *repositoryProvider) ProductRepository() repository.ProductRepository {
 	defer p.mu.Unlock()
 
 	if p.productRepo == nil {
-		p.productRepo = postgres.NewProductRepository(p.container.DB())
+		// Initialize both repositories under the same lock
+		if p.productVariantRepo == nil {
+			p.productVariantRepo = postgres.NewProductVariantRepository(p.container.DB())
+		}
+		p.productRepo = postgres.NewProductRepository(p.container.DB(), p.productVariantRepo)
 	}
 	return p.productRepo
 }

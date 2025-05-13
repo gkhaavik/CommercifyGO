@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/common"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
 )
@@ -26,15 +27,10 @@ func NewCartHandler(cartUseCase *usecase.CartUseCase, logger logger.Logger) *Car
 	}
 }
 
-const (
-	sessionCookieName = "guest_session_id"
-	sessionCookieAge  = 86400 * 30 // 30 days in seconds
-)
-
 // getSessionID gets or creates a session ID for guest users
 func (h *CartHandler) getSessionID(w http.ResponseWriter, r *http.Request) string {
 	// Check if session cookie exists
-	cookie, err := r.Cookie(sessionCookieName)
+	cookie, err := r.Cookie(common.SessionCookieName)
 	if err == nil && cookie.Value != "" {
 		return cookie.Value
 	}
@@ -42,10 +38,10 @@ func (h *CartHandler) getSessionID(w http.ResponseWriter, r *http.Request) strin
 	// Create new session ID if none exists
 	sessionID := uuid.New().String()
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     common.SessionCookieName,
 		Value:    sessionID,
 		Path:     "/",
-		MaxAge:   sessionCookieAge,
+		MaxAge:   common.SessionCookieAge,
 		HttpOnly: true,
 		Secure:   r.TLS != nil, // Set secure flag if connection is HTTPS
 		SameSite: http.SameSiteLaxMode,
@@ -278,7 +274,7 @@ func (h *CartHandler) ConvertGuestCartToUserCart(w http.ResponseWriter, r *http.
 	}
 
 	// Get session ID from cookie
-	cookie, err := r.Cookie(sessionCookieName)
+	cookie, err := r.Cookie(common.SessionCookieName)
 	if err != nil || cookie.Value == "" {
 		// No guest cart to convert
 		cart, err := h.cartUseCase.GetOrCreateCart(userID)
@@ -303,7 +299,7 @@ func (h *CartHandler) ConvertGuestCartToUserCart(w http.ResponseWriter, r *http.
 
 	// Clear the session cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     common.SessionCookieName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,

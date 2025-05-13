@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
+	"github.com/zenfulcode/commercify/internal/domain/common"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -35,6 +36,12 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate shipping method ID
+	if input.ShippingMethodID == 0 {
+		http.Error(w, "Shipping method ID is required", http.StatusBadRequest)
+		return
+	}
+
 	// Check if user is authenticated
 	userID, ok := r.Context().Value("user_id").(uint)
 
@@ -48,7 +55,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Guest checkout
 		// Get session ID from cookie
-		cookie, cookieErr := r.Cookie(sessionCookieName)
+		cookie, cookieErr := r.Cookie(common.SessionCookieName)
 		if cookieErr != nil || cookie.Value == "" {
 			http.Error(w, "No cart session found", http.StatusBadRequest)
 			return
@@ -87,7 +94,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 
 	// Get order ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["orderId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return
@@ -148,7 +155,7 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 	// Get order ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["orderId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return
@@ -198,7 +205,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Only allow payment processing for guest orders if they have a valid cookie
-		cookie, cookieErr := r.Cookie(sessionCookieName)
+		cookie, cookieErr := r.Cookie(common.SessionCookieName)
 		if cookieErr != nil || cookie.Value == "" {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
@@ -302,7 +309,7 @@ func (h *OrderHandler) ListAllOrders(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	// Get order ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["orderId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return

@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // ShippingRateRepository implements the shipping rate repository interface using PostgreSQL
@@ -18,7 +19,7 @@ type ShippingRateRepository struct {
 }
 
 // NewShippingRateRepository creates a new ShippingRateRepository
-func NewShippingRateRepository(db *sql.DB) *ShippingRateRepository {
+func NewShippingRateRepository(db *sql.DB) repository.ShippingRateRepository {
 	return &ShippingRateRepository{db: db}
 }
 
@@ -53,7 +54,7 @@ func (r *ShippingRateRepository) Create(rate *entity.ShippingRate) error {
 }
 
 // GetByID retrieves a shipping rate by ID
-func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) {
+func (r *ShippingRateRepository) GetByID(rateID uint) (*entity.ShippingRate, error) {
 	// First, get the basic shipping rate data
 	query := `
 		SELECT id, shipping_method_id, shipping_zone_id, base_rate, min_order_value, 
@@ -68,7 +69,7 @@ func (r *ShippingRateRepository) GetByID(id uint) (*entity.ShippingRate, error) 
 		ShippingZone:   &entity.ShippingZone{},
 	}
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, rateID).Scan(
 		&rate.ID,
 		&rate.ShippingMethodID,
 		&rate.ShippingZoneID,
@@ -547,7 +548,7 @@ func (r *ShippingRateRepository) Update(rate *entity.ShippingRate) error {
 }
 
 // Delete deletes a shipping rate
-func (r *ShippingRateRepository) Delete(id uint) error {
+func (r *ShippingRateRepository) Delete(rateID uint) error {
 	// Start a transaction to delete related records as well
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -560,19 +561,19 @@ func (r *ShippingRateRepository) Delete(id uint) error {
 	}()
 
 	// Delete weight-based rates first
-	_, err = tx.Exec("DELETE FROM weight_based_rates WHERE shipping_rate_id = $1", id)
+	_, err = tx.Exec("DELETE FROM weight_based_rates WHERE shipping_rate_id = $1", rateID)
 	if err != nil {
 		return err
 	}
 
 	// Delete value-based rates
-	_, err = tx.Exec("DELETE FROM value_based_rates WHERE shipping_rate_id = $1", id)
+	_, err = tx.Exec("DELETE FROM value_based_rates WHERE shipping_rate_id = $1", rateID)
 	if err != nil {
 		return err
 	}
 
 	// Delete the shipping rate itself
-	_, err = tx.Exec("DELETE FROM shipping_rates WHERE id = $1", id)
+	_, err = tx.Exec("DELETE FROM shipping_rates WHERE id = $1", rateID)
 	if err != nil {
 		return err
 	}

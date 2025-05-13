@@ -142,3 +142,44 @@ func (h *PaymentHandler) RefundPayment(w http.ResponseWriter, r *http.Request) {
 		"message": "Payment refunded successfully",
 	})
 }
+
+// ForceApproveMobilePayPayment handles force approving a MobilePay payment (admin only)
+func (h *PaymentHandler) ForceApproveMobilePayPayment(w http.ResponseWriter, r *http.Request) {
+	// Get payment ID from URL
+	vars := mux.Vars(r)
+	paymentID := vars["paymentId"]
+	if paymentID == "" {
+		http.Error(w, "Invalid payment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse request body
+	var input struct {
+		PhoneNumber string `json:"phone_number"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate phone number
+	if input.PhoneNumber == "" {
+		http.Error(w, "Phone number is required", http.StatusBadRequest)
+		return
+	}
+
+	// Force approve payment
+	err := h.orderUseCase.ForceApproveMobilePayPayment(paymentID, input.PhoneNumber)
+	if err != nil {
+		h.logger.Error("Failed to force approve payment: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Return success
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "success",
+		"message": "Payment force approved successfully",
+	})
+}

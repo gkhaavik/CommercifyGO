@@ -9,6 +9,7 @@ import (
 	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
 	"github.com/zenfulcode/commercify/internal/domain/service"
+	"github.com/zenfulcode/commercify/internal/infrastructure/payment"
 )
 
 // OrderUseCase implements order-related use cases
@@ -60,7 +61,7 @@ type CreateOrderInput struct {
 	Email            string         `json:"email,omitempty"`
 	PhoneNumber      string         `json:"phone_number,omitempty"`
 	FullName         string         `json:"full_name,omitempty"`
-	ShippingMethodID uint           `json:"shipping_method_id,omitempty"`
+	ShippingMethodID uint           `json:"shipping_method_id"`
 }
 
 // CreateOrderFromCart creates an order from a user's cart
@@ -79,6 +80,11 @@ func (uc *OrderUseCase) CreateOrderFromCart(input CreateOrderInput) (*entity.Ord
 
 // createOrderFromUserCart creates an order from an authenticated user's cart
 func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity.Order, error) {
+	// Validate shipping method ID
+	if input.ShippingMethodID == 0 {
+		return nil, errors.New("shipping method ID is required")
+	}
+
 	// Get user's cart
 	cart, err := uc.cartRepo.GetByUserID(input.UserID)
 	if err != nil {
@@ -145,8 +151,11 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 	// Set the total weight
 	order.TotalWeight = totalWeight
 
+	// Set shipping method ID
+	order.ShippingMethodID = input.ShippingMethodID
+
 	// Apply shipping method if specified
-	if input.ShippingMethodID > 0 && uc.shippingUseCase != nil {
+	if uc.shippingUseCase != nil {
 		shippingMethod, err := uc.shippingUseCase.GetShippingMethodByID(input.ShippingMethodID)
 		if err != nil {
 			return nil, errors.New("shipping method not found")
@@ -197,6 +206,11 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 
 	if input.FullName == "" {
 		return nil, errors.New("full name is required for guest checkout")
+	}
+
+	// Validate shipping method ID
+	if input.ShippingMethodID == 0 {
+		return nil, errors.New("shipping method ID is required")
 	}
 
 	// Get guest's cart
@@ -261,8 +275,11 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 	// Set the total weight
 	order.TotalWeight = totalWeight
 
+	// Set shipping method ID
+	order.ShippingMethodID = input.ShippingMethodID
+
 	// Apply shipping method if specified
-	if input.ShippingMethodID > 0 && uc.shippingUseCase != nil {
+	if uc.shippingUseCase != nil {
 		shippingMethod, err := uc.shippingUseCase.GetShippingMethodByID(input.ShippingMethodID)
 		if err != nil {
 			return nil, errors.New("shipping method not found")
@@ -475,7 +492,6 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 		txn.AddMetadata("payment_method", string(input.PaymentMethod))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the payment process
 			log.Printf("Failed to save payment transaction: %v\n", err)
 		}
 	}
@@ -555,9 +571,15 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 	if order.Status != string(entity.OrderStatusPaid) {
 		return errors.New("payment capture not allowed in current order status")
 	}
+
 	// Check if the amount is valid
 	if amount <= 0 {
 		return errors.New("capture amount must be greater than zero")
+	}
+
+	// Check if amount is greater than the order amount
+	if amount > order.FinalAmount {
+		return errors.New("capture amount cannot exceed the original payment amount")
 	}
 
 	providerType := service.PaymentProviderType(order.PaymentProvider)
@@ -575,26 +597,24 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 			"USD",
 			string(providerType),
 		)
+
 		if txErr == nil {
 			txn.AddMetadata("error", err.Error())
-			if createErr := uc.paymentTxnRepo.Create(txn); createErr != nil {
-				txn.AddMetadata("create_error", createErr.Error())
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				log.Printf("Failed to save capture transaction: %v\n", err)
 			}
 		}
 
 		return fmt.Errorf("failed to capture payment: %v", err)
 	}
 
-	// Update order status if needed
-	if order.Status != string(entity.OrderStatusCaptured) {
-		if err := order.UpdateStatus(entity.OrderStatusCaptured); err != nil {
-			return fmt.Errorf("failed to update order status: %v", err)
-		}
+	if err := order.UpdateStatus(entity.OrderStatusCaptured); err != nil {
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
 
-		// Save the updated order in repository
-		if err := uc.orderRepo.Update(order); err != nil {
-			return fmt.Errorf("failed to save order status: %v", err)
-		}
+	// Save the updated order in repository
+	if err := uc.orderRepo.Update(order); err != nil {
+		return fmt.Errorf("failed to save order status: %v", err)
 	}
 
 	// Record successful capture transaction
@@ -622,7 +642,6 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 		}
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the payment process
 			log.Printf("Failed to save capture transaction: %v\n", err)
 		}
 	}
@@ -667,7 +686,9 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 		)
 		if txErr == nil {
 			txn.AddMetadata("error", err.Error())
-			uc.paymentTxnRepo.Create(txn)
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				log.Printf("Failed to save cancel transaction: %v\n", err)
+			}
 		}
 
 		return fmt.Errorf("failed to cancel payment: %v", err)
@@ -697,7 +718,6 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 		txn.AddMetadata("previous_status", string(entity.OrderStatusPendingAction))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the cancel process
 			log.Printf("Failed to save cancel transaction: %v\n", err)
 		}
 	}
@@ -756,7 +776,9 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error 
 		)
 		if txErr == nil {
 			txn.AddMetadata("error", err.Error())
-			uc.paymentTxnRepo.Create(txn)
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				log.Printf("Failed to save refund transaction: %v\n", err)
+			}
 		}
 
 		return fmt.Errorf("failed to refund payment: %v", err)
@@ -803,7 +825,6 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error 
 		txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", money.FromCents(remainingAmount)))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the refund process
 			log.Printf("Failed to save refund transaction: %v\n", err)
 		}
 	}
@@ -871,4 +892,31 @@ func (uc *OrderUseCase) RecordPaymentTransaction(transaction *entity.PaymentTran
 
 	// Create transaction record
 	return uc.paymentTxnRepo.Create(transaction)
+}
+
+func (uc *OrderUseCase) UpdatePaymentTransaction(transactionID string, status entity.TransactionStatus, metadata map[string]string) error {
+	txn, err := uc.paymentTxnRepo.GetByTransactionID(transactionID)
+	if err != nil {
+		return fmt.Errorf("failed to get payment transaction: %w", err)
+	}
+
+	txn.UpdateStatus(status)
+
+	for key, value := range metadata {
+		txn.AddMetadata(key, value)
+	}
+
+	return uc.paymentTxnRepo.Update(txn)
+}
+
+// ForceApproveMobilePayPayment force approves a MobilePay payment
+func (uc *OrderUseCase) ForceApproveMobilePayPayment(paymentID string, phoneNumber string) error {
+	// Get the payment service
+	paymentSvc, ok := uc.paymentSvc.(*payment.MultiProviderPaymentService)
+	if !ok {
+		return errors.New("invalid payment service")
+	}
+
+	// Force approve the payment
+	return paymentSvc.ForceApprovePayment(paymentID, phoneNumber, service.PaymentProviderMobilePay)
 }

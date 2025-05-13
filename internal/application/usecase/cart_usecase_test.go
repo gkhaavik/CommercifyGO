@@ -21,7 +21,7 @@ func TestCartUseCase_GetOrCreateCart(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -68,7 +68,7 @@ func TestCartUseCase_GetOrCreateGuestCart(t *testing.T) {
 			SessionID: sessionID,
 			Items:     []entity.CartItem{},
 		}
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -121,7 +121,7 @@ func TestCartUseCase_AddToCart(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -180,7 +180,7 @@ func TestCartUseCase_AddToCart(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -228,7 +228,7 @@ func TestCartUseCase_AddToCartWithVariant(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -267,7 +267,7 @@ func TestCartUseCase_AddToCartWithVariant(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -314,7 +314,7 @@ func TestCartUseCase_AddToCartWithVariant(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -377,7 +377,7 @@ func TestCartUseCase_AddMultipleVariantsToCart(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -462,7 +462,7 @@ func TestCartUseCase_MixedCartWithVariantsAndRegularProducts(t *testing.T) {
 		userID := uint(1)
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -521,7 +521,7 @@ func TestCartUseCase_RemoveFromCartWithVariant(t *testing.T) {
 		cart.AddItem(1, 1, 2) // Product 1, Variant 1
 		cart.AddItem(1, 2, 1) // Product 1, Variant 2
 		cart.AddItem(2, 0, 3) // Product 2, No variant
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -569,7 +569,7 @@ func TestCartUseCase_RemoveFromCartWithVariant(t *testing.T) {
 		cart, _ := entity.NewCart(userID)
 		cart.ID = 1
 		cart.AddItem(1, 1, 2) // Product 1, Variant 1
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -617,7 +617,7 @@ func TestCartUseCase_AddToGuestCartWithVariant(t *testing.T) {
 			SessionID: sessionID,
 			Items:     []entity.CartItem{},
 		}
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -668,7 +668,7 @@ func TestCartUseCase_AddToGuestCartWithVariant(t *testing.T) {
 			SessionID: sessionID,
 			Items:     []entity.CartItem{},
 		}
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -727,7 +727,7 @@ func TestCartUseCase_UpdateGuestCartItemWithVariant(t *testing.T) {
 				},
 			},
 		}
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -783,7 +783,7 @@ func TestCartUseCase_RemoveFromGuestCartWithVariant(t *testing.T) {
 				},
 			},
 		}
-		cartRepo.CreateWithID(cart)
+		cartRepo.Create(cart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -849,7 +849,7 @@ func TestCartUseCase_ConvertGuestCartToUserCartWithVariants(t *testing.T) {
 				},
 			},
 		}
-		cartRepo.CreateWithID(guestCart)
+		cartRepo.Create(guestCart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)
@@ -896,7 +896,7 @@ func TestCartUseCase_MergingCartWithVariants(t *testing.T) {
 		userCart.ID = 1
 		userCart.AddItem(1, 2, 1) // Product 1, Variant 2
 		userCart.AddItem(3, 0, 2) // Product 3, No variant
-		cartRepo.CreateWithID(userCart)
+		cartRepo.Create(userCart)
 
 		// Create a guest cart with some items
 		sessionID := "test-session-123"
@@ -926,7 +926,7 @@ func TestCartUseCase_MergingCartWithVariants(t *testing.T) {
 				},
 			},
 		}
-		cartRepo.CreateWithID(guestCart)
+		cartRepo.Create(guestCart)
 
 		// Create use case with mocks
 		cartUseCase := usecase.NewCartUseCase(cartRepo, productRepo)

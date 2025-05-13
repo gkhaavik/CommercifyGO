@@ -17,7 +17,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -66,7 +66,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create product
 		product := &entity.Product{
@@ -116,7 +116,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test category
 		category := &entity.Category{
@@ -168,7 +168,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create existing discount
 		existingDiscount, _ := entity.NewDiscount(
@@ -222,7 +222,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -262,7 +262,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -301,7 +301,7 @@ func TestDiscountUseCase_CreateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -342,7 +342,7 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test products
 		product1 := &entity.Product{
@@ -401,7 +401,7 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test products
 		product1 := &entity.Product{
@@ -492,7 +492,7 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test products
 		product1 := &entity.Product{
@@ -583,7 +583,7 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test products
 		product1 := &entity.Product{
@@ -676,7 +676,7 @@ func TestDiscountUseCase_GetDiscountByID(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(
@@ -716,7 +716,7 @@ func TestDiscountUseCase_GetDiscountByID(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -741,7 +741,7 @@ func TestDiscountUseCase_GetDiscountByCode(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(
@@ -781,7 +781,7 @@ func TestDiscountUseCase_GetDiscountByCode(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -806,7 +806,7 @@ func TestDiscountUseCase_UpdateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(
@@ -860,7 +860,7 @@ func TestDiscountUseCase_UpdateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -889,7 +889,7 @@ func TestDiscountUseCase_UpdateDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create two test discounts
 		discount1, _ := entity.NewDiscount(
@@ -950,7 +950,7 @@ func TestDiscountUseCase_DeleteDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(
@@ -967,11 +967,6 @@ func TestDiscountUseCase_DeleteDiscount(t *testing.T) {
 			0,
 		)
 		discountRepo.Create(discount)
-
-		// Configure orderRepo mock to say discount is not used
-		orderRepo.MockIsDiscountIdUsed = func(id uint) (bool, error) {
-			return false, nil
-		}
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -997,7 +992,7 @@ func TestDiscountUseCase_DeleteDiscount(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(true)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(
@@ -1014,11 +1009,6 @@ func TestDiscountUseCase_DeleteDiscount(t *testing.T) {
 			0,
 		)
 		discountRepo.Create(discount)
-
-		// Configure orderRepo mock to say discount is used
-		orderRepo.MockIsDiscountIdUsed = func(id uint) (bool, error) {
-			return true, nil
-		}
 
 		// Create use case with mocks
 		discountUseCase := usecase.NewDiscountUseCase(
@@ -1047,7 +1037,7 @@ func TestDiscountUseCase_ListDiscounts(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create multiple test discounts
 		for i := 1; i <= 5; i++ {
@@ -1098,7 +1088,7 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(
@@ -1173,7 +1163,7 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test category
 		category := &entity.Category{
@@ -1213,14 +1203,6 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 			0,
 		)
 		discountRepo.Create(discount)
-
-		// Set up product repo mock search behavior
-		productRepo.MockSearch = func(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error) {
-			if categoryID == 1 {
-				return []*entity.Product{product1, product2}, nil
-			}
-			return []*entity.Product{}, nil
-		}
 
 		// Create test order items including products from the category
 		items := []entity.OrderItem{
@@ -1288,7 +1270,7 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test order items
 		items := []entity.OrderItem{
@@ -1338,7 +1320,7 @@ func TestDiscountUseCase_RemoveDiscountFromOrder(t *testing.T) {
 		discountRepo := mock.NewMockDiscountRepository()
 		productRepo := mock.NewMockProductRepository()
 		categoryRepo := mock.NewMockCategoryRepository()
-		orderRepo := mock.NewMockOrderRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test discount
 		discount, _ := entity.NewDiscount(

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // WebhookRepository implements the WebhookRepository interface using PostgreSQL
@@ -15,7 +16,7 @@ type WebhookRepository struct {
 }
 
 // NewWebhookRepository creates a new WebhookRepository
-func NewWebhookRepository(db *sql.DB) *WebhookRepository {
+func NewWebhookRepository(db *sql.DB) repository.WebhookRepository {
 	return &WebhookRepository{
 		db: db,
 	}

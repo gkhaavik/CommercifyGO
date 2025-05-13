@@ -5,24 +5,40 @@ import (
 	"strings"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockProductRepository is a mock implementation of product repository for testing
 type MockProductRepository struct {
-	products map[uint]*entity.Product
-	bySeller map[uint][]*entity.Product
-	lastID   uint
-	// Add MockSearch function field for custom search behavior in tests
-	MockSearch func(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error)
+	products    map[uint]*entity.Product
+	bySeller    map[uint][]*entity.Product
+	lastID      uint
+	searchCount int
 }
 
 // NewMockProductRepository creates a new instance of MockProductRepository
-func NewMockProductRepository() *MockProductRepository {
+func NewMockProductRepository() repository.ProductRepository {
 	return &MockProductRepository{
-		products: make(map[uint]*entity.Product),
-		bySeller: make(map[uint][]*entity.Product),
-		lastID:   0,
+		products:    make(map[uint]*entity.Product),
+		bySeller:    make(map[uint][]*entity.Product),
+		lastID:      0,
+		searchCount: 0,
 	}
+}
+
+// Count returns the number of products in the repository
+func (r *MockProductRepository) Count() (int, error) {
+	return len(r.products), nil
+}
+
+// CountBySeller implements repository.ProductRepository.
+func (r *MockProductRepository) CountBySeller(sellerID uint) (int, error) {
+	return len(r.bySeller[sellerID]), nil
+}
+
+// CountSearch implements repository.ProductRepository.
+func (r *MockProductRepository) CountSearch(searchQuery string, categoryID uint, minPriceCents int64, maxPriceCents int64) (int, error) {
+	return len(r.products), nil
 }
 
 // Create adds a product to the repository
@@ -106,10 +122,6 @@ func (r *MockProductRepository) List(offset, limit int) ([]*entity.Product, erro
 
 // Search searches for products based on criteria
 func (r *MockProductRepository) Search(query string, categoryID uint, minPrice, maxPrice int64, offset, limit int) ([]*entity.Product, error) {
-	if r.MockSearch != nil {
-		// Use the custom search function if provided
-		return r.MockSearch(query, categoryID, minPrice, maxPrice, offset, limit)
-	}
 
 	result := make([]*entity.Product, 0)
 	count := 0

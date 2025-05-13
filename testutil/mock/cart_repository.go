@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // MockCartRepository is a mock implementation of the CartRepository interface
@@ -18,7 +19,7 @@ type MockCartRepository struct {
 }
 
 // NewMockCartRepository creates a new mock cart repository
-func NewMockCartRepository() *MockCartRepository {
+func NewMockCartRepository() repository.CartRepository {
 	return &MockCartRepository{
 		carts:      make(map[uint]*entity.Cart),
 		guestCarts: make(map[string]*entity.Cart),

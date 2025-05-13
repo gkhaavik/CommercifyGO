@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
+	"github.com/zenfulcode/commercify/internal/domain/repository"
 )
 
 // OrderRepository implements the order repository interface using PostgreSQL
@@ -15,7 +16,7 @@ type OrderRepository struct {
 }
 
 // NewOrderRepository creates a new OrderRepository
-func NewOrderRepository(db *sql.DB) *OrderRepository {
+func NewOrderRepository(db *sql.DB) repository.OrderRepository {
 	return &OrderRepository{db: db}
 }
 
@@ -55,9 +56,10 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			INSERT INTO orders (
 				user_id, total_amount, status, shipping_address, billing_address,
 				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount,
-				guest_email, guest_phone, guest_full_name, is_guest_order
+				guest_email, guest_phone, guest_full_name, is_guest_order, shipping_method_id, shipping_cost,
+				total_weight
 			)
-			VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 			RETURNING id
 		`
 
@@ -78,15 +80,19 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			order.GuestPhone,
 			order.GuestFullName,
 			order.IsGuestOrder,
+			order.ShippingMethodID,
+			order.ShippingCost,
+			order.TotalWeight,
 		).Scan(&order.ID)
 	} else {
 		// Regular user order
 		query = `
 			INSERT INTO orders (
 				user_id, total_amount, status, shipping_address, billing_address,
-				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount
+				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount,
+				shipping_method_id, shipping_cost, total_weight
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 			RETURNING id
 		`
 
@@ -104,6 +110,9 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			order.UpdatedAt,
 			order.CompletedAt,
 			order.FinalAmount,
+			order.ShippingMethodID,
+			order.ShippingCost,
+			order.TotalWeight,
 		).Scan(&order.ID)
 	}
 
@@ -150,13 +159,14 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 }
 
 // GetByID retrieves an order by ID
-func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
+func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 	// Get order
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
 			discount_amount, discount_id, discount_code, final_amount, action_url,
-			guest_email, guest_phone, guest_full_name, is_guest_order
+			guest_email, guest_phone, guest_full_name, is_guest_order, shipping_method_id, shipping_cost,
+			total_weight
 		FROM orders
 		WHERE id = $1
 	`
@@ -170,11 +180,14 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	var userID sql.NullInt64 // Use NullInt64 to handle NULL user_id
 	var guestEmail, guestPhone, guestFullName sql.NullString
 	var isGuestOrder sql.NullBool
+	var shippingMethodID sql.NullInt64
+	var shippingCost sql.NullInt64
+	var totalWeight sql.NullFloat64
 
 	var discountID sql.NullInt64
 	var discountCode sql.NullString
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, orderID).Scan(
 		&order.ID,
 		&orderNumber,
 		&userID,
@@ -197,6 +210,9 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 		&guestPhone,
 		&guestFullName,
 		&isGuestOrder,
+		&shippingMethodID,
+		&shippingCost,
+		&totalWeight,
 	)
 
 	if err == sql.ErrNoRows {
@@ -267,6 +283,21 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 		order.CompletedAt = &completedAt.Time
 	}
 
+	// Set shipping method ID if valid
+	if shippingMethodID.Valid {
+		order.ShippingMethodID = uint(shippingMethodID.Int64)
+	}
+
+	// Set shipping cost if valid
+	if shippingCost.Valid {
+		order.ShippingCost = shippingCost.Int64
+	}
+
+	// Set total weight if valid
+	if totalWeight.Valid {
+		order.TotalWeight = totalWeight.Float64
+	}
+
 	// Get order items
 	query = `
 		SELECT id, order_id, product_id, quantity, price, subtotal
@@ -322,8 +353,11 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 			discount_id = $11,
 			discount_amount = $12,
 			discount_code = $13,
-			action_url = $14
-		WHERE id = $15
+			action_url = $14,
+			shipping_method_id = $15,
+			shipping_cost = $16,
+			total_weight = $17
+		WHERE id = $18
 	`
 
 	var discountID sql.NullInt64
@@ -354,6 +388,9 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 		discountAmount,
 		discountCode,
 		order.ActionURL,
+		order.ShippingMethodID,
+		order.ShippingCost,
+		order.TotalWeight,
 		order.ID,
 	)
 
