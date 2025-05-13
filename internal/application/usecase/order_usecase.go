@@ -492,7 +492,6 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 		txn.AddMetadata("payment_method", string(input.PaymentMethod))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the payment process
 			log.Printf("Failed to save payment transaction: %v\n", err)
 		}
 	}
@@ -598,14 +597,13 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 			"USD",
 			string(providerType),
 		)
+
 		if txErr == nil {
 			txn.AddMetadata("error", err.Error())
-			if createErr := uc.paymentTxnRepo.Create(txn); createErr != nil {
-				txn.AddMetadata("create_error", createErr.Error())
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				log.Printf("Failed to save capture transaction: %v\n", err)
 			}
 		}
-
-		uc.paymentTxnRepo.Update(txn)
 
 		return fmt.Errorf("failed to capture payment: %v", err)
 	}
@@ -644,12 +642,9 @@ func (uc *OrderUseCase) CapturePayment(transactionID string, amount int64) error
 		}
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the payment process
 			log.Printf("Failed to save capture transaction: %v\n", err)
 		}
 	}
-
-	uc.paymentTxnRepo.Update(txn)
 
 	return nil
 }
@@ -691,7 +686,9 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 		)
 		if txErr == nil {
 			txn.AddMetadata("error", err.Error())
-			uc.paymentTxnRepo.Create(txn)
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				log.Printf("Failed to save cancel transaction: %v\n", err)
+			}
 		}
 
 		return fmt.Errorf("failed to cancel payment: %v", err)
@@ -721,12 +718,10 @@ func (uc *OrderUseCase) CancelPayment(transactionID string) error {
 		txn.AddMetadata("previous_status", string(entity.OrderStatusPendingAction))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the cancel process
 			log.Printf("Failed to save cancel transaction: %v\n", err)
 		}
 	}
 
-	uc.paymentTxnRepo.Update(txn)
 	return nil
 }
 
@@ -781,7 +776,9 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error 
 		)
 		if txErr == nil {
 			txn.AddMetadata("error", err.Error())
-			uc.paymentTxnRepo.Create(txn)
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				log.Printf("Failed to save refund transaction: %v\n", err)
+			}
 		}
 
 		return fmt.Errorf("failed to refund payment: %v", err)
@@ -828,7 +825,6 @@ func (uc *OrderUseCase) RefundPayment(transactionID string, amount int64) error 
 		txn.AddMetadata("remaining_available", fmt.Sprintf("%.2f", money.FromCents(remainingAmount)))
 
 		if err := uc.paymentTxnRepo.Create(txn); err != nil {
-			// Log error but don't fail the refund process
 			log.Printf("Failed to save refund transaction: %v\n", err)
 		}
 	}

@@ -179,7 +179,6 @@ func (h *WebhookHandler) HandleMobilePayAuthorized(event *models.WebhookEvent) e
 	err = h.recordMobilePayPaymentTransaction(order, entity.TransactionStatusSuccessful, event)
 	if err != nil {
 		h.logger.Error("Failed to record payment transaction: %v", err)
-		return err
 	}
 
 	h.logger.Info("MobilePay payment authorized for order %d", orderID)
@@ -456,7 +455,6 @@ func (h *WebhookHandler) handlePaymentSucceeded(event stripe.Event) {
 		err = h.orderUseCase.RecordPaymentTransaction(txn)
 		if err != nil {
 			h.logger.Error("Failed to record payment transaction: %v", err)
-			// Continue processing even if transaction recording fails
 		}
 	}
 
