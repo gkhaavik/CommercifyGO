@@ -331,7 +331,6 @@ export interface CreateUserRequest {
   password: string;
   first_name: string;
   last_name: string;
-  role: string;
 }
 /**
  * UpdateUserRequest represents the data needed to update an existing user
