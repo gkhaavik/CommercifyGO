@@ -112,7 +112,7 @@ func (r *ProductRepository) createProductPrice(price *entity.ProductPrice) error
 }
 
 // GetByID gets a product by ID
-func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
+func (r *ProductRepository) GetByID(productID uint) (*entity.Product, error) {
 	query := `
 			SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
 			FROM products
@@ -123,7 +123,7 @@ func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 	product := &entity.Product{}
 	var productNumber sql.NullString
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, productID).Scan(
 		&product.ID,
 		&productNumber,
 		&product.Name,
@@ -212,16 +212,16 @@ func (r *ProductRepository) getProductPrices(productID uint) ([]entity.ProductPr
 }
 
 // GetByIDWithVariants gets a product by ID with variants
-func (r *ProductRepository) GetByIDWithVariants(productId uint) (*entity.Product, error) {
+func (r *ProductRepository) GetByIDWithVariants(productID uint) (*entity.Product, error) {
 	// Get the base product
-	product, err := r.GetByID(productId)
+	product, err := r.GetByID(productID)
 	if err != nil {
 		return nil, err
 	}
 
 	// If product has variants, get them
 	if product.HasVariants {
-		variants, err := r.variantRepository.GetByProduct(productId)
+		variants, err := r.variantRepository.GetByProduct(productID)
 		if err != nil {
 			return nil, err
 		}
@@ -284,7 +284,7 @@ func (r *ProductRepository) Update(product *entity.Product) error {
 }
 
 // Delete deletes a product
-func (r *ProductRepository) Delete(id uint) error {
+func (r *ProductRepository) Delete(productID uint) error {
 	// Start a transaction to delete variants as well
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -297,13 +297,13 @@ func (r *ProductRepository) Delete(id uint) error {
 	}()
 
 	// Delete variants first
-	_, err = tx.Exec("DELETE FROM product_variants WHERE product_id = $1", id)
+	_, err = tx.Exec("DELETE FROM product_variants WHERE product_id = $1", productID)
 	if err != nil {
 		return err
 	}
 
 	// Delete the product
-	_, err = tx.Exec("DELETE FROM products WHERE id = $1", id)
+	_, err = tx.Exec("DELETE FROM products WHERE id = $1", productID)
 	if err != nil {
 		return err
 	}

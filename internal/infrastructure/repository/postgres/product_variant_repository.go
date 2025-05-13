@@ -129,7 +129,7 @@ func (r *ProductVariantRepository) createVariantPrice(price *entity.ProductVaria
 }
 
 // GetByID gets a variant by ID
-func (r *ProductVariantRepository) GetByID(id uint) (*entity.ProductVariant, error) {
+func (r *ProductVariantRepository) GetByID(variantID uint) (*entity.ProductVariant, error) {
 	query := `
 		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
@@ -140,7 +140,7 @@ func (r *ProductVariantRepository) GetByID(id uint) (*entity.ProductVariant, err
 	variant := &entity.ProductVariant{}
 	var comparePrice sql.NullInt64
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, variantID).Scan(
 		&variant.ID,
 		&variant.ProductID,
 		&variant.SKU,
@@ -309,7 +309,7 @@ func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error 
 }
 
 // Delete deletes a product variant
-func (r *ProductVariantRepository) Delete(id uint) error {
+func (r *ProductVariantRepository) Delete(variantID uint) error {
 	// Check if this is the only variant or if it's the default variant
 	var isDefault bool
 	var productID uint
@@ -318,7 +318,7 @@ func (r *ProductVariantRepository) Delete(id uint) error {
 	// First verify the variant exists and get its product ID
 	err := r.db.QueryRow(
 		"SELECT is_default, product_id FROM product_variants WHERE id = $1",
-		id,
+		variantID,
 	).Scan(&isDefault, &productID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -348,7 +348,7 @@ func (r *ProductVariantRepository) Delete(id uint) error {
 	}()
 
 	// Delete the variant
-	result, err := tx.Exec("DELETE FROM product_variants WHERE id = $1", id)
+	result, err := tx.Exec("DELETE FROM product_variants WHERE id = $1", variantID)
 	if err != nil {
 		return err
 	}
@@ -384,7 +384,7 @@ func (r *ProductVariantRepository) Delete(id uint) error {
 				ORDER BY id ASC 
 				LIMIT 1
 			)
-		`, productID, id)
+		`, productID, variantID)
 		if err != nil {
 			return err
 		}
