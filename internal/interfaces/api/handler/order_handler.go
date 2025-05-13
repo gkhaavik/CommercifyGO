@@ -94,7 +94,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 
 	// Get order ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["orderId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return
@@ -155,7 +155,7 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 	// Get order ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["orderId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return
@@ -309,7 +309,7 @@ func (h *OrderHandler) ListAllOrders(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	// Get order ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["orderId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return

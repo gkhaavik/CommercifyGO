@@ -142,8 +142,8 @@ func (s *Server) setupRoutes() {
 
 	// Product routes (seller only)
 	protected.HandleFunc("/products", productHandler.CreateProduct).Methods(http.MethodPost)
-	protected.HandleFunc("/products/{id:[0-9]+}", productHandler.UpdateProduct).Methods(http.MethodPut)
-	protected.HandleFunc("/products/{id:[0-9]+}", productHandler.DeleteProduct).Methods(http.MethodDelete)
+	protected.HandleFunc("/products/{productId:[0-9]+}", productHandler.UpdateProduct).Methods(http.MethodPut)
+	protected.HandleFunc("/products/{productId:[0-9]+}", productHandler.DeleteProduct).Methods(http.MethodDelete)
 	protected.HandleFunc("/products/seller", productHandler.ListSellerProducts).Methods(http.MethodGet)
 
 	// Product variant routes (seller only)
@@ -160,9 +160,9 @@ func (s *Server) setupRoutes() {
 
 	// Order routes
 	protected.HandleFunc("/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
-	protected.HandleFunc("/orders/{id:[0-9]+}", orderHandler.GetOrder).Methods(http.MethodGet)
+	protected.HandleFunc("/orders/{orderId:[0-9]+}", orderHandler.GetOrder).Methods(http.MethodGet)
 	protected.HandleFunc("/orders", orderHandler.ListOrders).Methods(http.MethodGet)
-	protected.HandleFunc("/orders/{id:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
+	protected.HandleFunc("/orders/{orderId:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
 
 	// Discount routes
 	protected.HandleFunc("/discounts", discountHandler.CreateDiscount).Methods(http.MethodPost)
@@ -179,7 +179,7 @@ func (s *Server) setupRoutes() {
 	admin.Use(middleware.AdminOnly)
 	admin.HandleFunc("/users", userHandler.ListUsers).Methods(http.MethodGet)
 	admin.HandleFunc("/orders", orderHandler.ListAllOrders).Methods(http.MethodGet)
-	admin.HandleFunc("/orders/{id:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
+	admin.HandleFunc("/orders/{orderId:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
 
 	// Admin currency routes
 	admin.HandleFunc("/currencies/all", currencyHandler.ListCurrencies).Methods(http.MethodGet)
@@ -190,14 +190,14 @@ func (s *Server) setupRoutes() {
 
 	// Shipping management routes (admin only)
 	admin.HandleFunc("/shipping/methods", shippingHandler.CreateShippingMethod).Methods(http.MethodPost)
-	admin.HandleFunc("/shipping/methods/{id:[0-9]+}", shippingHandler.UpdateShippingMethod).Methods(http.MethodPut)
+	admin.HandleFunc("/shipping/methods/{shippingMethodId:[0-9]+}", shippingHandler.UpdateShippingMethod).Methods(http.MethodPut)
 	admin.HandleFunc("/shipping/zones", shippingHandler.CreateShippingZone).Methods(http.MethodPost)
 	admin.HandleFunc("/shipping/zones", shippingHandler.ListShippingZones).Methods(http.MethodGet)
-	admin.HandleFunc("/shipping/zones/{id:[0-9]+}", shippingHandler.GetShippingZoneByID).Methods(http.MethodGet)
-	admin.HandleFunc("/shipping/zones/{id:[0-9]+}", shippingHandler.UpdateShippingZone).Methods(http.MethodPut)
+	admin.HandleFunc("/shipping/zones/{shippingZoneId:[0-9]+}", shippingHandler.GetShippingZoneByID).Methods(http.MethodGet)
+	admin.HandleFunc("/shipping/zones/{shippingZoneId:[0-9]+}", shippingHandler.UpdateShippingZone).Methods(http.MethodPut)
 	admin.HandleFunc("/shipping/rates", shippingHandler.CreateShippingRate).Methods(http.MethodPost)
-	admin.HandleFunc("/shipping/rates/{id:[0-9]+}", shippingHandler.GetShippingRateByID).Methods(http.MethodGet)
-	admin.HandleFunc("/shipping/rates/{id:[0-9]+}", shippingHandler.UpdateShippingRate).Methods(http.MethodPut)
+	admin.HandleFunc("/shipping/rates/{shippingRateId:[0-9]+}", shippingHandler.GetShippingRateByID).Methods(http.MethodGet)
+	admin.HandleFunc("/shipping/rates/{shippingRateId:[0-9]+}", shippingHandler.UpdateShippingRate).Methods(http.MethodPut)
 	admin.HandleFunc("/shipping/rates/weight", shippingHandler.CreateWeightBasedRate).Methods(http.MethodPost)
 	admin.HandleFunc("/shipping/rates/value", shippingHandler.CreateValueBasedRate).Methods(http.MethodPost)
 

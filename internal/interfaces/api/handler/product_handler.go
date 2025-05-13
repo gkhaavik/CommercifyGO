@@ -210,7 +210,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["productId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid product ID", http.StatusBadRequest)
 		return
@@ -254,7 +254,7 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 	// Get product ID from URL
 	vars := mux.Vars(r)
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["productId"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid product ID", http.StatusBadRequest)
 		return
