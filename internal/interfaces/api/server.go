@@ -87,8 +87,8 @@ func (s *Server) setupRoutes() {
 	api := s.router.PathPrefix("/api").Subrouter()
 
 	// Public routes
-	api.HandleFunc("/users/register", userHandler.Register).Methods(http.MethodPost)
-	api.HandleFunc("/users/login", userHandler.Login).Methods(http.MethodPost)
+	api.HandleFunc("/auth/register", userHandler.Register).Methods(http.MethodPost)
+	api.HandleFunc("/auth/signin", userHandler.Login).Methods(http.MethodPost)
 	api.HandleFunc("/products", productHandler.ListProducts).Methods(http.MethodGet)
 	api.HandleFunc("/products/{productId:[0-9]+}", productHandler.GetProduct).Methods(http.MethodGet)
 	api.HandleFunc("/products/search", productHandler.SearchProducts).Methods(http.MethodGet)

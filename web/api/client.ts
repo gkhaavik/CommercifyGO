@@ -8,6 +8,9 @@ import {
   UpdateUserRequest,
   ResponseDTO,
   ListResponseDTO,
+  UserLoginRequest,
+  UserLoginResponse,
+  CreateUserRequest,
 } from "../types/api";
 
 export class CommercifyClient {
@@ -125,12 +128,27 @@ export class CommercifyClient {
 
   // User endpoints
   async getCurrentUser(): Promise<ResponseDTO<UserDTO>> {
-    return this.request<ResponseDTO<UserDTO>>("/user/me");
+    return this.request<ResponseDTO<UserDTO>>("/users/me");
   }
 
   async updateUser(userData: UpdateUserRequest): Promise<ResponseDTO<UserDTO>> {
-    return this.request<ResponseDTO<UserDTO>>("/user", {
+    return this.request<ResponseDTO<UserDTO>>("/users/me", {
       method: "PUT",
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async signIn(credentials: UserLoginRequest): Promise<ResponseDTO<UserLoginResponse>> {
+    return this.request<ResponseDTO<UserLoginResponse>>("/auth/signin", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    });
+  }
+  async signUp(
+    userData: CreateUserRequest
+  ): Promise<ResponseDTO<UserLoginResponse>> {
+    return this.request<ResponseDTO<UserLoginResponse>>("/auth/signup", {
+      method: "POST",
       body: JSON.stringify(userData),
     });
   }
