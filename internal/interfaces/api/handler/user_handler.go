@@ -78,15 +78,13 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Convert domain user to DTO
 	userDTO := dto.UserDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		ID:        user.ID,
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 
 	// Create login response
@@ -156,15 +154,13 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Convert domain user to DTO
 	userDTO := dto.UserDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		ID:        user.ID,
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 
 	// Create login response
@@ -214,15 +210,13 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Convert domain user to DTO
 	userDTO := dto.UserDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		ID:        user.ID,
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 
 	response := dto.ResponseDTO[dto.UserDTO]{
@@ -282,15 +276,13 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Convert domain user to DTO
 	userDTO := dto.UserDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		ID:        user.ID,
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 
 	response := dto.ResponseDTO[dto.UserDTO]{
@@ -329,15 +321,13 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	userDTOs := make([]dto.UserDTO, len(users))
 	for i, user := range users {
 		userDTOs[i] = dto.UserDTO{
-			BaseDTO: dto.BaseDTO{
-				ID:        user.ID,
-				CreatedAt: user.CreatedAt,
-				UpdatedAt: user.UpdatedAt,
-			},
+			ID:        user.ID,
 			Email:     user.Email,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Role:      user.Role,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
 		}
 	}
 

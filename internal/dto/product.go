@@ -1,8 +1,10 @@
 package dto
 
+import "time"
+
 // ProductDTO represents a product in the system
 type ProductDTO struct {
-	BaseDTO
+	ID          uint         `json:"id"`
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	SKU         string       `json:"sku"`
@@ -11,6 +13,8 @@ type ProductDTO struct {
 	Weight      float64      `json:"weight"`
 	CategoryID  uint         `json:"category_id"`
 	SellerID    uint         `json:"seller_id"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 	Images      []string     `json:"images"`
 	HasVariants bool         `json:"has_variants"`
 	Variants    []VariantDTO `json:"variants,omitempty"`
@@ -18,7 +22,7 @@ type ProductDTO struct {
 
 // VariantDTO represents a product variant
 type VariantDTO struct {
-	BaseDTO
+	ID           uint                  `json:"id"`
 	ProductID    uint                  `json:"product_id"`
 	SKU          string                `json:"sku"`
 	Price        float64               `json:"price"`
@@ -27,6 +31,8 @@ type VariantDTO struct {
 	Attributes   []VariantAttributeDTO `json:"attributes"`
 	Images       []string              `json:"images,omitempty"`
 	IsDefault    bool                  `json:"is_default"`
+	CreatedAt    time.Time             `json:"created_at"`
+	UpdatedAt    time.Time             `json:"updated_at"`
 }
 
 type VariantAttributeDTO struct {
@@ -50,12 +56,12 @@ type CreateProductRequest struct {
 // CreateVariantRequest represents the data needed to create a new product variant
 type CreateVariantRequest struct {
 	SKU           string                `json:"sku"`
-	Price         float64               `json:"price"`
+	Price         float64               `json:"price,omitempty"`
 	ComparePrice  float64               `json:"compare_price,omitempty"`
 	StockQuantity int                   `json:"stock"`
 	Attributes    []VariantAttributeDTO `json:"attributes"`
 	Images        []string              `json:"images,omitempty"`
-	IsDefault     bool                  `json:"is_default"`
+	IsDefault     bool                  `json:"is_default,omitempty"`
 }
 
 // UpdateProductRequest represents the data needed to update an existing product

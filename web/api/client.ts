@@ -11,6 +11,8 @@ import {
   UserLoginRequest,
   UserLoginResponse,
   CreateUserRequest,
+  CreateProductRequest,
+  UpdateProductRequest,
 } from "../types/api";
 
 export class CommercifyClient {
@@ -64,7 +66,9 @@ export class CommercifyClient {
 
   // Cart endpoints
   async getCart(): Promise<ResponseDTO<CartDTO>> {
-    return this.request<ResponseDTO<CartDTO>>("/guest/cart");
+    return this.request<ResponseDTO<CartDTO>>("/guest/cart", {
+      method: "GET",
+    });
   }
 
   async addToCart(data: AddToCartRequest): Promise<ResponseDTO<CartDTO>> {
@@ -85,7 +89,35 @@ export class CommercifyClient {
   }
 
   async getOrder(orderId: string): Promise<ResponseDTO<OrderDTO>> {
-    return this.request<ResponseDTO<OrderDTO>>(`/orders/${orderId}`);
+    return this.request<ResponseDTO<OrderDTO>>(`/orders/${orderId}`, {
+      method: "GET",
+    });
+  }
+
+  async getOrders(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ListResponseDTO<OrderDTO>> {
+    return this.request<ListResponseDTO<OrderDTO>>(
+      "/orders",
+      {
+        method: "GET",
+      },
+      params
+    );
+  }
+
+  async getUserOrders(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ListResponseDTO<OrderDTO>> {
+    return this.request<ListResponseDTO<OrderDTO>>(
+      "/orders",
+      {
+        method: "GET",
+      },
+      params
+    );
   }
 
   // Product endpoints
@@ -104,7 +136,9 @@ export class CommercifyClient {
   ): Promise<ResponseDTO<ProductDTO>> {
     return this.request<ResponseDTO<ProductDTO>>(
       `/products/${productId}`,
-      {},
+      {
+        method: "GET",
+      },
       currency ? { currency } : undefined
     );
   }
@@ -126,6 +160,31 @@ export class CommercifyClient {
     );
   }
 
+  async createProduct(
+    productData: CreateProductRequest
+  ): Promise<ResponseDTO<ProductDTO>> {
+    return this.request<ResponseDTO<ProductDTO>>("/products", {
+      method: "POST",
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async updateProduct(
+    productId: string,
+    productData: UpdateProductRequest
+  ): Promise<ResponseDTO<ProductDTO>> {
+    return this.request<ResponseDTO<ProductDTO>>(`/products/${productId}`, {
+      method: "PUT",
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async deleteProduct(productId: string): Promise<ResponseDTO<ProductDTO>> {
+    return this.request<ResponseDTO<ProductDTO>>(`/products/${productId}`, {
+      method: "DELETE",
+    });
+  }
+
   // User endpoints
   async getCurrentUser(): Promise<ResponseDTO<UserDTO>> {
     return this.request<ResponseDTO<UserDTO>>("/users/me");
@@ -138,7 +197,9 @@ export class CommercifyClient {
     });
   }
 
-  async signIn(credentials: UserLoginRequest): Promise<ResponseDTO<UserLoginResponse>> {
+  async signIn(
+    credentials: UserLoginRequest
+  ): Promise<ResponseDTO<UserLoginResponse>> {
     return this.request<ResponseDTO<UserLoginResponse>>("/auth/signin", {
       method: "POST",
       body: JSON.stringify(credentials),

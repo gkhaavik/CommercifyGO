@@ -49,7 +49,6 @@ type CreateProductInput struct {
 	CategoryID     uint                 `json:"category_id"`
 	SellerID       uint                 `json:"seller_id"`
 	Images         []string             `json:"images"`
-	HasVariants    bool                 `json:"has_variants"`
 	CurrencyPrices []CurrencyPriceInput `json:"currency_prices"` // Prices in other currencies
 	Variants       []CreateVariantInput `json:"variants"`
 }
@@ -92,9 +91,6 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 		return nil, err
 	}
 
-	// Set has_variants flag
-	product.HasVariants = input.HasVariants
-
 	// Process currency-specific prices, if any
 	if len(input.CurrencyPrices) > 0 {
 		product.Prices = make([]entity.ProductPrice, 0, len(input.CurrencyPrices))
@@ -124,7 +120,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 	}
 
 	// If product has variants, create them
-	if input.HasVariants && len(input.Variants) > 0 {
+	if len(input.Variants) > 0 {
 		variants := make([]*entity.ProductVariant, 0, len(input.Variants))
 
 		for _, variantInput := range input.Variants {
@@ -186,6 +182,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 
 		// Add variants to product
 		product.Variants = variants
+		product.HasVariants = true
 	}
 
 	return product, nil

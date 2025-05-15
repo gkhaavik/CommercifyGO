@@ -33,6 +33,7 @@ type Order struct {
 	BillingAddr     Address
 	PaymentID       string
 	PaymentProvider string
+	PaymentMethod   string
 	TrackingCode    string
 	ActionURL       string // URL for redirect to payment provider
 	CreatedAt       time.Time
@@ -40,10 +41,8 @@ type Order struct {
 	CompletedAt     *time.Time
 
 	// Guest information (only used for guest orders where UserID is 0)
-	GuestEmail    string
-	GuestPhone    string
-	GuestFullName string
-	IsGuestOrder  bool
+	CustomerDetails CustomerDetails `json:"customer_details"`
+	IsGuestOrder    bool            `json:"is_guest_order"`
 
 	// Shipping information
 	ShippingMethodID uint            `json:"shipping_method_id,omitempty"`
@@ -66,6 +65,9 @@ type OrderItem struct {
 	Price     int64   `json:"price"`    // stored in cents
 	Subtotal  int64   `json:"subtotal"` // stored in cents
 	Weight    float64 `json:"weight"`   // Weight per item
+
+	ProductName string `json:"product_name"`
+	SKU         string `json:"sku"`
 }
 
 // Address represents a shipping or billing address
@@ -77,8 +79,14 @@ type Address struct {
 	Country    string `json:"country"`
 }
 
+type CustomerDetails struct {
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	FullName string `json:"full_name"`
+}
+
 // NewOrder creates a new order
-func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address) (*Order, error) {
+func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address, customerDetails CustomerDetails) (*Order, error) {
 	if userID == 0 {
 		return nil, errors.New("user ID cannot be empty")
 	}
@@ -107,24 +115,26 @@ func NewOrder(userID uint, items []OrderItem, shippingAddr, billingAddr Address)
 	orderNumber := fmt.Sprintf("ORD-%s-TEMP", now.Format("20060102"))
 
 	return &Order{
-		UserID:         userID,
-		OrderNumber:    orderNumber,
-		Items:          items,
-		TotalAmount:    totalAmount,
-		TotalWeight:    totalWeight,
-		ShippingCost:   0, // Default to 0, will be set later
-		DiscountAmount: 0,
-		FinalAmount:    totalAmount, // Initially same as total amount
-		Status:         OrderStatusPending,
-		ShippingAddr:   shippingAddr,
-		BillingAddr:    billingAddr,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		UserID:          userID,
+		OrderNumber:     orderNumber,
+		Items:           items,
+		TotalAmount:     totalAmount,
+		TotalWeight:     totalWeight,
+		ShippingCost:    0, // Default to 0, will be set later
+		DiscountAmount:  0,
+		FinalAmount:     totalAmount, // Initially same as total amount
+		Status:          OrderStatusPending,
+		ShippingAddr:    shippingAddr,
+		BillingAddr:     billingAddr,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		CustomerDetails: customerDetails,
+		IsGuestOrder:    false,
 	}, nil
 }
 
 // NewGuestOrder creates a new order for a guest user
-func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, phoneNumber, fullName string) (*Order, error) {
+func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, customerDetails CustomerDetails) (*Order, error) {
 	if len(items) == 0 {
 		return nil, errors.New("order must have at least one item")
 	}
@@ -164,10 +174,8 @@ func NewGuestOrder(items []OrderItem, shippingAddr, billingAddr Address, email, 
 		UpdatedAt:      now,
 
 		// Guest-specific information
-		GuestEmail:    email,
-		GuestPhone:    phoneNumber,
-		GuestFullName: fullName,
-		IsGuestOrder:  true,
+		CustomerDetails: customerDetails,
+		IsGuestOrder:    true,
 	}, nil
 }
 
@@ -223,6 +231,17 @@ func (o *Order) SetPaymentProvider(provider string) error {
 	}
 
 	o.PaymentProvider = provider
+	o.UpdatedAt = time.Now()
+	return nil
+}
+
+// SetPaymentMethod sets the payment method for the order
+func (o *Order) SetPaymentMethod(method string) error {
+	if method == "" {
+		return errors.New("payment method cannot be empty")
+	}
+
+	o.PaymentMethod = method
 	o.UpdatedAt = time.Now()
 	return nil
 }
@@ -324,4 +343,14 @@ func (o *Order) CalculateTotalWeight() float64 {
 	}
 	o.TotalWeight = totalWeight
 	return totalWeight
+}
+
+// IsCaptured returns true if the order is captured
+func (o *Order) IsCaptured() bool {
+	return o.Status == OrderStatusCaptured
+}
+
+// IsRefunded returns true if the order is refunded
+func (o *Order) IsRefunded() bool {
+	return o.Status == OrderStatusRefunded
 }

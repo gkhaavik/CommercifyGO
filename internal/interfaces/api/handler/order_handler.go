@@ -263,7 +263,7 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 	// Get customer email based on order type
 	customerEmail := ""
 	if order.IsGuestOrder {
-		customerEmail = order.GuestEmail
+		customerEmail = order.CustomerDetails.Email
 	} else {
 		// For registered users, get email from user repository
 		user, err := h.orderUseCase.GetUserByID(order.UserID)
@@ -400,16 +400,14 @@ func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 		items = make([]dto.OrderItemDTO, len(order.Items))
 		for i, item := range order.Items {
 			items[i] = dto.OrderItemDTO{
-				BaseDTO: dto.BaseDTO{
-					ID:        item.ID,
-					CreatedAt: order.CreatedAt,
-					UpdatedAt: order.UpdatedAt,
-				},
+				ID:         item.ID,
 				OrderID:    order.ID,
 				ProductID:  item.ProductID,
 				Quantity:   item.Quantity,
 				UnitPrice:  money.FromCents(item.Price),
 				TotalPrice: money.FromCents(item.Subtotal),
+				CreatedAt:  order.CreatedAt,
+				UpdatedAt:  order.UpdatedAt,
 			}
 		}
 	}
@@ -437,45 +435,55 @@ func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 		}
 	}
 
-	var customerDetails *dto.CustomerDetails
-	if order.IsGuestOrder {
-		customerDetails = &dto.CustomerDetails{
-			Email:    order.GuestEmail,
-			Phone:    order.GuestPhone,
-			FullName: order.GuestFullName,
+	customerDetails := dto.CustomerDetails{
+		Email:    order.CustomerDetails.Email,
+		Phone:    order.CustomerDetails.Phone,
+		FullName: order.CustomerDetails.FullName,
+	}
+
+	paymentDetails := dto.PaymentDetails{
+		ID:       order.PaymentID,
+		Provider: dto.PaymentProvider(order.PaymentProvider),
+		Method:   dto.PaymentMethod(order.PaymentMethod),
+		Captured: order.IsCaptured(),
+		Refunded: order.IsRefunded(),
+	}
+
+	var discountDetails dto.DiscountDetails
+	if order.AppliedDiscount != nil {
+		discountDetails = dto.DiscountDetails{
+			Code:   order.AppliedDiscount.DiscountCode,
+			Amount: money.FromCents(order.AppliedDiscount.DiscountAmount),
 		}
 	}
 
-	var discountAmount float64
-	var discountCode string
-	if order.AppliedDiscount != nil {
-		discountAmount = money.FromCents(order.AppliedDiscount.DiscountAmount)
-		discountCode = order.AppliedDiscount.DiscountCode
+	var shippingDetails dto.ShippingDetails
+	if order.ShippingMethod != nil {
+		shippingDetails = dto.ShippingDetails{
+			MethodID: order.ShippingMethodID,
+			Method:   order.ShippingMethod.Name,
+			Cost:     money.FromCents(order.ShippingCost),
+		}
 	}
 
 	return dto.OrderDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        order.ID,
-			CreatedAt: order.CreatedAt,
-			UpdatedAt: order.UpdatedAt,
-		},
-		OrderNumber:      order.OrderNumber,
-		UserID:           order.UserID,
-		Status:           dto.OrderStatus(order.Status),
-		TotalAmount:      money.FromCents(order.TotalAmount),
-		FinalAmount:      money.FromCents(order.FinalAmount),
-		Currency:         "USD",
-		Items:            items,
-		ShippingAddress:  shippingAddr,
-		BillingAddress:   billingAddr,
-		PaymentProvider:  dto.PaymentProvider(order.PaymentProvider),
-		ShippingMethodID: order.ShippingMethodID,
-		ShippingCost:     money.FromCents(order.ShippingCost),
-		DiscountAmount:   discountAmount,
-		DiscountCode:     discountCode,
-		PaymentID:        order.PaymentID,
-		Customer:         customerDetails,
-		ActionURL:        order.ActionURL,
+		ID:              order.ID,
+		OrderNumber:     order.OrderNumber,
+		UserID:          order.UserID,
+		Status:          dto.OrderStatus(order.Status),
+		TotalAmount:     money.FromCents(order.TotalAmount),
+		FinalAmount:     money.FromCents(order.FinalAmount),
+		Currency:        "USD",
+		Items:           items,
+		ShippingAddress: *shippingAddr,
+		BillingAddress:  *billingAddr,
+		PaymentDetails:  paymentDetails,
+		ShippingDetails: shippingDetails,
+		DiscountDetails: discountDetails,
+		Customer:        customerDetails,
+		ActionURL:       order.ActionURL,
+		CreatedAt:       order.CreatedAt,
+		UpdatedAt:       order.UpdatedAt,
 	}
 }
 

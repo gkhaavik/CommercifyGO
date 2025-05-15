@@ -44,11 +44,7 @@ func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
 	}
 
 	return dto.VariantDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        variant.ID,
-			CreatedAt: variant.CreatedAt,
-			UpdatedAt: variant.UpdatedAt,
-		},
+		ID:           variant.ID,
 		ProductID:    variant.ProductID,
 		SKU:          variant.SKU,
 		Price:        money.FromCents(variant.Price),
@@ -57,6 +53,8 @@ func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
 		Attributes:   attributesDTO,
 		Images:       variant.Images,
 		IsDefault:    variant.IsDefault,
+		CreatedAt:    variant.CreatedAt,
+		UpdatedAt:    variant.UpdatedAt,
 	}
 }
 
@@ -70,11 +68,7 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 	}
 
 	return dto.ProductDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        product.ID,
-			CreatedAt: product.CreatedAt,
-			UpdatedAt: product.UpdatedAt,
-		},
+		ID:          product.ID,
 		Name:        product.Name,
 		Description: product.Description,
 		SKU:         product.ProductNumber,
@@ -86,6 +80,8 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 		Images:      product.Images,
 		HasVariants: product.HasVariants,
 		Variants:    variantsDTO,
+		CreatedAt:   product.CreatedAt,
+		UpdatedAt:   product.UpdatedAt,
 	}
 }
 
@@ -119,6 +115,27 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	variantInputs := make([]usecase.CreateVariantInput, len(request.Variants))
+	for i, v := range request.Variants {
+		attributes := make([]entity.VariantAttribute, len(v.Attributes))
+		for j, a := range v.Attributes {
+			attributes[j] = entity.VariantAttribute{
+				Name:  a.Name,
+				Value: a.Value,
+			}
+		}
+
+		variantInputs[i] = usecase.CreateVariantInput{
+			SKU:          v.SKU,
+			Price:        v.Price,
+			ComparePrice: v.ComparePrice,
+			Stock:        v.StockQuantity,
+			Attributes:   attributes,
+			Images:       v.Images,
+			IsDefault:    v.IsDefault,
+		}
+	}
+
 	// Convert DTO to usecase input
 	input := usecase.CreateProductInput{
 		SellerID:    userID,
@@ -129,6 +146,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		Weight:      request.Weight,
 		CategoryID:  request.CategoryID,
 		Images:      request.Images,
+		Variants:    variantInputs,
 	}
 
 	// Create product

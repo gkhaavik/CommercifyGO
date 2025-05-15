@@ -334,13 +334,11 @@ func convertToCartDTO(cart *entity.Cart) dto.CartDTO {
 	items := make([]dto.CartItemDTO, len(cart.Items))
 	for i, item := range cart.Items {
 		items[i] = dto.CartItemDTO{
-			BaseDTO: dto.BaseDTO{
-				ID:        item.ID,
-				CreatedAt: item.CreatedAt,
-				UpdatedAt: item.UpdatedAt,
-			},
-			ProductID: uint(item.ProductID),
+			ID:        item.ID,
+			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
+			CreatedAt: item.CreatedAt,
+			UpdatedAt: item.UpdatedAt,
 		}
 		if item.ProductVariantID > 0 {
 			items[i].VariantID = uint(item.ProductVariantID)
@@ -349,12 +347,10 @@ func convertToCartDTO(cart *entity.Cart) dto.CartDTO {
 
 	// Create cart DTO
 	cartDTO := dto.CartDTO{
-		BaseDTO: dto.BaseDTO{
-			ID:        cart.ID,
-			CreatedAt: cart.CreatedAt,
-			UpdatedAt: cart.UpdatedAt,
-		},
-		Items: items,
+		ID:        cart.ID,
+		Items:     items,
+		CreatedAt: cart.CreatedAt,
+		UpdatedAt: cart.UpdatedAt,
 	}
 
 	// Set user ID if it exists

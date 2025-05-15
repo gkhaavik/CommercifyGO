@@ -1,7 +1,6 @@
 package usecase_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,7 +42,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			CategoryID:  1,
 			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
 		}
 
 		// Execute
@@ -59,7 +57,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.Equal(t, input.CategoryID, product.CategoryID)
 		assert.Equal(t, input.SellerID, product.SellerID)
 		assert.Equal(t, input.Images, product.Images)
-		assert.Equal(t, input.HasVariants, product.HasVariants)
 		assert.Len(t, product.Variants, 0)
 	})
 
@@ -94,7 +91,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			CategoryID:  1,
 			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: true,
 			Variants: []usecase.CreateVariantInput{
 				{
 					SKU:        "SKU-1",
@@ -123,7 +119,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, product)
 		assert.Equal(t, input.Name, product.Name)
-		assert.Equal(t, input.HasVariants, product.HasVariants)
 		assert.Len(t, product.Variants, 2)
 
 		// Check variants
@@ -157,7 +152,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			CategoryID:  999, // Non-existent category
 			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
 		}
 
 		// Execute
@@ -188,7 +182,6 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 			CategoryID:  1,
 			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
 		}
 		productRepo.Create(product)
 
@@ -757,9 +750,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			Limit:  10,
 		}
 		results, _, err := productUseCase.SearchProducts(input)
-
-		// print results
-		fmt.Println(results)
 
 		// Assert
 		assert.NoError(t, err)

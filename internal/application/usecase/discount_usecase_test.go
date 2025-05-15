@@ -455,6 +455,11 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Create use case with mocks
@@ -546,6 +551,11 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Create use case with mocks
@@ -637,6 +647,11 @@ func TestDiscountUseCase_ProductSpecificDiscount(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Create use case with mocks
@@ -1128,6 +1143,11 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Create use case with mocks
@@ -1232,6 +1252,11 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Create use case with mocks
@@ -1288,6 +1313,11 @@ func TestDiscountUseCase_ApplyDiscountToOrder(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Create use case with mocks
@@ -1353,6 +1383,11 @@ func TestDiscountUseCase_RemoveDiscountFromOrder(t *testing.T) {
 			items,
 			entity.Address{Street: "123 Main St"},
 			entity.Address{Street: "123 Main St"},
+			entity.CustomerDetails{
+				Email:    "test@example.com",
+				Phone:    "1234567890",
+				FullName: "John Doe",
+			},
 		)
 
 		// Apply discount manually

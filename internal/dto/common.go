@@ -1,16 +1,5 @@
 package dto
 
-import (
-	"time"
-)
-
-// BaseDTO contains common fields for all DTOs
-type BaseDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
 // PaginationDTO represents pagination parameters
 type PaginationDTO struct {
 	Page     int `json:"page"`

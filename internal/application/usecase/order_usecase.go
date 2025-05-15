@@ -119,16 +119,20 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 
 		// Create order item with weight
 		orderItem := entity.OrderItem{
-			ProductID: cartItem.ProductID,
-			Quantity:  cartItem.Quantity,
-			Price:     product.Price,
-			Subtotal:  int64(cartItem.Quantity) * product.Price,
-			Weight:    product.Weight,
+			ProductID:   cartItem.ProductID,
+			Quantity:    cartItem.Quantity,
+			Price:       product.Price,
+			Subtotal:    int64(cartItem.Quantity) * product.Price,
+			Weight:      product.Weight,
+			ProductName: product.Name,
 		}
 
 		// TODO: Check for variant and assign variant ID
 		// If this is a variant, store the variant ID
-		orderItem.ProductID = cartItem.ProductID
+		variant := product.GetVariantByID(cartItem.ProductVariantID)
+		if variant != nil {
+			orderItem.SKU = variant.SKU
+		}
 
 		orderItems = append(orderItems, orderItem)
 		totalWeight += product.Weight * float64(cartItem.Quantity)
@@ -143,7 +147,11 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 	}
 
 	// Create order
-	order, err := entity.NewOrder(input.UserID, orderItems, input.ShippingAddr, input.BillingAddr)
+	order, err := entity.NewOrder(input.UserID, orderItems, input.ShippingAddr, input.BillingAddr, entity.CustomerDetails{
+		Email:    input.Email,
+		Phone:    input.PhoneNumber,
+		FullName: input.FullName,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +275,11 @@ func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entit
 	}
 
 	// Create guest order (0 as UserID indicates a guest order)
-	order, err := entity.NewGuestOrder(orderItems, input.ShippingAddr, input.BillingAddr, input.Email, input.PhoneNumber, input.FullName)
+	order, err := entity.NewGuestOrder(orderItems, input.ShippingAddr, input.BillingAddr, entity.CustomerDetails{
+		Email:    input.Email,
+		Phone:    input.PhoneNumber,
+		FullName: input.FullName,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -469,6 +481,9 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 	if err := order.SetPaymentProvider(string(paymentResult.Provider)); err != nil {
 		return nil, err
 	}
+	if err := order.SetPaymentMethod(string(input.PaymentMethod)); err != nil {
+		return nil, err
+	}
 	if err := order.UpdateStatus(entity.OrderStatusPaid); err != nil {
 		return nil, err
 	}
@@ -529,7 +544,16 @@ func (uc *OrderUseCase) UpdateOrderStatus(input UpdateOrderStatusInput) (*entity
 
 // GetOrderByID retrieves an order by ID
 func (uc *OrderUseCase) GetOrderByID(id uint) (*entity.Order, error) {
-	return uc.orderRepo.GetByID(id)
+	if id == 0 {
+		return nil, errors.New("order ID cannot be 0")
+	}
+
+	order, err := uc.orderRepo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order by ID: %w", err)
+	}
+
+	return order, nil
 }
 
 // GetOrderByPaymentID retrieves an order by its payment ID
