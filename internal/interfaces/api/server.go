@@ -119,7 +119,7 @@ func (s *Server) setupRoutes() {
 
 	// Guest checkout route
 	api.HandleFunc("/guest/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
-	api.HandleFunc("/guest/orders/{id:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
+	api.HandleFunc("/guest/orders/{orderId:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
 
 	// Convert guest cart to user cart after login
 	api.HandleFunc("/guest/cart/convert", cartHandler.ConvertGuestCartToUserCart).Methods(http.MethodPost)

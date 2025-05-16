@@ -265,6 +265,7 @@ export interface ProductDTO {
   images: string[];
   has_variants: boolean;
   variants?: VariantDTO[];
+  active: boolean;
 }
 /**
  * VariantDTO represents a product variant

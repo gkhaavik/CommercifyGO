@@ -417,7 +417,6 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 // SearchProducts handles searching products
 func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
-	query := r.URL.Query().Get("query")
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
 	if pageSize <= 0 {
@@ -425,6 +424,11 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Parse optional parameters
+	var query *string
+	if queryStr := r.URL.Query().Get("query"); queryStr != "" {
+		query = &queryStr
+	}
+
 	var categoryID *uint
 	if catIDStr := r.URL.Query().Get("category_id"); catIDStr != "" {
 		if catID, err := strconv.ParseUint(catIDStr, 10, 32); err == nil {
@@ -449,12 +453,14 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 
 	// Convert to usecase input
 	input := usecase.SearchProductsInput{
-		Query:  query,
 		Offset: (page - 1) * pageSize,
 		Limit:  pageSize,
 	}
 
 	// Handle optional fields
+	if query != nil {
+		input.Query = *query
+	}
 	if categoryID != nil {
 		input.CategoryID = *categoryID
 	}

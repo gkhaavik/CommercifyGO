@@ -13,6 +13,7 @@ import {
   CreateUserRequest,
   CreateProductRequest,
   UpdateProductRequest,
+  ProcessPaymentRequest,
 } from "../types/api";
 
 export class CommercifyClient {
@@ -120,6 +121,56 @@ export class CommercifyClient {
     );
   }
 
+  async processPayment(
+    orderId: string,
+    paymentData: ProcessPaymentRequest
+  ): Promise<ResponseDTO<OrderDTO>> {
+    return this.request<ResponseDTO<OrderDTO>>(
+      `/guest/orders/${orderId}/payment`,
+      {
+        method: "POST",
+        body: JSON.stringify(paymentData),
+      }
+    );
+  }
+
+  async capturePayment(paymentId: string): Promise<ResponseDTO<OrderDTO>> {
+    return this.request<ResponseDTO<OrderDTO>>(
+      `/admin/payments/${paymentId}/capture`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async cancelPayment(paymentId: string): Promise<ResponseDTO<OrderDTO>> {
+    return this.request<ResponseDTO<OrderDTO>>(
+      `/admin/payments/${paymentId}/cancel`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async refundPayment(paymentId: string): Promise<ResponseDTO<OrderDTO>> {
+    return this.request<ResponseDTO<OrderDTO>>(
+      `/admin/payments/${paymentId}/refund`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async forceApproveMobilePayPayment(
+    paymentId: string
+  ): Promise<ResponseDTO<OrderDTO>> {
+    return this.request<ResponseDTO<OrderDTO>>(
+      `/admin/payments/${paymentId}/force-approve`,
+      {
+        method: "POST",
+      }
+    );
+  }
   // Product endpoints
   async getProducts(params?: {
     page?: number;
@@ -144,7 +195,7 @@ export class CommercifyClient {
   }
 
   async searchProducts(params: {
-    query: string;
+    query?: string;
     category_id?: number;
     min_price?: number;
     max_price?: number;
