@@ -18,6 +18,7 @@ type ProductDTO struct {
 	Images      []string     `json:"images"`
 	HasVariants bool         `json:"has_variants"`
 	Variants    []VariantDTO `json:"variants,omitempty"`
+	Active      bool         `json:"active"`
 }
 
 // VariantDTO represents a product variant
@@ -44,7 +45,6 @@ type VariantAttributeDTO struct {
 type CreateProductRequest struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
-	SKU         string                 `json:"sku"`
 	Price       float64                `json:"price"`
 	Stock       int                    `json:"stock"`
 	Weight      float64                `json:"weight"`
@@ -73,6 +73,7 @@ type UpdateProductRequest struct {
 	Weight        *float64 `json:"weight,omitempty"`
 	CategoryID    *uint    `json:"category_id,omitempty"`
 	Images        []string `json:"images,omitempty"`
+	Active        bool     `json:"active,omitempty"`
 }
 
 // ProductListResponse represents a paginated list of products

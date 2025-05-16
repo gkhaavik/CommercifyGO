@@ -280,6 +280,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		Stock:       *request.StockQuantity,
 		CategoryID:  *request.CategoryID,
 		Images:      request.Images,
+		Active:      request.Active,
 	}
 
 	// Update product

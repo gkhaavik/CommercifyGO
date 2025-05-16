@@ -154,7 +154,7 @@ export class CommercifyClient {
     return this.request<ListResponseDTO<ProductDTO>>(
       "/products/search",
       {
-        method: "POST",
+        method: "GET",
       },
       params
     );

@@ -292,7 +292,6 @@ export interface VariantAttributeDTO {
 export interface CreateProductRequest {
   name: string;
   description: string;
-  sku: string;
   price: number /* float64 */;
   stock: number /* int */;
   weight: number /* float64 */;
@@ -323,6 +322,7 @@ export interface UpdateProductRequest {
   weight?: number /* float64 */;
   category_id?: number /* uint */;
   images?: string[];
+  active?: boolean;
 }
 /**
  * ProductListResponse represents a paginated list of products

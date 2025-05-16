@@ -243,6 +243,7 @@ type UpdateProductInput struct {
 	CategoryID     uint                 `json:"category_id"`
 	Images         []string             `json:"images"`
 	CurrencyPrices []CurrencyPriceInput `json:"currency_prices"` // Prices in other currencies
+	Active         bool                 `json:"active"`
 }
 
 // UpdateProduct updates a product
@@ -282,6 +283,9 @@ func (uc *ProductUseCase) UpdateProduct(id uint, sellerID uint, input UpdateProd
 	}
 	if len(input.Images) > 0 {
 		product.Images = input.Images
+	}
+	if input.Active != product.Active {
+		product.Active = input.Active
 	}
 
 	// Process currency-specific prices, if any
