@@ -14,6 +14,7 @@ import {
   CreateProductRequest,
   UpdateProductRequest,
   ProcessPaymentRequest,
+  UpdateCartItemRequest,
 } from "../types/api";
 
 export class CommercifyClient {
@@ -76,6 +77,34 @@ export class CommercifyClient {
     return this.request<ResponseDTO<CartDTO>>("/guest/cart/items", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  async updateCartItem(
+    productId: string,
+    data: UpdateCartItemRequest
+  ): Promise<ResponseDTO<CartDTO>> {
+    return this.request<ResponseDTO<CartDTO>>(
+      `/guest/cart/items/${productId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async removeCartItem(productId: string): Promise<ResponseDTO<CartDTO>> {
+    return this.request<ResponseDTO<CartDTO>>(
+      `/guest/cart/items/${productId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
+  async clearCart(): Promise<ResponseDTO<CartDTO>> {
+    return this.request<ResponseDTO<CartDTO>>("/guest/cart", {
+      method: "DELETE",
     });
   }
 

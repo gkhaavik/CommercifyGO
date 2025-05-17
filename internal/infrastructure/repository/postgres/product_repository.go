@@ -29,8 +29,8 @@ func NewProductRepository(db *sql.DB, variantRepository repository.ProductVarian
 // Create creates a new product
 func (r *ProductRepository) Create(product *entity.Product) error {
 	query := `
-	INSERT INTO products (name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	INSERT INTO products (name, description, price, stock, weight, category_id, seller_id, images, has_variants, active, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	RETURNING id
 	`
 
@@ -50,6 +50,7 @@ func (r *ProductRepository) Create(product *entity.Product) error {
 		product.SellerID,
 		imagesJSON,
 		product.HasVariants,
+		product.Active,
 		product.CreatedAt,
 		product.UpdatedAt,
 	).Scan(&product.ID)
@@ -114,7 +115,7 @@ func (r *ProductRepository) createProductPrice(price *entity.ProductPrice) error
 // GetByID gets a product by ID
 func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 	query := `
-			SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
+			SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, active, created_at, updated_at
 			FROM products
 			WHERE id = $1
 			`
@@ -135,6 +136,7 @@ func (r *ProductRepository) GetByID(id uint) (*entity.Product, error) {
 		&product.SellerID,
 		&imagesJSON,
 		&product.HasVariants,
+		&product.Active,
 		&product.CreatedAt,
 		&product.UpdatedAt,
 	)
@@ -314,7 +316,7 @@ func (r *ProductRepository) Delete(id uint) error {
 // List lists products with pagination
 func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 	query := `
-		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, active, created_at, updated_at
 		FROM products
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -344,6 +346,7 @@ func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 			&product.SellerID,
 			&imagesJSON,
 			&product.HasVariants,
+			&product.Active,
 			&product.CreatedAt,
 			&product.UpdatedAt,
 		)
@@ -382,7 +385,7 @@ func (r *ProductRepository) List(offset, limit int) ([]*entity.Product, error) {
 func (r *ProductRepository) Search(query string, categoryID uint, minPriceCents, maxPriceCents int64, offset, limit int) ([]*entity.Product, error) {
 	// Build dynamic query parts
 	searchQuery := `
-		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, active, created_at, updated_at
 		FROM products
 		WHERE 1=1
 	`
@@ -443,6 +446,7 @@ func (r *ProductRepository) Search(query string, categoryID uint, minPriceCents,
 			&product.SellerID,
 			&imagesJSON,
 			&product.HasVariants,
+			&product.Active,
 			&product.CreatedAt,
 			&product.UpdatedAt,
 		)
@@ -544,7 +548,7 @@ func (r *ProductRepository) CountSearch(searchQuery string, categoryID uint, min
 // GetBySeller gets products by seller ID with pagination
 func (r *ProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error) {
 	query := `
-		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, created_at, updated_at
+		SELECT id, product_number, name, description, price, stock, weight, category_id, seller_id, images, has_variants, active, created_at, updated_at
 		FROM products
 		WHERE seller_id = $1
 		ORDER BY created_at DESC
@@ -575,6 +579,7 @@ func (r *ProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*en
 			&product.SellerID,
 			&imagesJSON,
 			&product.HasVariants,
+			&product.Active,
 			&product.CreatedAt,
 			&product.UpdatedAt,
 		)

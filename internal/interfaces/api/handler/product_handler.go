@@ -82,6 +82,7 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 		Variants:    variantsDTO,
 		CreatedAt:   product.CreatedAt,
 		UpdatedAt:   product.UpdatedAt,
+		Active:      product.Active,
 	}
 }
 
