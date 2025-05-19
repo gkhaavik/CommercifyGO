@@ -65,7 +65,7 @@ func NewPaymentTransaction(
 		return nil, ErrInvalidInput{Field: "Provider", Message: "cannot be empty"}
 	}
 	if currency == "" {
-		currency = "USD" // Default currency
+		return nil, ErrInvalidInput{Field: "Currency", Message: "cannot be empty"}
 	}
 
 	now := time.Now()
