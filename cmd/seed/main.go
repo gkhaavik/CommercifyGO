@@ -198,11 +198,6 @@ func seedUsers(db *sql.DB) error {
 		return err
 	}
 
-	sellerPassword, err := bcrypt.GenerateFromPassword([]byte("seller123"), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-
 	now := time.Now()
 
 	// Insert users
@@ -215,7 +210,6 @@ func seedUsers(db *sql.DB) error {
 	}{
 		{"admin@example.com", adminPassword, "Admin", "User", "admin"},
 		{"user@example.com", userPassword, "Regular", "User", "user"},
-		{"seller@example.com", sellerPassword, "Seller", "User", "seller"},
 	}
 
 	for _, user := range users {
@@ -318,13 +312,6 @@ func seedCategories(db *sql.DB) error {
 
 // seedProducts seeds product data
 func seedProducts(db *sql.DB) error {
-	// Get seller ID
-	var sellerID int
-	err := db.QueryRow("SELECT id FROM users WHERE role = 'seller' LIMIT 1").Scan(&sellerID)
-	if err != nil {
-		return err
-	}
-
 	// Get category IDs
 	rows, err := db.Query("SELECT id, name FROM categories")
 	if err != nil {
@@ -489,9 +476,9 @@ func seedProducts(db *sql.DB) error {
 		// Only insert if product doesn't exist
 		if !exists {
 			_, err := db.Exec(
-				`INSERT INTO products (name, description, price, stock, category_id, seller_id, images, created_at, updated_at, product_number)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-				product.name, product.description, money.ToCents(product.price), product.stock, categoryID, sellerID, product.images, now, now, productNumber,
+				`INSERT INTO products (name, description, price, stock, category_id, images, created_at, updated_at, product_number)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				product.name, product.description, money.ToCents(product.price), product.stock, categoryID, product.images, now, now, productNumber,
 			)
 			if err != nil {
 				return err
@@ -540,14 +527,13 @@ func seedProductVariants(db *sql.DB) error {
 
 	for _, product := range products {
 		var variants []struct {
-			sku          string
-			price        float64
-			comparePrice float64
-			stock        int
-			attributes   []map[string]string
-			isDefault    bool
-			productID    int
-			images       string
+			sku        string
+			price      float64
+			stock      int
+			attributes []map[string]string
+			isDefault  bool
+			productID  int
+			images     string
 		}
 
 		// Create different variants based on product type
@@ -558,22 +544,19 @@ func seedProductVariants(db *sql.DB) error {
 					isDefault := (i == 0 && j == 0)
 					priceAdjustment := float64(j) * 100.0 // Higher capacity costs more
 					basePrice := 999.99 + priceAdjustment
-					comparePrice := basePrice + 100.0 // Original price before discount
 
 					variants = append(variants, struct {
-						sku          string
-						price        float64
-						comparePrice float64
-						stock        int
-						attributes   []map[string]string
-						isDefault    bool
-						productID    int
-						images       string
+						sku        string
+						price      float64
+						stock      int
+						attributes []map[string]string
+						isDefault  bool
+						productID  int
+						images     string
 					}{
-						sku:          fmt.Sprintf("%s-%s-%s", product.name[:3], color[:1], capacity[:3]),
-						price:        basePrice,
-						comparePrice: comparePrice,
-						stock:        50 - (i * 10) - (j * 5),
+						sku:   fmt.Sprintf("%s-%s-%s", product.name[:3], color[:1], capacity[:3]),
+						price: basePrice,
+						stock: 50 - (i * 10) - (j * 5),
 						attributes: []map[string]string{
 							{"name": "Color", "value": color},
 							{"name": "Capacity", "value": capacity},
@@ -595,22 +578,19 @@ func seedProductVariants(db *sql.DB) error {
 
 					isDefault := (i == 0 && j == 2) // M size in first color is default
 					basePrice := 39.99
-					comparePrice := 49.99 // Original price before discount
 
 					variants = append(variants, struct {
-						sku          string
-						price        float64
-						comparePrice float64
-						stock        int
-						attributes   []map[string]string
-						isDefault    bool
-						productID    int
-						images       string
+						sku        string
+						price      float64
+						stock      int
+						attributes []map[string]string
+						isDefault  bool
+						productID  int
+						images     string
 					}{
-						sku:          fmt.Sprintf("%s-%s-%s", strings.ReplaceAll(product.name, "'s", ""), color[:1], size),
-						price:        basePrice,
-						comparePrice: comparePrice,
-						stock:        20 - (i * 2) - (j * 1),
+						sku:   fmt.Sprintf("%s-%s-%s", strings.ReplaceAll(product.name, "'s", ""), color[:1], size),
+						price: basePrice,
+						stock: 20 - (i * 2) - (j * 1),
 						attributes: []map[string]string{
 							{"name": "Color", "value": color},
 							{"name": "Size", "value": size},
@@ -632,22 +612,19 @@ func seedProductVariants(db *sql.DB) error {
 					isDefault := (i == 1 && j == 1)                        // 16GB RAM, 512GB storage is default
 					priceAdjustment := float64(i)*200.0 + float64(j)*150.0 // Higher specs cost more
 					basePrice := 1299.99 + priceAdjustment
-					comparePrice := basePrice + 200.0 // Original price before discount
 
 					variants = append(variants, struct {
-						sku          string
-						price        float64
-						comparePrice float64
-						stock        int
-						attributes   []map[string]string
-						isDefault    bool
-						productID    int
-						images       string
+						sku        string
+						price      float64
+						stock      int
+						attributes []map[string]string
+						isDefault  bool
+						productID  int
+						images     string
 					}{
-						sku:          fmt.Sprintf("%s-%s-%s", strings.ReplaceAll(product.name, " ", "")[:3], ram[:2], storage[:3]),
-						price:        basePrice,
-						comparePrice: comparePrice,
-						stock:        15 - (i * 3) - (j * 2),
+						sku:   fmt.Sprintf("%s-%s-%s", strings.ReplaceAll(product.name, " ", "")[:3], ram[:2], storage[:3]),
+						price: basePrice,
+						stock: 15 - (i * 3) - (j * 2),
 						attributes: []map[string]string{
 							{"name": "RAM", "value": ram},
 							{"name": "Storage", "value": storage},
@@ -689,22 +666,15 @@ func seedProductVariants(db *sql.DB) error {
 					return err
 				}
 
-				var comparePrice *int64
-				if variant.comparePrice > 0 {
-					cp := money.ToCents(variant.comparePrice)
-					comparePrice = &cp
-				}
-
 				// Insert product variant
 				_, err = db.Exec(
 					`INSERT INTO product_variants (
-						sku, price, compare_price, stock, attributes, is_default, product_id, 
+						sku, price, stock, attributes, is_default, product_id, 
 						images, created_at, updated_at
 					)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 					variant.sku,
 					money.ToCents(variant.price),
-					comparePrice,
 					variant.stock,
 					attributesJSON,
 					variant.isDefault,
