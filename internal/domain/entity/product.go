@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/zenfulcode/commercify/internal/domain/money"
 )
 
 // Product represents a product in the system
@@ -18,7 +16,6 @@ type Product struct {
 	Stock         int               `json:"stock"`
 	Weight        float64           `json:"weight"` // Weight in kg
 	CategoryID    uint              `json:"category_id"`
-	SellerID      uint              `json:"seller_id"`
 	Images        []string          `json:"images"`
 	HasVariants   bool              `json:"has_variants"`
 	Variants      []*ProductVariant `json:"variants,omitempty"`
@@ -28,7 +25,7 @@ type Product struct {
 }
 
 // NewProduct creates a new product with the given details (price in cents)
-func NewProduct(name, description string, price int64, stock int, weight float64, categoryID, sellerID uint, images []string) (*Product, error) {
+func NewProduct(name, description string, price int64, stock int, weight float64, categoryID uint, images []string) (*Product, error) {
 	if name == "" {
 		return nil, errors.New("product name cannot be empty")
 	}
@@ -55,7 +52,6 @@ func NewProduct(name, description string, price int64, stock int, weight float64
 		Stock:         stock,
 		Weight:        weight,
 		CategoryID:    categoryID,
-		SellerID:      sellerID,
 		Images:        images,
 		HasVariants:   false,
 		CreatedAt:     now,
@@ -170,45 +166,20 @@ func (p *Product) GetTotalWeight(quantity int) float64 {
 	return p.Weight * float64(quantity)
 }
 
-// GetPriceDollars returns the price in dollars
-func (p *Product) GetPriceDollars() float64 {
-	return money.FromCents(p.Price)
-}
-
 // GetPriceInCurrency returns the price for a specific currency
 func (p *Product) GetPriceInCurrency(currencyCode string) (int64, bool) {
-	// If no currency specified or matches default currency, return base price
-	if currencyCode == "" {
-		return p.Price, true
+	variant := p.GetDefaultVariant()
+	if variant != nil {
+		return variant.GetPriceInCurrency(currencyCode)
 	}
 
-	// Look for price in the specified currency
-	for _, price := range p.Prices {
-		if price.CurrencyCode == currencyCode {
-			return price.Price, true
+	for _, productPrice := range p.Prices {
+		if productPrice.CurrencyCode == currencyCode {
+			return productPrice.Price, true
 		}
 	}
 
-	// Currency price not found
-	return 0, false
-}
-
-// GetComparePriceInCurrency returns the compare price for a specific currency
-func (p *Product) GetComparePriceInCurrency(currencyCode string) (int64, bool) {
-	// If no currency specified, return base compare price
-	if currencyCode == "" {
-		return 0, false
-	}
-
-	// Look for price in the specified currency
-	for _, price := range p.Prices {
-		if price.CurrencyCode == currencyCode {
-			return price.ComparePrice, price.ComparePrice > 0
-		}
-	}
-
-	// Currency compare price not found
-	return 0, false
+	return p.Price, false
 }
 
 // Category represents a product category

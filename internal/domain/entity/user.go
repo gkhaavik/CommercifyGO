@@ -23,9 +23,8 @@ type User struct {
 type UserRole string
 
 const (
-	RoleAdmin  UserRole = "admin"
-	RoleUser   UserRole = "user"
-	RoleSeller UserRole = "seller"
+	RoleAdmin UserRole = "admin"
+	RoleUser  UserRole = "user"
 )
 
 // NewUser creates a new user with the given details
@@ -84,9 +83,4 @@ func (u *User) FullName() string {
 // IsAdmin checks if the user has admin role
 func (u *User) IsAdmin() bool {
 	return u.Role == string(RoleAdmin)
-}
-
-// IsSeller checks if the user has seller role
-func (u *User) IsSeller() bool {
-	return u.Role == string(RoleSeller)
 }

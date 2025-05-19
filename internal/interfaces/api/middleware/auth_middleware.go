@@ -15,6 +15,14 @@ type AuthMiddleware struct {
 	logger     logger.Logger
 }
 
+type contextKey string
+
+const (
+	userIDKey contextKey = "user_id"
+	emailKey  contextKey = "email"
+	roleKey   contextKey = "role"
+)
+
 // NewAuthMiddleware creates a new AuthMiddleware
 func NewAuthMiddleware(jwtService *auth.JWTService, logger logger.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
@@ -51,9 +59,9 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Add user info to request context
-		ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-		ctx = context.WithValue(ctx, "email", claims.Email)
-		ctx = context.WithValue(ctx, "role", claims.Role)
+		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+		ctx = context.WithValue(ctx, emailKey, claims.Email)
+		ctx = context.WithValue(ctx, roleKey, claims.Role)
 
 		// Call the next handler with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -64,24 +72,9 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 func AdminOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get role from context
-		role, ok := r.Context().Value("role").(string)
+		role, ok := r.Context().Value(roleKey).(string)
 		if !ok || role != "admin" {
 			http.Error(w, "Admin access required", http.StatusForbidden)
-			return
-		}
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
-}
-
-// SellerOnly middleware ensures the user has seller role
-func SellerOnly(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get role from context
-		role, ok := r.Context().Value("role").(string)
-		if !ok || (role != "seller" && role != "admin") {
-			http.Error(w, "Seller access required", http.StatusForbidden)
 			return
 		}
 

@@ -3,8 +3,6 @@ package entity
 import (
 	"errors"
 	"time"
-
-	"github.com/zenfulcode/commercify/internal/domain/money"
 )
 
 // VariantAttribute represents a single attribute of a product variant
@@ -15,18 +13,17 @@ type VariantAttribute struct {
 
 // ProductVariant represents a specific variant of a product
 type ProductVariant struct {
-	ID           uint                  `json:"id"`
-	ProductID    uint                  `json:"product_id"`
-	SKU          string                `json:"sku"`
-	Price        int64                 `json:"price"`                   // Stored as cents (in default currency)
-	ComparePrice int64                 `json:"compare_price,omitempty"` // Stored as cents (in default currency)
-	Stock        int                   `json:"stock"`
-	Attributes   []VariantAttribute    `json:"attributes"`
-	Images       []string              `json:"images,omitempty"`
-	IsDefault    bool                  `json:"is_default"`
-	Prices       []ProductVariantPrice `json:"prices,omitempty"` // Prices in different currencies
-	CreatedAt    time.Time             `json:"created_at"`
-	UpdatedAt    time.Time             `json:"updated_at"`
+	ID         uint                  `json:"id"`
+	ProductID  uint                  `json:"product_id"`
+	SKU        string                `json:"sku"`
+	Price      int64                 `json:"price"` // Stored as cents (in default currency)
+	Stock      int                   `json:"stock"`
+	Attributes []VariantAttribute    `json:"attributes"`
+	Images     []string              `json:"images"`
+	IsDefault  bool                  `json:"is_default"`
+	CreatedAt  time.Time             `json:"created_at"`
+	UpdatedAt  time.Time             `json:"updated_at"`
+	Prices     []ProductVariantPrice `json:"prices,omitempty"` // Prices in different currencies
 }
 
 // NewProductVariant creates a new product variant
@@ -61,17 +58,6 @@ func NewProductVariant(productID uint, sku string, price int64, stock int, attri
 	}, nil
 }
 
-// SetComparePrice sets the compare price for the variant (input in cents)
-func (v *ProductVariant) SetComparePrice(comparePrice int64) error {
-	if comparePrice <= 0 { // Check cents
-		return errors.New("compare price must be greater than zero")
-	}
-
-	v.ComparePrice = comparePrice
-	v.UpdatedAt = time.Now()
-	return nil
-}
-
 // UpdateStock updates the variant's stock
 func (v *ProductVariant) UpdateStock(quantity int) error {
 	newStock := v.Stock + quantity
@@ -89,48 +75,13 @@ func (v *ProductVariant) IsAvailable(quantity int) bool {
 	return v.Stock >= quantity
 }
 
-// GetPriceDollars returns the price in dollars
-func (v *ProductVariant) GetPriceDollars() float64 {
-	return money.FromCents(v.Price)
-}
-
-// GetComparePriceDollars returns the compare price in dollars
-func (v *ProductVariant) GetComparePriceDollars() float64 {
-	return money.FromCents(v.ComparePrice)
-}
-
-// GetPriceInCurrency returns the price for a specific currency
+// GetPriceInCurrency returns the price in the specified currency
 func (v *ProductVariant) GetPriceInCurrency(currencyCode string) (int64, bool) {
-	// If no currency specified or matches default currency, return base price
-	if currencyCode == "" {
-		return v.Price, true
-	}
-
-	// Look for price in the specified currency
 	for _, price := range v.Prices {
 		if price.CurrencyCode == currencyCode {
 			return price.Price, true
 		}
 	}
 
-	// Currency price not found
-	return 0, false
-}
-
-// GetComparePriceInCurrency returns the compare price for a specific currency
-func (v *ProductVariant) GetComparePriceInCurrency(currencyCode string) (int64, bool) {
-	// If no currency specified, return base compare price
-	if currencyCode == "" {
-		return v.ComparePrice, v.ComparePrice > 0
-	}
-
-	// Look for price in the specified currency
-	for _, price := range v.Prices {
-		if price.CurrencyCode == currencyCode {
-			return price.ComparePrice, price.ComparePrice > 0
-		}
-	}
-
-	// Currency compare price not found
-	return 0, false
+	return v.Price, false
 }

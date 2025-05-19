@@ -11,7 +11,6 @@ import (
 // MockProductRepository is a mock implementation of product repository for testing
 type MockProductRepository struct {
 	products    map[uint]*entity.Product
-	bySeller    map[uint][]*entity.Product
 	lastID      uint
 	searchCount int
 }
@@ -20,7 +19,6 @@ type MockProductRepository struct {
 func NewMockProductRepository() repository.ProductRepository {
 	return &MockProductRepository{
 		products:    make(map[uint]*entity.Product),
-		bySeller:    make(map[uint][]*entity.Product),
 		lastID:      0,
 		searchCount: 0,
 	}
@@ -29,11 +27,6 @@ func NewMockProductRepository() repository.ProductRepository {
 // Count returns the number of products in the repository
 func (r *MockProductRepository) Count() (int, error) {
 	return len(r.products), nil
-}
-
-// CountBySeller implements repository.ProductRepository.
-func (r *MockProductRepository) CountBySeller(sellerID uint) (int, error) {
-	return len(r.bySeller[sellerID]), nil
 }
 
 // CountSearch implements repository.ProductRepository.
@@ -147,33 +140,6 @@ func (r *MockProductRepository) Search(query string, categoryID uint, minPrice, 
 		}
 
 		// Apply pagination
-		if skip > 0 {
-			skip--
-			continue
-		}
-
-		result = append(result, product)
-		count++
-
-		if count >= limit {
-			break
-		}
-	}
-
-	return result, nil
-}
-
-// GetBySeller retrieves products by seller ID
-func (r *MockProductRepository) GetBySeller(sellerID uint, offset, limit int) ([]*entity.Product, error) {
-	result := make([]*entity.Product, 0)
-	count := 0
-	skip := offset
-
-	for _, product := range r.products {
-		if product.SellerID != sellerID {
-			continue
-		}
-
 		if skip > 0 {
 			skip--
 			continue

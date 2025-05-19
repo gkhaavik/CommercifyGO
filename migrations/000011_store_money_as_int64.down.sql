@@ -7,10 +7,8 @@ UPDATE products SET price_decimal = price::DECIMAL / 100;
 
 -- Product variants table
 ALTER TABLE product_variants ADD COLUMN price_decimal DECIMAL(10, 2);
-ALTER TABLE product_variants ADD COLUMN compare_price_decimal DECIMAL(10, 2);
 UPDATE product_variants SET 
-    price_decimal = price::DECIMAL / 100,
-    compare_price_decimal = CASE WHEN compare_price IS NOT NULL THEN compare_price::DECIMAL / 100 ELSE NULL END;
+    price_decimal = price::DECIMAL / 100;
 
 -- Orders table
 ALTER TABLE orders ADD COLUMN total_amount_decimal DECIMAL(10, 2);
@@ -66,16 +64,13 @@ UPDATE payment_transactions SET amount_decimal = amount::DECIMAL / 100;
 -- Now drop the int columns and rename the decimal ones
 -- Products
 ALTER TABLE products DROP COLUMN IF EXISTS price;
-ALTER TABLE products DROP COLUMN IF EXISTS compare_price;
 ALTER TABLE products DROP COLUMN IF EXISTS cost_price;
 ALTER TABLE products RENAME COLUMN price_decimal TO price;
 
 -- Product variants
 ALTER TABLE product_variants DROP COLUMN price;
-ALTER TABLE product_variants DROP COLUMN compare_price;
 ALTER TABLE product_variants DROP COLUMN IF EXISTS cost_price;
 ALTER TABLE product_variants RENAME COLUMN price_decimal TO price;
-ALTER TABLE product_variants RENAME COLUMN compare_price_decimal TO compare_price;
 
 -- Orders
 ALTER TABLE orders DROP COLUMN total_amount;

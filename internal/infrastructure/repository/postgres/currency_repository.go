@@ -291,7 +291,7 @@ func (r *CurrencyRepository) SetDefault(code string) error {
 // GetProductPrices retrieves all prices for a product in different currencies
 func (r *CurrencyRepository) GetProductPrices(productID uint) ([]entity.ProductPrice, error) {
 	query := `
-		SELECT id, product_id, currency_code, price, compare_price, created_at, updated_at
+		SELECT id, product_id, currency_code, price, created_at, updated_at
 		FROM product_prices
 		WHERE product_id = $1
 	`
@@ -305,23 +305,17 @@ func (r *CurrencyRepository) GetProductPrices(productID uint) ([]entity.ProductP
 	var prices []entity.ProductPrice
 	for rows.Next() {
 		var price entity.ProductPrice
-		var comparePrice sql.NullInt64
 
 		err := rows.Scan(
 			&price.ID,
 			&price.ProductID,
 			&price.CurrencyCode,
 			&price.Price,
-			&comparePrice,
 			&price.CreatedAt,
 			&price.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		if comparePrice.Valid {
-			price.ComparePrice = comparePrice.Int64
 		}
 
 		prices = append(prices, price)
@@ -337,20 +331,13 @@ func (r *CurrencyRepository) GetProductPrices(productID uint) ([]entity.ProductP
 // SetProductPrice sets or updates a price for a product in a specific currency
 func (r *CurrencyRepository) SetProductPrice(price *entity.ProductPrice) error {
 	query := `
-		INSERT INTO product_prices (product_id, currency_code, price, compare_price, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO product_prices (product_id, currency_code, price, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (product_id, currency_code) DO UPDATE SET
 			price = EXCLUDED.price,
-			compare_price = EXCLUDED.compare_price,
 			updated_at = EXCLUDED.updated_at
 		RETURNING id
 	`
-
-	var comparePrice sql.NullInt64
-	if price.ComparePrice > 0 {
-		comparePrice.Int64 = price.ComparePrice
-		comparePrice.Valid = true
-	}
 
 	now := time.Now()
 
@@ -359,7 +346,6 @@ func (r *CurrencyRepository) SetProductPrice(price *entity.ProductPrice) error {
 		price.ProductID,
 		price.CurrencyCode,
 		price.Price,
-		comparePrice,
 		now,
 		now,
 	).Scan(&price.ID)
@@ -377,7 +363,7 @@ func (r *CurrencyRepository) DeleteProductPrice(productID uint, currencyCode str
 // GetProductVariantPrices retrieves all prices for a product variant in different currencies
 func (r *CurrencyRepository) GetVariantPrices(variantID uint) ([]entity.ProductVariantPrice, error) {
 	query := `
-		SELECT id, variant_id, currency_code, price, compare_price, created_at, updated_at
+		SELECT id, variant_id, currency_code, price, created_at, updated_at
 		FROM product_variant_prices
 		WHERE variant_id = $1
 	`
@@ -391,23 +377,17 @@ func (r *CurrencyRepository) GetVariantPrices(variantID uint) ([]entity.ProductV
 	var prices []entity.ProductVariantPrice
 	for rows.Next() {
 		var price entity.ProductVariantPrice
-		var comparePrice sql.NullInt64
 
 		err := rows.Scan(
 			&price.ID,
 			&price.VariantID,
 			&price.CurrencyCode,
 			&price.Price,
-			&comparePrice,
 			&price.CreatedAt,
 			&price.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		if comparePrice.Valid {
-			price.ComparePrice = comparePrice.Int64
 		}
 
 		prices = append(prices, price)
@@ -423,20 +403,13 @@ func (r *CurrencyRepository) GetVariantPrices(variantID uint) ([]entity.ProductV
 // SetProductVariantPrice sets or updates a price for a product variant in a specific currency
 func (r *CurrencyRepository) SetVariantPrice(price *entity.ProductVariantPrice) error {
 	query := `
-		INSERT INTO product_variant_prices (variant_id, currency_code, price, compare_price, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO product_variant_prices (variant_id, currency_code, price, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (variant_id, currency_code) DO UPDATE SET
 			price = EXCLUDED.price,
-			compare_price = EXCLUDED.compare_price,
 			updated_at = EXCLUDED.updated_at
 		RETURNING id
 	`
-
-	var comparePrice sql.NullInt64
-	if price.ComparePrice > 0 {
-		comparePrice.Int64 = price.ComparePrice
-		comparePrice.Valid = true
-	}
 
 	now := time.Now()
 
@@ -445,7 +418,6 @@ func (r *CurrencyRepository) SetVariantPrice(price *entity.ProductVariantPrice) 
 		price.VariantID,
 		price.CurrencyCode,
 		price.Price,
-		comparePrice,
 		now,
 		now,
 	).Scan(&price.ID)
