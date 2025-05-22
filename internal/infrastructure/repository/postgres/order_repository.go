@@ -162,7 +162,7 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 }
 
 // GetByID retrieves an order by ID
-func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
+func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 	// Get order
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
@@ -190,7 +190,7 @@ func (r *OrderRepository) GetByID(id uint) (*entity.Order, error) {
 	var discountID sql.NullInt64
 	var discountCode sql.NullString
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, orderID).Scan(
 		&order.ID,
 		&orderNumber,
 		&userID,

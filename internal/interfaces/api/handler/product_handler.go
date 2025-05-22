@@ -28,6 +28,7 @@ func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Log
 	}
 }
 
+
 // --- Helper Functions --- //
 
 func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
@@ -299,6 +300,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		json.NewEncoder(w).Encode(response)
+
 		return
 	}
 
@@ -358,6 +360,7 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		json.NewEncoder(w).Encode(response)
+
 		return
 	}
 
@@ -381,6 +384,7 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 	offset := (page - 1) * pageSize
 	products, total, err := h.productUseCase.ListProducts(offset, pageSize)
+
 	if err != nil {
 		h.logger.Error("Failed to list products: %v", err)
 		response := dto.ResponseDTO[any]{
@@ -482,6 +486,7 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
+
 		return
 	}
 
@@ -527,6 +532,7 @@ func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Reque
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
 	if pageSize <= 0 {
 		pageSize = 10 // Default page size
+
 	}
 
 	offset := (page - 1) * pageSize
@@ -577,6 +583,7 @@ func (h *ProductHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(response)
+
 		return
 	}
 
@@ -614,6 +621,7 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
+
 		return
 	}
 
@@ -637,6 +645,7 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 			Name:  a.Name,
 			Value: a.Value,
 		}
+
 	}
 
 	// Convert DTO to usecase input
@@ -828,6 +837,7 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 
 	// Delete variant
 	err = h.productUseCase.DeleteVariant(uint(productID), uint(variantID), userID)
+
 	if err != nil {
 		h.logger.Error("Failed to delete variant: %v", err)
 		response := dto.ResponseDTO[any]{

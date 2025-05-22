@@ -7,10 +7,8 @@ UPDATE products SET price_decimal = price::DECIMAL / 100;
 
 -- Product variants table
 ALTER TABLE product_variants ADD COLUMN price_decimal DECIMAL(10, 2);
-ALTER TABLE product_variants ADD COLUMN compare_price_decimal DECIMAL(10, 2);
 UPDATE product_variants SET 
-    price_decimal = price::DECIMAL / 100,
-    compare_price_decimal = CASE WHEN compare_price IS NOT NULL THEN compare_price::DECIMAL / 100 ELSE NULL END;
+    price_decimal = price::DECIMAL / 100;
 
 -- Orders table
 ALTER TABLE orders ADD COLUMN total_amount_decimal DECIMAL(10, 2);
@@ -66,16 +64,11 @@ UPDATE payment_transactions SET amount_decimal = amount::DECIMAL / 100;
 -- Now drop the int columns and rename the decimal ones
 -- Products
 ALTER TABLE products DROP COLUMN IF EXISTS price;
-ALTER TABLE products DROP COLUMN IF EXISTS compare_price;
-ALTER TABLE products DROP COLUMN IF EXISTS cost_price;
 ALTER TABLE products RENAME COLUMN price_decimal TO price;
 
 -- Product variants
 ALTER TABLE product_variants DROP COLUMN price;
-ALTER TABLE product_variants DROP COLUMN compare_price;
-ALTER TABLE product_variants DROP COLUMN IF EXISTS cost_price;
 ALTER TABLE product_variants RENAME COLUMN price_decimal TO price;
-ALTER TABLE product_variants RENAME COLUMN compare_price_decimal TO compare_price;
 
 -- Orders
 ALTER TABLE orders DROP COLUMN total_amount;
@@ -122,14 +115,3 @@ ALTER TABLE discounts RENAME COLUMN max_discount_value_decimal TO max_discount_v
 -- Payment transactions
 ALTER TABLE payment_transactions DROP COLUMN amount;
 ALTER TABLE payment_transactions RENAME COLUMN amount_decimal TO amount;
-
--- Handle product_variants cost_price if it exists
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='product_variants' AND column_name='cost_price') THEN
-        ALTER TABLE product_variants ADD COLUMN cost_price_decimal DECIMAL(10, 2);
-        UPDATE product_variants SET cost_price_decimal = cost_price::DECIMAL / 100;
-        ALTER TABLE product_variants DROP COLUMN cost_price;
-        ALTER TABLE product_variants RENAME COLUMN cost_price_decimal TO cost_price;
-    END IF;
-END $$;

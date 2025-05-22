@@ -23,8 +23,7 @@ type ProductPrice struct {
 	ID           uint      `json:"id"`
 	ProductID    uint      `json:"product_id"`
 	CurrencyCode string    `json:"currency_code"`
-	Price        int64     `json:"price"`         // Price in cents
-	ComparePrice int64     `json:"compare_price"` // Compare price in cents
+	Price        int64     `json:"price"` // Price in cents
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -34,8 +33,7 @@ type ProductVariantPrice struct {
 	ID           uint      `json:"id"`
 	VariantID    uint      `json:"variant_id"`
 	CurrencyCode string    `json:"currency_code"`
-	Price        int64     `json:"price"`         // Price in cents
-	ComparePrice int64     `json:"compare_price"` // Compare price in cents
+	Price        int64     `json:"price"` // Price in cents
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

@@ -94,7 +94,7 @@ func (s *MobilePayPaymentService) ProcessPayment(request service.PaymentRequest)
 	// Construct the payment request
 	paymentRequest := models.CreatePaymentRequest{
 		Amount: models.Amount{
-			Currency: "DKK",
+			Currency: request.Currency,
 			Value:    int(request.Amount),
 		},
 		Customer: &models.Customer{

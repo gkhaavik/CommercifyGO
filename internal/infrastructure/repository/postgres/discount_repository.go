@@ -65,7 +65,7 @@ func (r *DiscountRepository) Create(discount *entity.Discount) error {
 }
 
 // GetByID retrieves a discount by ID
-func (r *DiscountRepository) GetByID(id uint) (*entity.Discount, error) {
+func (r *DiscountRepository) GetByID(discountID uint) (*entity.Discount, error) {
 	query := `
 		SELECT id, code, type, method, value, min_order_value, max_discount_value, 
 			product_ids, category_ids, start_date, end_date, 
@@ -77,7 +77,7 @@ func (r *DiscountRepository) GetByID(id uint) (*entity.Discount, error) {
 	var productIDsJSON, categoryIDsJSON []byte
 	discount := &entity.Discount{}
 
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRow(query, discountID).Scan(
 		&discount.ID,
 		&discount.Code,
 		&discount.Type,
@@ -214,9 +214,9 @@ func (r *DiscountRepository) Update(discount *entity.Discount) error {
 }
 
 // Delete deletes a discount
-func (r *DiscountRepository) Delete(id uint) error {
+func (r *DiscountRepository) Delete(discountID uint) error {
 	query := `DELETE FROM discounts WHERE id = $1`
-	_, err := r.db.Exec(query, id)
+	_, err := r.db.Exec(query, discountID)
 	return err
 }
 
@@ -345,13 +345,13 @@ func (r *DiscountRepository) ListActive(offset, limit int) ([]*entity.Discount, 
 }
 
 // IncrementUsage increments the usage count of a discount
-func (r *DiscountRepository) IncrementUsage(id uint) error {
+func (r *DiscountRepository) IncrementUsage(discountID uint) error {
 	query := `
 		UPDATE discounts
 		SET current_usage = current_usage + 1, updated_at = $1
 		WHERE id = $2
 	`
 
-	_, err := r.db.Exec(query, time.Now(), id)
+	_, err := r.db.Exec(query, time.Now(), discountID)
 	return err
 }

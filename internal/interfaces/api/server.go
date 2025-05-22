@@ -89,8 +89,8 @@ func (s *Server) setupRoutes() {
 	// Public routes
 	api.HandleFunc("/auth/register", userHandler.Register).Methods(http.MethodPost)
 	api.HandleFunc("/auth/signin", userHandler.Login).Methods(http.MethodPost)
-	api.HandleFunc("/products", productHandler.ListProducts).Methods(http.MethodGet)
 	api.HandleFunc("/products/{productId:[0-9]+}", productHandler.GetProduct).Methods(http.MethodGet)
+
 	api.HandleFunc("/products/search", productHandler.SearchProducts).Methods(http.MethodGet)
 	api.HandleFunc("/categories", productHandler.ListCategories).Methods(http.MethodGet)
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
@@ -139,17 +139,6 @@ func (s *Server) setupRoutes() {
 	protected.HandleFunc("/users/me", userHandler.GetProfile).Methods(http.MethodGet)
 	protected.HandleFunc("/users/me", userHandler.UpdateProfile).Methods(http.MethodPut)
 	protected.HandleFunc("/users/me/password", userHandler.ChangePassword).Methods(http.MethodPut)
-
-	// Product routes (seller only)
-	protected.HandleFunc("/products", productHandler.CreateProduct).Methods(http.MethodPost)
-	protected.HandleFunc("/products/{productId:[0-9]+}", productHandler.UpdateProduct).Methods(http.MethodPut)
-	protected.HandleFunc("/products/{productId:[0-9]+}", productHandler.DeleteProduct).Methods(http.MethodDelete)
-	protected.HandleFunc("/products/seller", productHandler.ListSellerProducts).Methods(http.MethodGet)
-
-	// Product variant routes (seller only)
-	protected.HandleFunc("/products/{productId:[0-9]+}/variants", productHandler.AddVariant).Methods(http.MethodPost)
-	protected.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.UpdateVariant).Methods(http.MethodPut)
-	protected.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.DeleteVariant).Methods(http.MethodDelete)
 
 	// Cart routes
 	protected.HandleFunc("/cart", cartHandler.GetCart).Methods(http.MethodGet)
@@ -213,6 +202,16 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/webhooks/{webhookId:[0-9]+}", webhookHandler.DeleteWebhook).Methods(http.MethodDelete)
 	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.RegisterMobilePayWebhook).Methods(http.MethodPost)
 	admin.HandleFunc("/webhooks/mobilepay", webhookHandler.GetMobilePayWebhooks).Methods(http.MethodGet)
+
+	admin.HandleFunc("/products", productHandler.ListProducts).Methods(http.MethodGet)
+	admin.HandleFunc("/products", productHandler.CreateProduct).Methods(http.MethodPost)
+	admin.HandleFunc("/products/{productId:[0-9]+}", productHandler.UpdateProduct).Methods(http.MethodPut)
+	admin.HandleFunc("/products/{productId:[0-9]+}", productHandler.DeleteProduct).Methods(http.MethodDelete)
+
+	// Product variant routes
+	admin.HandleFunc("/products/{productId:[0-9]+}/variants", productHandler.AddVariant).Methods(http.MethodPost)
+	admin.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.UpdateVariant).Methods(http.MethodPut)
+	admin.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.DeleteVariant).Methods(http.MethodDelete)
 }
 
 // setupStripeWebhooks configures Stripe webhooks

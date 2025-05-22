@@ -17,6 +17,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test category
 		category := &entity.Category{
@@ -31,6 +32,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Create product input
@@ -40,7 +42,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			Price:       99.99,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 		}
 
@@ -55,7 +56,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.Equal(t, money.ToCents(input.Price), product.Price)
 		assert.Equal(t, input.Stock, product.Stock)
 		assert.Equal(t, input.CategoryID, product.CategoryID)
-		assert.Equal(t, input.SellerID, product.SellerID)
 		assert.Equal(t, input.Images, product.Images)
 		assert.Len(t, product.Variants, 0)
 	})
@@ -66,6 +66,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test category
 		category := &entity.Category{
@@ -80,6 +81,7 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Create product input with variants
@@ -89,7 +91,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			Price:       99.99,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			Variants: []usecase.CreateVariantInput{
 				{
@@ -101,13 +102,12 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 					IsDefault:  true,
 				},
 				{
-					SKU:          "SKU-2",
-					Price:        109.99,
-					ComparePrice: 129.99,
-					Stock:        50,
-					Attributes:   []entity.VariantAttribute{{Name: "Color", Value: "Blue"}},
-					Images:       []string{"blue.jpg"},
-					IsDefault:    false,
+					SKU:        "SKU-2",
+					Price:      109.99,
+					Stock:      50,
+					Attributes: []entity.VariantAttribute{{Name: "Color", Value: "Blue"}},
+					Images:     []string{"blue.jpg"},
+					IsDefault:  false,
 				},
 			},
 		}
@@ -125,7 +125,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		assert.Equal(t, "SKU-1", product.Variants[0].SKU)
 		assert.Equal(t, true, product.Variants[0].IsDefault)
 		assert.Equal(t, "SKU-2", product.Variants[1].SKU)
-		assert.Equal(t, money.ToCents(129.99), product.Variants[1].ComparePrice)
 	})
 
 	t.Run("Create product with invalid category", func(t *testing.T) {
@@ -134,13 +133,14 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
-
+		orderRepo := mock.NewMockOrderRepository(false)
 		// Create use case with mocks
 		productUseCase := usecase.NewProductUseCase(
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Create product input with invalid category
@@ -150,7 +150,6 @@ func TestProductUseCase_CreateProduct(t *testing.T) {
 			Price:       99.99,
 			Stock:       100,
 			CategoryID:  999, // Non-existent category
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 		}
 
@@ -171,6 +170,7 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product
 		product := &entity.Product{
@@ -180,7 +180,6 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 		}
 		productRepo.Create(product)
@@ -191,6 +190,7 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Execute
@@ -209,13 +209,14 @@ func TestProductUseCase_GetProductByID(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
-
+		orderRepo := mock.NewMockOrderRepository(false)
 		// Create use case with mocks
 		productUseCase := usecase.NewProductUseCase(
 			productRepo,
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Execute with non-existent ID
@@ -234,6 +235,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test category and product
 		category := &entity.Category{
@@ -255,9 +257,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
 		}
 		productRepo.Create(product)
 
@@ -267,6 +267,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Update input
@@ -280,7 +281,7 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		}
 
 		// Execute
-		updatedProduct, err := productUseCase.UpdateProduct(1, 1, input)
+		updatedProduct, err := productUseCase.UpdateProduct(1, input)
 
 		// Assert
 		assert.NoError(t, err)
@@ -291,49 +292,6 @@ func TestProductUseCase_UpdateProduct(t *testing.T) {
 		assert.Equal(t, input.CategoryID, updatedProduct.CategoryID)
 		assert.Equal(t, input.Images, updatedProduct.Images)
 	})
-
-	t.Run("Update product with invalid seller", func(t *testing.T) {
-		// Setup mocks
-		productRepo := mock.NewMockProductRepository()
-		categoryRepo := mock.NewMockCategoryRepository()
-		productVariantRepo := mock.NewMockProductVariantRepository()
-		currencyRepo := mock.NewMockCurrencyRepository()
-
-		// Create a test product
-		product := &entity.Product{
-			ID:          1,
-			Name:        "Test Product",
-			Description: "This is a test product",
-			Price:       9999,
-			Stock:       100,
-			CategoryID:  1,
-			SellerID:    1,
-			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
-		}
-		productRepo.Create(product)
-
-		// Create use case with mocks
-		productUseCase := usecase.NewProductUseCase(
-			productRepo,
-			categoryRepo,
-			productVariantRepo,
-			currencyRepo,
-		)
-
-		// Update input with different seller
-		input := usecase.UpdateProductInput{
-			Name: "Updated Product",
-		}
-
-		// Execute with different seller ID
-		updatedProduct, err := productUseCase.UpdateProduct(1, 2, input)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, updatedProduct)
-		assert.Contains(t, err.Error(), "unauthorized")
-	})
 }
 
 func TestProductUseCase_AddVariant(t *testing.T) {
@@ -343,6 +301,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product without variants
 		product := &entity.Product{
@@ -352,9 +311,7 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
 		}
 		productRepo.Create(product)
 
@@ -364,22 +321,22 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Add variant input
 		input := usecase.AddVariantInput{
-			ProductID:    1,
-			SKU:          "SKU-1",
-			Price:        129.99,
-			ComparePrice: 149.99,
-			Stock:        50,
-			Attributes:   []entity.VariantAttribute{{Name: "Color", Value: "Red"}},
-			Images:       []string{"red.jpg"},
-			IsDefault:    true,
+			ProductID:  1,
+			SKU:        "SKU-1",
+			Price:      129.99,
+			Stock:      50,
+			Attributes: []entity.VariantAttribute{{Name: "Color", Value: "Red"}},
+			Images:     []string{"red.jpg"},
+			IsDefault:  true,
 		}
 
 		// Execute
-		variant, err := productUseCase.AddVariant(1, input)
+		variant, err := productUseCase.AddVariant(input)
 
 		// Assert
 		assert.NoError(t, err)
@@ -387,16 +344,19 @@ func TestProductUseCase_AddVariant(t *testing.T) {
 		assert.Equal(t, input.ProductID, variant.ProductID)
 		assert.Equal(t, input.SKU, variant.SKU)
 		assert.Equal(t, money.ToCents(input.Price), variant.Price)
-		assert.Equal(t, money.ToCents(input.ComparePrice), variant.ComparePrice)
 		assert.Equal(t, input.Stock, variant.Stock)
 		assert.Equal(t, input.Attributes, variant.Attributes)
 		assert.Equal(t, input.Images, variant.Images)
 		assert.Equal(t, input.IsDefault, variant.IsDefault)
 
 		// Check that product is updated
+
 		updatedProduct, _ := productRepo.GetByID(1)
+		updatedProductPrice, err := productUseCase.GetProductByCurrency(1, "USD")
+
+		assert.NoError(t, err)
 		assert.True(t, updatedProduct.HasVariants)
-		assert.Equal(t, money.ToCents(input.Price), updatedProduct.Price) // Price should be updated from default variant
+		assert.Equal(t, money.ToCents(input.Price), updatedProductPrice.Price)
 	})
 }
 
@@ -407,6 +367,7 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product with variants
 		product := &entity.Product{
@@ -416,7 +377,6 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			HasVariants: true,
 		}
@@ -457,27 +417,26 @@ func TestProductUseCase_UpdateVariant(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Update variant input
 		input := usecase.UpdateVariantInput{
-			SKU:          "SKU-2-UPDATED",
-			Price:        119.99,
-			ComparePrice: 129.99,
-			Stock:        25,
-			Attributes:   []entity.VariantAttribute{{Name: "Color", Value: "Navy Blue"}},
-			Images:       []string{"navy.jpg"},
-			IsDefault:    true, // Change default variant
+			SKU:        "SKU-2-UPDATED",
+			Price:      119.99,
+			Stock:      25,
+			Attributes: []entity.VariantAttribute{{Name: "Color", Value: "Navy Blue"}},
+			Images:     []string{"navy.jpg"},
+			IsDefault:  true, // Change default variant
 		}
 
 		// Execute
-		updatedVariant, err := productUseCase.UpdateVariant(1, 2, 1, input)
+		updatedVariant, err := productUseCase.UpdateVariant(1, 2, input)
 
 		// Assert
 		assert.NoError(t, err)
 		assert.Equal(t, input.SKU, updatedVariant.SKU)
 		assert.Equal(t, money.ToCents(input.Price), updatedVariant.Price)
-		assert.Equal(t, money.ToCents(input.ComparePrice), updatedVariant.ComparePrice)
 		assert.Equal(t, input.Stock, updatedVariant.Stock)
 		assert.Equal(t, input.Attributes, updatedVariant.Attributes)
 		assert.Equal(t, input.Images, updatedVariant.Images)
@@ -500,6 +459,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product with variants
 		product := &entity.Product{
@@ -509,7 +469,6 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			HasVariants: true,
 		}
@@ -550,10 +509,11 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Execute - delete the non-default variant
-		err := productUseCase.DeleteVariant(1, 2, 1)
+		err := productUseCase.DeleteVariant(1, 2)
 
 		// Assert
 		assert.NoError(t, err)
@@ -575,6 +535,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product with variants
 		product := &entity.Product{
@@ -584,7 +545,6 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			HasVariants: true,
 		}
@@ -625,10 +585,11 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Execute - delete the default variant
-		err := productUseCase.DeleteVariant(1, 1, 1)
+		err := productUseCase.DeleteVariant(1, 1)
 
 		// Assert
 		assert.NoError(t, err)
@@ -649,6 +610,7 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product with one variant
 		product := &entity.Product{
@@ -658,7 +620,6 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			HasVariants: true,
 		}
@@ -685,10 +646,11 @@ func TestProductUseCase_DeleteVariant(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Execute - try to delete the only variant
-		err := productUseCase.DeleteVariant(1, 1, 1)
+		err := productUseCase.DeleteVariant(1, 1)
 
 		// Assert
 		assert.Error(t, err)
@@ -703,6 +665,7 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create test products
 		product1 := &entity.Product{
@@ -711,7 +674,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			Description: "A nice blue shirt",
 			Price:       2999,
 			CategoryID:  1,
-			SellerID:    1,
 		}
 		productRepo.Create(product1)
 
@@ -721,7 +683,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			Description: "A comfortable red t-shirt",
 			Price:       1999,
 			CategoryID:  1,
-			SellerID:    1,
 		}
 		productRepo.Create(product2)
 
@@ -731,7 +692,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			Description: "Stylish black jeans",
 			Price:       4999,
 			CategoryID:  2,
-			SellerID:    2,
 		}
 		productRepo.Create(product3)
 
@@ -741,6 +701,7 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Search by shirt
@@ -793,6 +754,7 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 		categoryRepo := mock.NewMockCategoryRepository()
 		productVariantRepo := mock.NewMockProductVariantRepository()
 		currencyRepo := mock.NewMockCurrencyRepository()
+		orderRepo := mock.NewMockOrderRepository(false)
 
 		// Create a test product
 		product := &entity.Product{
@@ -802,7 +764,6 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 			Price:       9999,
 			Stock:       100,
 			CategoryID:  1,
-			SellerID:    1,
 			Images:      []string{"image1.jpg", "image2.jpg"},
 			HasVariants: false,
 		}
@@ -814,59 +775,20 @@ func TestProductUseCase_DeleteProduct(t *testing.T) {
 			categoryRepo,
 			productVariantRepo,
 			currencyRepo,
+			orderRepo,
 		)
 
 		// Execute
-		err := productUseCase.DeleteProduct(1, 1)
+		err := productUseCase.DeleteProduct(1)
 
 		// Assert
 		assert.NoError(t, err)
+
+		// TODO: Verify that product price is deleted and product variants are deleted
 
 		// Verify that product is deleted
 		deletedProduct, err := productRepo.GetByID(1)
 		assert.Error(t, err)
 		assert.Nil(t, deletedProduct)
-	})
-
-	t.Run("Delete product unauthorized", func(t *testing.T) {
-		// Setup mocks
-		productRepo := mock.NewMockProductRepository()
-		categoryRepo := mock.NewMockCategoryRepository()
-		productVariantRepo := mock.NewMockProductVariantRepository()
-		currencyRepo := mock.NewMockCurrencyRepository()
-
-		// Create a test product
-		product := &entity.Product{
-			ID:          1,
-			Name:        "Test Product",
-			Description: "This is a test product",
-			Price:       9999,
-			Stock:       100,
-			CategoryID:  1,
-			SellerID:    1,
-			Images:      []string{"image1.jpg", "image2.jpg"},
-			HasVariants: false,
-		}
-		productRepo.Create(product)
-
-		// Create use case with mocks
-		productUseCase := usecase.NewProductUseCase(
-			productRepo,
-			categoryRepo,
-			productVariantRepo,
-			currencyRepo,
-		)
-
-		// Execute with different seller ID
-		err := productUseCase.DeleteProduct(1, 2)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unauthorized")
-
-		// Verify that product is not deleted
-		existingProduct, err := productRepo.GetByID(1)
-		assert.NoError(t, err)
-		assert.NotNil(t, existingProduct)
 	})
 }

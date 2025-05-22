@@ -44,10 +44,4 @@ ALTER TABLE products
 
 -- ProductVariants table
 ALTER TABLE product_variants
-    ALTER COLUMN price TYPE BIGINT USING (price * 100)::BIGINT,
-    ALTER COLUMN compare_price TYPE BIGINT USING (compare_price * 100)::BIGINT;
-
--- Add any missing columns (compare_price, cost_price) for future use
-ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_price BIGINT DEFAULT 0;
-ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price BIGINT DEFAULT 0;
-ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS cost_price BIGINT DEFAULT 0;
+    ALTER COLUMN price TYPE BIGINT USING (price * 100)::BIGINT;

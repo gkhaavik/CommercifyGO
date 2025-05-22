@@ -1,11 +1,10 @@
 -- Revert all guest checkout related changes
 
--- 1. First, update any NULL values to prevent constraint violations
--- Update any guest carts to assign them to a system user (ID 1)
-UPDATE carts SET user_id = 1 WHERE user_id IS NULL;
+-- 1. First, delete all guest carts to prevent constraint violations
+DELETE FROM carts WHERE user_id IS NULL;
 
--- 2. Update any guest orders to assign them to a system user (ID 1)
-UPDATE orders SET user_id = 1 WHERE user_id IS NULL;
+-- 2. Delete all guest orders to prevent constraint violations
+DELETE FROM orders WHERE user_id IS NULL;
 
 -- 3. Drop the modified foreign key constraint for orders
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey;
