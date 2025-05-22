@@ -14,7 +14,7 @@ type ProductUseCase struct {
 	categoryRepo       repository.CategoryRepository
 	productVariantRepo repository.ProductVariantRepository
 	currencyRepo       repository.CurrencyRepository
-	orderRepo          repository.OrderRepository
+	defaultCurrency    *entity.Currency
 }
 
 // NewProductUseCase creates a new ProductUseCase
@@ -23,14 +23,18 @@ func NewProductUseCase(
 	categoryRepo repository.CategoryRepository,
 	productVariantRepo repository.ProductVariantRepository,
 	currencyRepo repository.CurrencyRepository,
-	orderRepo repository.OrderRepository,
 ) *ProductUseCase {
+	defaultCurrency, err := currencyRepo.GetDefault()
+	if err != nil {
+		return nil
+	}
+
 	return &ProductUseCase{
 		productRepo:        productRepo,
 		categoryRepo:       categoryRepo,
 		productVariantRepo: productVariantRepo,
 		currencyRepo:       currencyRepo,
-		orderRepo:          orderRepo,
+		defaultCurrency:    defaultCurrency,
 	}
 }
 
@@ -80,6 +84,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 		input.Name,
 		input.Description,
 		priceCents, // Use cents
+		uc.defaultCurrency.Code,
 		input.Stock,
 		input.Weight,
 		input.CategoryID,
@@ -128,6 +133,7 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 				product.ID,
 				variantInput.SKU,
 				variantPriceCents, // Use cents
+				product.CurrencyCode,
 				variantInput.Stock,
 				variantInput.Attributes,
 				variantInput.Images,
@@ -177,19 +183,18 @@ func (uc *ProductUseCase) CreateProduct(input CreateProductInput) (*entity.Produ
 }
 
 // GetProductByID retrieves a product by ID
-func (uc *ProductUseCase) GetProductByID(id uint) (*entity.Product, error) {
-	// If product has variants, get them too
-	return uc.productRepo.GetByIDWithVariants(id)
-}
-
-// GetProductByCurrency retrieves a product by ID with prices in a specific currency
-func (uc *ProductUseCase) GetProductByCurrency(id uint, currencyCode string) (*entity.Product, error) {
+func (uc *ProductUseCase) GetProductByID(id uint, currencyCode string) (*entity.Product, error) {
 	if currencyCode == "" {
 		return nil, errors.New("currency code is required")
 	}
 
 	// First get the product with all its data
-	product, err := uc.productRepo.GetByIDWithVariants(id)
+	product, err := uc.productRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	product.Variants, err = uc.productVariantRepo.GetByProduct(id)
 	if err != nil {
 		return nil, err
 	}
@@ -204,13 +209,10 @@ func (uc *ProductUseCase) GetProductByCurrency(id uint, currencyCode string) (*e
 	if found {
 		product.Price = currencyPrice
 	} else {
-		defaultCurr, err := uc.currencyRepo.GetDefault()
-		if err != nil {
-			return nil, err
-		}
-
-		product.Price = defaultCurr.ConvertAmount(product.Price, currency)
+		product.Price = uc.defaultCurrency.ConvertAmount(currencyPrice, currency)
 	}
+
+	product.CurrencyCode = currency.Code
 
 	return product, nil
 }
@@ -403,6 +405,11 @@ type AddVariantInput struct {
 
 // AddVariant adds a new variant to a product
 func (uc *ProductUseCase) AddVariant(input AddVariantInput) (*entity.ProductVariant, error) {
+	product, err := uc.productRepo.GetByIDWithVariants(input.ProductID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Convert prices to cents
 	priceCents := money.ToCents(input.Price)
 
@@ -411,6 +418,7 @@ func (uc *ProductUseCase) AddVariant(input AddVariantInput) (*entity.ProductVari
 		input.ProductID,
 		input.SKU,
 		priceCents, // Use cents
+		product.CurrencyCode,
 		input.Stock,
 		input.Attributes,
 		input.Images,
@@ -439,11 +447,6 @@ func (uc *ProductUseCase) AddVariant(input AddVariantInput) (*entity.ProductVari
 				Price:        priceCents,
 			})
 		}
-	}
-
-	product, err := uc.productRepo.GetByIDWithVariants(input.ProductID)
-	if err != nil {
-		return nil, err
 	}
 
 	// If this is the first variant or it's set as default, update product
@@ -527,13 +530,7 @@ func (uc *ProductUseCase) SearchProducts(input SearchProductsInput) ([]*entity.P
 	// If currency is specified and not the default, convert price ranges
 	var minPriceCents, maxPriceCents int64
 
-	// TODO: Default currency should be in memory
-	defaultCurr, err := uc.currencyRepo.GetDefault()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	if input.CurrencyCode != "" && input.CurrencyCode != defaultCurr.Code {
+	if input.CurrencyCode != "" && input.CurrencyCode != uc.defaultCurrency.Code {
 		// Get the currency
 		currency, err := uc.currencyRepo.GetByCode(input.CurrencyCode)
 		if err != nil {

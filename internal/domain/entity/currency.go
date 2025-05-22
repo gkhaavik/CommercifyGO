@@ -116,7 +116,7 @@ func (c *Currency) ConvertAmount(amount int64, targetCurrency *Currency) int64 {
 		return amount
 	}
 
-	// First convert to a base unit (like USD)
+	// First convert to a base unit
 	baseAmount := float64(amount) / c.ExchangeRate
 
 	// Then convert to target currency

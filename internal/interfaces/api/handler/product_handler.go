@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/application/usecase"
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	errors "github.com/zenfulcode/commercify/internal/domain/error"
@@ -19,13 +20,15 @@ import (
 type ProductHandler struct {
 	productUseCase *usecase.ProductUseCase
 	logger         logger.Logger
+	config         *config.Config
 }
 
 // NewProductHandler creates a new ProductHandler
-func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Logger) *ProductHandler {
+func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Logger, config *config.Config) *ProductHandler {
 	return &ProductHandler{
 		productUseCase: productUseCase,
 		logger:         logger,
+		config:         config,
 	}
 }
 
@@ -49,6 +52,7 @@ func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
 		ProductID:  variant.ProductID,
 		SKU:        variant.SKU,
 		Price:      money.FromCents(variant.Price),
+		Currency:   variant.CurrencyCode,
 		Stock:      variant.Stock,
 		Attributes: attributesDTO,
 		Images:     variant.Images,
@@ -73,6 +77,7 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 		Description: product.Description,
 		SKU:         product.ProductNumber,
 		Price:       money.FromCents(product.Price),
+		Currency:    product.CurrencyCode,
 		Stock:       product.Stock,
 		Weight:      product.Weight,
 		CategoryID:  product.CategoryID,
@@ -192,14 +197,13 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get product
-	currencyCode := vars["currency"]
-	var product *entity.Product
-
-	if currencyCode != "" {
-		product, err = h.productUseCase.GetProductByCurrency(uint(id), currencyCode)
-	} else {
-		product, err = h.productUseCase.GetProductByID(uint(id))
+	currencyCode := &h.config.DefaultCurrency
+	if currencyCodeStr := r.URL.Query().Get("currency"); currencyCodeStr != "" {
+		currencyCode = &currencyCodeStr
 	}
+
+	var product *entity.Product
+	product, err = h.productUseCase.GetProductByID(uint(id), *currencyCode)
 
 	if err != nil {
 		h.logger.Error("Failed to get product: %v", err)

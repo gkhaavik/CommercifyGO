@@ -13,6 +13,7 @@ type Product struct {
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
 	Price         int64             `json:"price"` // Stored as cents (in default currency)
+	CurrencyCode  string            `json:"currency_code,omitempty"`
 	Stock         int               `json:"stock"`
 	Weight        float64           `json:"weight"` // Weight in kg
 	CategoryID    uint              `json:"category_id"`
@@ -26,7 +27,7 @@ type Product struct {
 }
 
 // NewProduct creates a new product with the given details (price in cents)
-func NewProduct(name, description string, price int64, stock int, weight float64, categoryID uint, images []string) (*Product, error) {
+func NewProduct(name, description string, price int64, currencyCode string, stock int, weight float64, categoryID uint, images []string) (*Product, error) {
 	if name == "" {
 		return nil, errors.New("product name cannot be empty")
 	}
@@ -50,6 +51,7 @@ func NewProduct(name, description string, price int64, stock int, weight float64
 		ProductNumber: productNumber,
 		Description:   description,
 		Price:         price, // Already in cents
+		CurrencyCode:  currencyCode,
 		Stock:         stock,
 		Weight:        weight,
 		CategoryID:    categoryID,

@@ -9,6 +9,7 @@ type ProductDTO struct {
 	Description string       `json:"description"`
 	SKU         string       `json:"sku"`
 	Price       float64      `json:"price"`
+	Currency    string       `json:"currency"`
 	Stock       int          `json:"stock"`
 	Weight      float64      `json:"weight"`
 	CategoryID  uint         `json:"category_id"`
@@ -26,6 +27,7 @@ type VariantDTO struct {
 	ProductID  uint                  `json:"product_id"`
 	SKU        string                `json:"sku"`
 	Price      float64               `json:"price"`
+	Currency   string                `json:"currency"`
 	Stock      int                   `json:"stock"`
 	Attributes []VariantAttributeDTO `json:"attributes"`
 	Images     []string              `json:"images,omitempty"`

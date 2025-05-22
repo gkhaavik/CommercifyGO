@@ -66,6 +66,7 @@ func (p *handlerProvider) ProductHandler() *handler.ProductHandler {
 		p.productHandler = handler.NewProductHandler(
 			p.container.UseCases().ProductUseCase(),
 			p.container.Logger(),
+			p.container.Config(),
 		)
 	}
 	return p.productHandler

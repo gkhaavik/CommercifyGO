@@ -26,8 +26,8 @@ func NewProductVariantRepository(db *sql.DB) repository.ProductVariantRepository
 // Create creates a new product variant
 func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error {
 	query := `
-		INSERT INTO product_variants (product_id, sku, price, stock, attributes, images, is_default, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO product_variants (product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id
 	`
 
@@ -48,6 +48,7 @@ func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error 
 		variant.ProductID,
 		variant.SKU,
 		variant.Price,
+		variant.CurrencyCode,
 		variant.Stock,
 		attributesJSON,
 		imagesJSON,
@@ -103,7 +104,7 @@ func (r *ProductVariantRepository) createVariantPrice(price *entity.ProductVaria
 // GetByID gets a variant by ID
 func (r *ProductVariantRepository) GetByID(variantID uint) (*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE id = $1
 	`
@@ -116,6 +117,7 @@ func (r *ProductVariantRepository) GetByID(variantID uint) (*entity.ProductVaria
 		&variant.ProductID,
 		&variant.SKU,
 		&variant.Price,
+		&variant.CurrencyCode,
 		&variant.Stock,
 		&attributesJSON,
 		&imagesJSON,
@@ -195,9 +197,9 @@ func (r *ProductVariantRepository) getVariantPrices(variantID uint) ([]entity.Pr
 func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error {
 	query := `
 		UPDATE product_variants
-		SET sku = $1, price = $2, stock = $3, 
-		    attributes = $4, images = $5, is_default = $6, updated_at = $7
-		WHERE id = $8
+		SET sku = $1, price = $2, currency_code = $3, stock = $4, 
+		    attributes = $5, images = $6, is_default = $7, updated_at = $8
+		WHERE id = $9
 	`
 
 	// Marshal attributes directly
@@ -216,6 +218,7 @@ func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error 
 		query,
 		variant.SKU,
 		variant.Price,
+		variant.CurrencyCode,
 		variant.Stock,
 		attributesJSON,
 		imagesJSON,
@@ -335,7 +338,7 @@ func (r *ProductVariantRepository) Delete(variantID uint) error {
 // GetByProduct gets all variants for a product
 func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE product_id = $1
 		ORDER BY is_default DESC, id ASC
@@ -357,6 +360,7 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 			&variant.ProductID,
 			&variant.SKU,
 			&variant.Price,
+			&variant.CurrencyCode,
 			&variant.Stock,
 			&attributesJSON,
 			&imagesJSON,
@@ -383,6 +387,7 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 		if err != nil {
 			return nil, err
 		}
+
 		variant.Prices = prices
 
 		variants = append(variants, variant)
@@ -398,7 +403,7 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 // GetBySKU gets a variant by SKU
 func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE sku = $1
 	`
@@ -411,6 +416,7 @@ func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant,
 		&variant.ProductID,
 		&variant.SKU,
 		&variant.Price,
+		&variant.CurrencyCode,
 		&variant.Stock,
 		&attributesJSON,
 		&imagesJSON,

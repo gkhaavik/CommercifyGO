@@ -13,21 +13,22 @@ type VariantAttribute struct {
 
 // ProductVariant represents a specific variant of a product
 type ProductVariant struct {
-	ID         uint                  `json:"id"`
-	ProductID  uint                  `json:"product_id"`
-	SKU        string                `json:"sku"`
-	Price      int64                 `json:"price"` // Stored as cents (in default currency)
-	Stock      int                   `json:"stock"`
-	Attributes []VariantAttribute    `json:"attributes"`
-	Images     []string              `json:"images"`
-	IsDefault  bool                  `json:"is_default"`
-	CreatedAt  time.Time             `json:"created_at"`
-	UpdatedAt  time.Time             `json:"updated_at"`
-	Prices     []ProductVariantPrice `json:"prices,omitempty"` // Prices in different currencies
+	ID           uint                  `json:"id"`
+	ProductID    uint                  `json:"product_id"`
+	SKU          string                `json:"sku"`
+	Price        int64                 `json:"price"` // Stored as cents (in default currency)
+	CurrencyCode string                `json:"currency"`
+	Stock        int                   `json:"stock"`
+	Attributes   []VariantAttribute    `json:"attributes"`
+	Images       []string              `json:"images"`
+	IsDefault    bool                  `json:"is_default"`
+	CreatedAt    time.Time             `json:"created_at"`
+	UpdatedAt    time.Time             `json:"updated_at"`
+	Prices       []ProductVariantPrice `json:"prices,omitempty"` // Prices in different currencies
 }
 
 // NewProductVariant creates a new product variant
-func NewProductVariant(productID uint, sku string, price int64, stock int, attributes []VariantAttribute, images []string, isDefault bool) (*ProductVariant, error) {
+func NewProductVariant(productID uint, sku string, price int64, currencyCode string, stock int, attributes []VariantAttribute, images []string, isDefault bool) (*ProductVariant, error) {
 	if productID == 0 {
 		return nil, errors.New("product ID cannot be empty")
 	}
@@ -46,15 +47,16 @@ func NewProductVariant(productID uint, sku string, price int64, stock int, attri
 
 	now := time.Now()
 	return &ProductVariant{
-		ProductID:  productID,
-		SKU:        sku,
-		Price:      price, // Already in cents
-		Stock:      stock,
-		Attributes: attributes,
-		Images:     images,
-		IsDefault:  isDefault,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ProductID:    productID,
+		SKU:          sku,
+		Price:        price, // Already in cents
+		CurrencyCode: currencyCode,
+		Stock:        stock,
+		Attributes:   attributes,
+		Images:       images,
+		IsDefault:    isDefault,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}, nil
 }
 
