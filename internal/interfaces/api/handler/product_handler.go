@@ -33,17 +33,16 @@ func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Log
 
 // ProductVariantResponse is the API representation of a product variant (prices in dollars)
 type ProductVariantResponse struct {
-	ID           uint                      `json:"id"`
-	ProductID    uint                      `json:"product_id"`
-	SKU          string                    `json:"sku"`
-	Price        float64                   `json:"price"`
-	ComparePrice float64                   `json:"compare_price,omitempty"`
-	Stock        int                       `json:"stock"`
-	Attributes   []entity.VariantAttribute `json:"attributes"`
-	Images       []string                  `json:"images,omitempty"`
-	IsDefault    bool                      `json:"is_default"`
-	CreatedAt    time.Time                 `json:"created_at"`
-	UpdatedAt    time.Time                 `json:"updated_at"`
+	ID         uint                      `json:"id"`
+	ProductID  uint                      `json:"product_id"`
+	SKU        string                    `json:"sku"`
+	Price      float64                   `json:"price"`
+	Stock      int                       `json:"stock"`
+	Attributes []entity.VariantAttribute `json:"attributes"`
+	Images     []string                  `json:"images,omitempty"`
+	IsDefault  bool                      `json:"is_default"`
+	CreatedAt  time.Time                 `json:"created_at"`
+	UpdatedAt  time.Time                 `json:"updated_at"`
 }
 
 // ProductResponse is the API representation of a product (prices in dollars)
@@ -56,7 +55,6 @@ type ProductResponse struct {
 	Stock         int                       `json:"stock"`
 	Weight        float64                   `json:"weight"`
 	CategoryID    uint                      `json:"category_id"`
-	SellerID      uint                      `json:"seller_id"`
 	Images        []string                  `json:"images"`
 	HasVariants   bool                      `json:"has_variants"`
 	Variants      []*ProductVariantResponse `json:"variants,omitempty"`
@@ -71,17 +69,16 @@ func toProductVariantResponse(variant *entity.ProductVariant) *ProductVariantRes
 		return nil
 	}
 	return &ProductVariantResponse{
-		ID:           variant.ID,
-		ProductID:    variant.ProductID,
-		SKU:          variant.SKU,
-		Price:        money.FromCents(variant.Price),
-		ComparePrice: money.FromCents(variant.ComparePrice),
-		Stock:        variant.Stock,
-		Attributes:   variant.Attributes,
-		Images:       variant.Images,
-		IsDefault:    variant.IsDefault,
-		CreatedAt:    variant.CreatedAt, // Assign directly
-		UpdatedAt:    variant.UpdatedAt, // Assign directly
+		ID:         variant.ID,
+		ProductID:  variant.ProductID,
+		SKU:        variant.SKU,
+		Price:      money.FromCents(variant.Price),
+		Stock:      variant.Stock,
+		Attributes: variant.Attributes,
+		Images:     variant.Images,
+		IsDefault:  variant.IsDefault,
+		CreatedAt:  variant.CreatedAt, // Assign directly
+		UpdatedAt:  variant.UpdatedAt, // Assign directly
 	}
 }
 
@@ -103,7 +100,6 @@ func toProductResponse(product *entity.Product) *ProductResponse {
 		Stock:         product.Stock,
 		Weight:        product.Weight,
 		CategoryID:    product.CategoryID,
-		SellerID:      product.SellerID,
 		Images:        product.Images,
 		HasVariants:   product.HasVariants,
 		Variants:      variantsResponse,
@@ -124,22 +120,12 @@ func toProductListResponse(products []*entity.Product) []*ProductResponse {
 
 // CreateProduct handles product creation
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Parse request body (expects float64 for prices)
 	var input usecase.CreateProductInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	// Set seller ID from authenticated user
-	input.SellerID = userID
 
 	// Create product (use case handles conversion to cents)
 	product, err := h.productUseCase.CreateProduct(input)
@@ -201,13 +187,6 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 // UpdateProduct handles updating a product
 func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Get product ID from URL
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["productId"], 10, 32)
@@ -224,14 +203,10 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update product (use case handles conversion to cents)
-	product, err := h.productUseCase.UpdateProduct(uint(id), userID, input)
+	product, err := h.productUseCase.UpdateProduct(uint(id), input)
 	if err != nil {
 		h.logger.Error("Failed to update product: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -245,13 +220,6 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 // DeleteProduct handles deleting a product
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Get product ID from URL
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["productId"], 10, 32)
@@ -261,13 +229,9 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete product
-	if err := h.productUseCase.DeleteProduct(uint(id), userID); err != nil {
+	if err := h.productUseCase.DeleteProduct(uint(id)); err != nil {
 		h.logger.Error("Failed to delete product: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -277,13 +241,6 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 // AddVariant handles adding a variant to a product
 func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Get product ID from URL
 	vars := mux.Vars(r)
 	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
@@ -303,14 +260,10 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 	input.ProductID = uint(productID)
 
 	// Add variant (use case handles conversion to cents)
-	variant, err := h.productUseCase.AddVariant(userID, input)
+	variant, err := h.productUseCase.AddVariant(input)
 	if err != nil {
 		h.logger.Error("Failed to add variant: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -325,13 +278,6 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 
 // UpdateVariant handles updating a product variant
 func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Get product and variant IDs from URL
 	vars := mux.Vars(r)
 	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
@@ -354,14 +300,10 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update variant (use case handles conversion to cents)
-	variant, err := h.productUseCase.UpdateVariant(uint(productID), uint(variantID), userID, input)
+	variant, err := h.productUseCase.UpdateVariant(uint(productID), uint(variantID), input)
 	if err != nil {
 		h.logger.Error("Failed to update variant: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -375,13 +317,6 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 
 // DeleteVariant handles deleting a product variant
 func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Get product and variant IDs from URL
 	vars := mux.Vars(r)
 	productID, err := strconv.ParseUint(vars["productId"], 10, 32)
@@ -397,13 +332,9 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete variant
-	if err := h.productUseCase.DeleteVariant(uint(productID), uint(variantID), userID); err != nil {
+	if err := h.productUseCase.DeleteVariant(uint(productID), uint(variantID)); err != nil {
 		h.logger.Error("Failed to delete variant: %v", err)
-		if err.Error() == "unauthorized: not the seller of this product" {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -485,39 +416,6 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 
 	pagination.SetPaginationHeaders(w, params, total)
 
-	response := pagination.NewPaginationResponse(params, total, productsResponse)
-
-	// Return products response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// ListSellerProducts handles listing products for a seller
-func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	params := pagination.ParsePaginationParams(r)
-
-	// Get seller's products (use case returns entities with cents)
-	products, total, err := h.productUseCase.ListProductsBySeller(userID, params.Offset, params.Limit)
-	if err != nil {
-		h.logger.Error("Failed to list seller products: %v", err)
-		http.Error(w, "Failed to list products", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert entities to response structs (converts cents to dollars)
-	productsResponse := toProductListResponse(products)
-
-	// Set pagination headers
-	pagination.SetPaginationHeaders(w, params, total)
-
-	// Create paginated response
 	response := pagination.NewPaginationResponse(params, total, productsResponse)
 
 	// Return products response

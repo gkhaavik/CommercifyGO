@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS products (
     price DECIMAL(10, 2) NOT NULL,
     stock INTEGER NOT NULL DEFAULT 0,
     category_id INTEGER NOT NULL REFERENCES categories(id),
-    seller_id INTEGER NOT NULL REFERENCES users(id),
     images JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL
@@ -81,7 +80,6 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 -- Create indexes
 CREATE INDEX idx_products_category ON products(category_id);
-CREATE INDEX idx_products_seller ON products(seller_id);
 CREATE INDEX idx_orders_user ON orders(user_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_cart_items_cart ON cart_items(cart_id);

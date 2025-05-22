@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS product_prices (
     product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     currency_code VARCHAR(3) NOT NULL REFERENCES currencies(code) ON DELETE CASCADE,
     price BIGINT NOT NULL, -- stored in cents/smallest currency unit
-    compare_price BIGINT DEFAULT NULL, -- stored in cents/smallest currency unit
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(product_id, currency_code)
@@ -30,7 +29,6 @@ CREATE TABLE IF NOT EXISTS product_variant_prices (
     variant_id INT NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
     currency_code VARCHAR(3) NOT NULL REFERENCES currencies(code) ON DELETE CASCADE,
     price BIGINT NOT NULL, -- stored in cents/smallest currency unit
-    compare_price BIGINT DEFAULT NULL, -- stored in cents/smallest currency unit
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(variant_id, currency_code)

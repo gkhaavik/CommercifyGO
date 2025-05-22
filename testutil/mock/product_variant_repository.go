@@ -123,12 +123,19 @@ func (r *MockProductVariantRepository) Delete(id uint) error {
 	delete(r.variants, id)
 	delete(r.variantsBySKU, variant.SKU)
 
-	// Remove from product's variants
+	// Remove from product's variants and handle default variant
 	productVariants, exists := r.variantsByProduct[variant.ProductID]
 	if exists {
 		for i, v := range productVariants {
 			if v.ID == id {
 				productVariants = append(productVariants[:i], productVariants[i+1:]...)
+
+				// If deleted variant was default, set a new default
+				if variant.IsDefault && len(productVariants) > 0 {
+					// Set the first remaining variant as default
+					productVariants[0].IsDefault = true
+					r.variants[productVariants[0].ID] = productVariants[0]
+				}
 				break
 			}
 		}
