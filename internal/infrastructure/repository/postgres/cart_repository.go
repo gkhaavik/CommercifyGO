@@ -71,20 +71,39 @@ func (r *CartRepository) Create(cart *entity.Cart) error {
 	if len(cart.Items) > 0 {
 		for i := range cart.Items {
 			cart.Items[i].CartID = cart.ID
-			query := `
-				INSERT INTO cart_items (cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
-				VALUES ($1, $2, $3, $4, $5, $6)
-				RETURNING id
-			`
-			err = tx.QueryRow(
-				query,
-				cart.Items[i].CartID,
-				cart.Items[i].ProductID,
-				cart.Items[i].ProductVariantID,
-				cart.Items[i].Quantity,
-				cart.Items[i].CreatedAt,
-				cart.Items[i].UpdatedAt,
-			).Scan(&cart.Items[i].ID)
+
+			if cart.Items[i].ProductVariantID == 0 {
+				// If variant ID is 0, use NULL for the database
+				query := `
+					INSERT INTO cart_items (cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
+					VALUES ($1, $2, NULL, $3, $4, $5)
+					RETURNING id
+				`
+				err = tx.QueryRow(
+					query,
+					cart.Items[i].CartID,
+					cart.Items[i].ProductID,
+					cart.Items[i].Quantity,
+					cart.Items[i].CreatedAt,
+					cart.Items[i].UpdatedAt,
+				).Scan(&cart.Items[i].ID)
+			} else {
+				// If variant ID is not 0, use it in the query
+				query := `
+					INSERT INTO cart_items (cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
+					VALUES ($1, $2, $3, $4, $5, $6)
+					RETURNING id
+				`
+				err = tx.QueryRow(
+					query,
+					cart.Items[i].CartID,
+					cart.Items[i].ProductID,
+					cart.Items[i].ProductVariantID,
+					cart.Items[i].Quantity,
+					cart.Items[i].CreatedAt,
+					cart.Items[i].UpdatedAt,
+				).Scan(&cart.Items[i].ID)
+			}
 			if err != nil {
 				return err
 			}
@@ -257,17 +276,31 @@ func (r *CartRepository) Update(cart *entity.Cart) error {
 
 	// Insert cart items
 	for _, item := range cart.Items {
-		_, err = tx.Exec(
-			`INSERT INTO cart_items 
-			 (cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			cart.ID,
-			item.ProductID,
-			item.ProductVariantID, // Store variant ID
-			item.Quantity,
-			item.CreatedAt,
-			item.UpdatedAt,
-		)
+		// If product_variant_id is 0, insert NULL instead
+		if item.ProductVariantID == 0 {
+			_, err = tx.Exec(
+				`INSERT INTO cart_items 
+				(cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
+				VALUES ($1, $2, NULL, $3, $4, $5)`,
+				cart.ID,
+				item.ProductID,
+				item.Quantity,
+				item.CreatedAt,
+				item.UpdatedAt,
+			)
+		} else {
+			_, err = tx.Exec(
+				`INSERT INTO cart_items 
+				(cart_id, product_id, product_variant_id, quantity, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, $5, $6)`,
+				cart.ID,
+				item.ProductID,
+				item.ProductVariantID, // Store variant ID
+				item.Quantity,
+				item.CreatedAt,
+				item.UpdatedAt,
+			)
+		}
 		if err != nil {
 			return err
 		}

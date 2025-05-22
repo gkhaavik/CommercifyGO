@@ -119,12 +119,12 @@ func main() {
 	// 	fmt.Println("Webhooks seeded successfully")
 	// }
 
-	if *allFlag || *cartsFlag {
-		if err := seedCarts(db); err != nil {
-			log.Fatalf("Failed to seed carts: %v", err)
-		}
-		fmt.Println("Carts seeded successfully")
-	}
+	// if *allFlag || *cartsFlag {
+	// 	if err := seedCarts(db); err != nil {
+	// 		log.Fatalf("Failed to seed carts: %v", err)
+	// 	}
+	// 	fmt.Println("Carts seeded successfully")
+	// }
 
 	// if *allFlag || *ordersFlag {
 	// 	if err := seedOrders(db); err != nil {
