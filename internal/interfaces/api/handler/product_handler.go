@@ -12,6 +12,7 @@ import (
 	"github.com/zenfulcode/commercify/internal/domain/money"
 	"github.com/zenfulcode/commercify/internal/dto"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
+	"github.com/zenfulcode/commercify/internal/interfaces/api/middleware"
 )
 
 // ProductHandler handles product-related HTTP requests
@@ -89,8 +90,9 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 // CreateProduct handles product creation
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(uint)
-	if !ok {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+
+	if !ok || userID == 0 {
 		response := dto.ResponseDTO[any]{
 			Success: false,
 			Error:   "Unauthorized",
@@ -230,8 +232,8 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 // UpdateProduct handles updating a product
 func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(uint)
-	if !ok {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+	if !ok || userID == 0 {
 		response := dto.ResponseDTO[any]{
 			Success: false,
 			Error:   "Unauthorized",
@@ -314,8 +316,8 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 // DeleteProduct handles deleting a product
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(uint)
-	if !ok {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+	if !ok || userID == 0 {
 		response := dto.ResponseDTO[any]{
 			Success: false,
 			Error:   "Unauthorized",
@@ -370,8 +372,26 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 // ListProducts handles listing all products
 func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+
+	if !ok || userID == 0 {
+		response := dto.ResponseDTO[any]{
+			Success: false,
+			Error:   "Unauthorized",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	// Parse pagination parameters
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page <= 0 {
+		page = 1 // Default page
+	}
+
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
 	if pageSize <= 0 {
 		pageSize = 10 // Default page size
@@ -451,10 +471,18 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	var currencyCode string
+	if currencyCodeStr := r.URL.Query().Get("currency"); currencyCodeStr != "" {
+		currencyCode = currencyCodeStr
+	}
+
+	offset := (page - 1) * pageSize
+
 	// Convert to usecase input
 	input := usecase.SearchProductsInput{
-		Offset: (page - 1) * pageSize,
-		Limit:  pageSize,
+		Offset:       offset,
+		Limit:        pageSize,
+		CurrencyCode: currencyCode,
 	}
 
 	// Handle optional fields
@@ -535,8 +563,8 @@ func (h *ProductHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 // AddVariant handles adding a new variant to a product
 func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(uint)
-	if !ok {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+	if !ok || userID == 0 {
 		response := dto.ResponseDTO[any]{
 			Success: false,
 			Error:   "Unauthorized",
@@ -629,8 +657,8 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 // UpdateVariant handles updating a product variant
 func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(uint)
-	if !ok {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+	if !ok || userID == 0 {
 		response := dto.ResponseDTO[any]{
 			Success: false,
 			Error:   "Unauthorized",
@@ -731,8 +759,8 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 // DeleteVariant handles deleting a product variant
 func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	_, ok := r.Context().Value("user_id").(uint)
-	if !ok {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uint)
+	if !ok || userID == 0 {
 		response := dto.ResponseDTO[any]{
 			Success: false,
 			Error:   "Unauthorized",

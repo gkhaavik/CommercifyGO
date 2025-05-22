@@ -18,7 +18,7 @@ type AuthMiddleware struct {
 type contextKey string
 
 const (
-	userIDKey contextKey = "user_id"
+	UserIDKey contextKey = "user_id"
 	emailKey  contextKey = "email"
 	roleKey   contextKey = "role"
 )
@@ -59,7 +59,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Add user info to request context
-		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 		ctx = context.WithValue(ctx, emailKey, claims.Email)
 		ctx = context.WithValue(ctx, roleKey, claims.Role)
 

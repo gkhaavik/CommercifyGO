@@ -339,6 +339,7 @@ func seedProducts(db *sql.DB) error {
 		stock        int
 		categoryName string
 		images       string
+		active       bool
 	}{
 		{
 			"iPhone 13",
@@ -347,6 +348,7 @@ func seedProducts(db *sql.DB) error {
 			50,
 			"Smartphones",
 			`["iphone13.jpg"]`,
+			true,
 		},
 		{
 			"Samsung Galaxy S21",
@@ -355,6 +357,7 @@ func seedProducts(db *sql.DB) error {
 			75,
 			"Smartphones",
 			`["galaxys21.jpg"]`,
+			true,
 		},
 		{
 			"MacBook Pro",
@@ -363,6 +366,7 @@ func seedProducts(db *sql.DB) error {
 			30,
 			"Laptops",
 			`["macbookpro.jpg"]`,
+			true,
 		},
 		{
 			"Dell XPS 13",
@@ -371,6 +375,7 @@ func seedProducts(db *sql.DB) error {
 			25,
 			"Laptops",
 			`["dellxps13.jpg"]`,
+			true,
 		},
 		{
 			"Sony WH-1000XM4",
@@ -379,6 +384,7 @@ func seedProducts(db *sql.DB) error {
 			100,
 			"Audio",
 			`["sonywh1000xm4.jpg"]`,
+			true,
 		},
 		{
 			"Men's Casual Shirt",
@@ -387,6 +393,7 @@ func seedProducts(db *sql.DB) error {
 			200,
 			"Men's Clothing",
 			`["mencasualshirt.jpg"]`,
+			true,
 		},
 		{
 			"Women's Summer Dress",
@@ -395,6 +402,7 @@ func seedProducts(db *sql.DB) error {
 			150,
 			"Women's Clothing",
 			`["womendress.jpg"]`,
+			true,
 		},
 		{
 			"Running Shoes",
@@ -403,6 +411,7 @@ func seedProducts(db *sql.DB) error {
 			120,
 			"Footwear",
 			`["runningshoes.jpg"]`,
+			true,
 		},
 		{
 			"Coffee Maker",
@@ -411,6 +420,7 @@ func seedProducts(db *sql.DB) error {
 			80,
 			"Kitchen Appliances",
 			`["coffeemaker.jpg"]`,
+			true,
 		},
 		{
 			"Sofa Set",
@@ -419,6 +429,7 @@ func seedProducts(db *sql.DB) error {
 			15,
 			"Furniture",
 			`["sofaset.jpg"]`,
+			false,
 		},
 		{
 			"The Great Gatsby",
@@ -427,6 +438,7 @@ func seedProducts(db *sql.DB) error {
 			300,
 			"Fiction",
 			`["greatgatsby.jpg"]`,
+			true,
 		},
 		{
 			"Atomic Habits",
@@ -435,6 +447,7 @@ func seedProducts(db *sql.DB) error {
 			250,
 			"Non-Fiction",
 			`["atomichabits.jpg"]`,
+			false,
 		},
 		{
 			"Yoga Mat",
@@ -443,6 +456,7 @@ func seedProducts(db *sql.DB) error {
 			180,
 			"Fitness Equipment",
 			`["yogamat.jpg"]`,
+			false,
 		},
 		{
 			"Camping Tent",
@@ -451,6 +465,7 @@ func seedProducts(db *sql.DB) error {
 			60,
 			"Outdoor Gear",
 			`["campingtent.jpg"]`,
+			false,
 		},
 	}
 
@@ -476,9 +491,9 @@ func seedProducts(db *sql.DB) error {
 		// Only insert if product doesn't exist
 		if !exists {
 			_, err := db.Exec(
-				`INSERT INTO products (name, description, price, stock, category_id, images, created_at, updated_at, product_number)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-				product.name, product.description, money.ToCents(product.price), product.stock, categoryID, product.images, now, now, productNumber,
+				`INSERT INTO products (name, description, price, stock, category_id, images, created_at, updated_at, product_number, active)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+				product.name, product.description, money.ToCents(product.price), product.stock, categoryID, product.images, now, now, productNumber, product.active,
 			)
 			if err != nil {
 				return err
