@@ -193,7 +193,7 @@ func (h *DiscountHandler) ApplyDiscountToOrder(w http.ResponseWriter, r *http.Re
 	}
 
 	// Check if order is in a state where discounts can be applied
-	if order.Status != string(entity.OrderStatusPending) {
+	if order.Status != entity.OrderStatusPending {
 		http.Error(w, "Discount can only be applied to pending orders", http.StatusBadRequest)
 		return
 	}
@@ -257,7 +257,7 @@ func (h *DiscountHandler) ApplyDiscountToGuestOrder(w http.ResponseWriter, r *ht
 	}
 
 	// Check if order is in a state where discounts can be applied
-	if order.Status != string(entity.OrderStatusPending) {
+	if order.Status != entity.OrderStatusPending {
 		http.Error(w, "Discount can only be applied to pending orders", http.StatusBadRequest)
 		return
 	}
@@ -314,7 +314,7 @@ func (h *DiscountHandler) RemoveDiscountFromOrder(w http.ResponseWriter, r *http
 	}
 
 	// Check if order is in a state where discounts can be removed
-	if order.Status != string(entity.OrderStatusPending) {
+	if order.Status != entity.OrderStatusPending {
 		http.Error(w, "Discount can only be removed from pending orders", http.StatusBadRequest)
 		return
 	}

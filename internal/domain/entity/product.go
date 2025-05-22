@@ -22,6 +22,7 @@ type Product struct {
 	Prices        []ProductPrice    `json:"prices,omitempty"` // Prices in different currencies
 	CreatedAt     time.Time         `json:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at"`
+	Active        bool              `json:"active"`
 }
 
 // NewProduct creates a new product with the given details (price in cents)
@@ -54,6 +55,7 @@ func NewProduct(name, description string, price int64, stock int, weight float64
 		CategoryID:    categoryID,
 		Images:        images,
 		HasVariants:   false,
+		Active:        true,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}, nil

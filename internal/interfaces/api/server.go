@@ -87,9 +87,10 @@ func (s *Server) setupRoutes() {
 	api := s.router.PathPrefix("/api").Subrouter()
 
 	// Public routes
-	api.HandleFunc("/users/register", userHandler.Register).Methods(http.MethodPost)
-	api.HandleFunc("/users/login", userHandler.Login).Methods(http.MethodPost)
-	api.HandleFunc("/products/{id:[0-9]+}", productHandler.GetProduct).Methods(http.MethodGet)
+	api.HandleFunc("/auth/register", userHandler.Register).Methods(http.MethodPost)
+	api.HandleFunc("/auth/signin", userHandler.Login).Methods(http.MethodPost)
+	api.HandleFunc("/products/{productId:[0-9]+}", productHandler.GetProduct).Methods(http.MethodGet)
+
 	api.HandleFunc("/products/search", productHandler.SearchProducts).Methods(http.MethodGet)
 	api.HandleFunc("/categories", productHandler.ListCategories).Methods(http.MethodGet)
 	api.HandleFunc("/payment/providers", paymentHandler.GetAvailablePaymentProviders).Methods(http.MethodGet)
@@ -105,9 +106,9 @@ func (s *Server) setupRoutes() {
 
 	// Public shipping routes
 	api.HandleFunc("/shipping/methods", shippingHandler.ListShippingMethods).Methods(http.MethodGet)
-	api.HandleFunc("/shipping/methods/{id:[0-9]+}", shippingHandler.GetShippingMethodByID).Methods(http.MethodGet)
+	api.HandleFunc("/shipping/methods/{shippingMethodId:[0-9]+}", shippingHandler.GetShippingMethodByID).Methods(http.MethodGet)
 	api.HandleFunc("/shipping/options", shippingHandler.CalculateShippingOptions).Methods(http.MethodPost)
-	api.HandleFunc("/shipping/rates/{id:[0-9]+}/cost", shippingHandler.GetShippingCost).Methods(http.MethodPost)
+	api.HandleFunc("/shipping/rates/{shippingRateId:[0-9]+}/cost", shippingHandler.GetShippingCost).Methods(http.MethodPost)
 
 	// Guest cart routes (no authentication required)
 	api.HandleFunc("/guest/cart", cartHandler.GetCart).Methods(http.MethodGet)
@@ -118,7 +119,7 @@ func (s *Server) setupRoutes() {
 
 	// Guest checkout route
 	api.HandleFunc("/guest/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
-	api.HandleFunc("/guest/orders/{id:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
+	api.HandleFunc("/guest/orders/{orderId:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
 
 	// Convert guest cart to user cart after login
 	api.HandleFunc("/guest/cart/convert", cartHandler.ConvertGuestCartToUserCart).Methods(http.MethodPost)
@@ -207,6 +208,7 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/products/{productId:[0-9]+}", productHandler.UpdateProduct).Methods(http.MethodPut)
 	admin.HandleFunc("/products/{productId:[0-9]+}", productHandler.DeleteProduct).Methods(http.MethodDelete)
 
+	// Product variant routes
 	admin.HandleFunc("/products/{productId:[0-9]+}/variants", productHandler.AddVariant).Methods(http.MethodPost)
 	admin.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.UpdateVariant).Methods(http.MethodPut)
 	admin.HandleFunc("/products/{productId:[0-9]+}/variants/{variantId:[0-9]+}", productHandler.DeleteVariant).Methods(http.MethodDelete)

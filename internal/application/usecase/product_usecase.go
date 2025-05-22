@@ -42,6 +42,7 @@ type CurrencyPriceInput struct {
 
 // CreateProductInput contains the data needed to create a product (prices in dollars)
 type CreateProductInput struct {
+
 	Name           string
 	Description    string
 	Price          float64
@@ -217,6 +218,7 @@ func (uc *ProductUseCase) GetProductByCurrency(id uint, currencyCode string) (*e
 
 // UpdateProductInput contains the data needed to update a product (prices in dollars)
 type UpdateProductInput struct {
+
 	Name           string
 	Description    string
 	Price          float64
@@ -258,6 +260,9 @@ func (uc *ProductUseCase) UpdateProduct(id uint, input UpdateProductInput) (*ent
 	}
 	if len(input.Images) > 0 {
 		product.Images = input.Images
+	}
+	if input.Active != product.Active {
+		product.Active = input.Active
 	}
 
 	// Process currency-specific prices, if any

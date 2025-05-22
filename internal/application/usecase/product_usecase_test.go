@@ -1,7 +1,6 @@
 package usecase_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -712,9 +711,6 @@ func TestProductUseCase_SearchProducts(t *testing.T) {
 			Limit:  10,
 		}
 		results, _, err := productUseCase.SearchProducts(input)
-
-		// print results
-		fmt.Println(results)
 
 		// Assert
 		assert.NoError(t, err)

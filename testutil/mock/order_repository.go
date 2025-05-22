@@ -25,6 +25,15 @@ func NewMockOrderRepository(
 	}
 }
 
+// ListAll implements repository.OrderRepository.
+func (r *OrderRepository) ListAll(offset int, limit int) ([]*entity.Order, error) {
+	orders := make([]*entity.Order, 0, len(r.orders))
+	for _, order := range r.orders {
+		orders = append(orders, order)
+	}
+	return orders, nil
+}
+
 // Create adds a new order to the mock repository
 func (r *OrderRepository) Create(order *entity.Order) error {
 	// If no ID provided, generate one
@@ -109,7 +118,7 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error) {
 	var orders []*entity.Order
 	for _, order := range r.orders {
-		if order.Status == string(status) {
+		if order.Status == status {
 			clone := *order
 			orders = append(orders, &clone)
 		}
