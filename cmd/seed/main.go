@@ -336,6 +336,7 @@ func seedProducts(db *sql.DB) error {
 		name         string
 		description  string
 		price        float64
+		currencyCode string
 		stock        int
 		categoryName string
 		images       string
@@ -345,126 +346,140 @@ func seedProducts(db *sql.DB) error {
 			"iPhone 13",
 			"Apple iPhone 13 with A15 Bionic chip",
 			999.99,
+			"USD",
 			50,
 			"Smartphones",
-			`["iphone13.jpg"]`,
+			`["/images/iphone13.jpg"]`,
 			true,
 		},
 		{
 			"Samsung Galaxy S21",
 			"Samsung Galaxy S21 with 5G capability",
 			899.99,
+			"USD",
 			75,
 			"Smartphones",
-			`["galaxys21.jpg"]`,
+			`["/images/galaxys21.jpg"]`,
 			true,
 		},
 		{
 			"MacBook Pro",
 			"Apple MacBook Pro with M1 chip",
 			1299.99,
+			"USD",
 			30,
 			"Laptops",
-			`["macbookpro.jpg"]`,
+			`["/images/macbookpro.jpg"]`,
 			true,
 		},
 		{
 			"Dell XPS 13",
 			"Dell XPS 13 with Intel Core i7",
 			1199.99,
+			"USD",
 			25,
 			"Laptops",
-			`["dellxps13.jpg"]`,
+			`["/images/dellxps13.jpg"]`,
 			true,
 		},
 		{
 			"Sony WH-1000XM4",
 			"Sony noise-cancelling headphones",
 			349.99,
+			"USD",
 			100,
 			"Audio",
-			`["sonywh1000xm4.jpg"]`,
+			`["/images/sonywh1000xm4.jpg"]`,
 			true,
 		},
 		{
 			"Men's Casual Shirt",
 			"Comfortable casual shirt for men",
 			39.99,
+			"USD",
 			200,
 			"Men's Clothing",
-			`["mencasualshirt.jpg"]`,
+			`["/images/mencasualshirt.jpg"]`,
 			true,
 		},
 		{
 			"Women's Summer Dress",
 			"Lightweight summer dress for women",
 			49.99,
+			"USD",
 			150,
 			"Women's Clothing",
-			`["womendress.jpg"]`,
+			`["/images/womendress.jpg"]`,
 			true,
 		},
 		{
 			"Running Shoes",
 			"Comfortable shoes for running",
 			89.99,
+			"USD",
 			120,
 			"Footwear",
-			`["runningshoes.jpg"]`,
+			`["/images/runningshoes.jpg"]`,
 			true,
 		},
 		{
 			"Coffee Maker",
 			"Automatic coffee maker for home use",
 			79.99,
+			"USD",
 			80,
 			"Kitchen Appliances",
-			`["coffeemaker.jpg"]`,
+			`["/images/coffeemaker.jpg"]`,
 			true,
 		},
 		{
 			"Sofa Set",
 			"3-piece sofa set for living room",
 			599.99,
+			"USD",
 			15,
 			"Furniture",
-			`["sofaset.jpg"]`,
+			`["/images/sofaset.jpg"]`,
 			false,
 		},
 		{
 			"The Great Gatsby",
 			"Classic novel by F. Scott Fitzgerald",
 			12.99,
+			"USD",
 			300,
 			"Fiction",
-			`["greatgatsby.jpg"]`,
+			`["/images/greatgatsby.jpg"]`,
 			true,
 		},
 		{
 			"Atomic Habits",
 			"Self-improvement book by James Clear",
 			14.99,
+			"USD",
 			250,
 			"Non-Fiction",
-			`["atomichabits.jpg"]`,
+			`["/images/atomichabits.jpg"]`,
 			false,
 		},
 		{
 			"Yoga Mat",
 			"Non-slip yoga mat for exercise",
 			24.99,
+			"USD",
 			180,
 			"Fitness Equipment",
-			`["yogamat.jpg"]`,
+			`["/images/yogamat.jpg"]`,
 			false,
 		},
 		{
 			"Camping Tent",
 			"4-person camping tent for outdoor adventures",
 			129.99,
+			"USD",
 			60,
 			"Outdoor Gear",
-			`["campingtent.jpg"]`,
+			`["/images/campingtent.jpg"]`,
 			false,
 		},
 	}
@@ -491,9 +506,9 @@ func seedProducts(db *sql.DB) error {
 		// Only insert if product doesn't exist
 		if !exists {
 			_, err := db.Exec(
-				`INSERT INTO products (name, description, price, stock, category_id, images, created_at, updated_at, product_number, active)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-				product.name, product.description, money.ToCents(product.price), product.stock, categoryID, product.images, now, now, productNumber, product.active,
+				`INSERT INTO products (name, description, price, currency_code, stock, category_id, images, created_at, updated_at, product_number, active)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+				product.name, product.description, money.ToCents(product.price), product.currencyCode, product.stock, categoryID, product.images, now, now, productNumber, product.active,
 			)
 			if err != nil {
 				return err
@@ -578,7 +593,7 @@ func seedProductVariants(db *sql.DB) error {
 						},
 						isDefault: isDefault,
 						productID: product.id,
-						images:    fmt.Sprintf(`["%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
+						images:    fmt.Sprintf(`["/images/%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
 					})
 				}
 			}
@@ -613,7 +628,7 @@ func seedProductVariants(db *sql.DB) error {
 						},
 						isDefault: isDefault,
 						productID: product.id,
-						images:    fmt.Sprintf(`["%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
+						images:    fmt.Sprintf(`["/images/%s_%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", "")), strings.ToLower(color)),
 					})
 				}
 			}
@@ -646,7 +661,7 @@ func seedProductVariants(db *sql.DB) error {
 						},
 						isDefault: isDefault,
 						productID: product.id,
-						images:    fmt.Sprintf(`["%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", ""))),
+						images:    fmt.Sprintf(`["/images/%s.jpg"]`, strings.ToLower(strings.ReplaceAll(product.name, " ", ""))),
 					})
 				}
 			}
@@ -684,16 +699,17 @@ func seedProductVariants(db *sql.DB) error {
 				// Insert product variant
 				_, err = db.Exec(
 					`INSERT INTO product_variants (
-						sku, price, stock, attributes, is_default, product_id, 
+						sku, price, stock, attributes, is_default, product_id, currency_code,
 						images, created_at, updated_at
 					)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 					variant.sku,
 					money.ToCents(variant.price),
 					variant.stock,
 					attributesJSON,
 					variant.isDefault,
 					variant.productID,
+					"USD",
 					variant.images,
 					now,
 					now,

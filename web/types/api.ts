@@ -256,10 +256,10 @@ export interface ProductDTO {
   description: string;
   sku: string;
   price: number /* float64 */;
+  currency: string;
   stock: number /* int */;
   weight: number /* float64 */;
   category_id: number /* uint */;
-  seller_id: number /* uint */;
   created_at: string;
   updated_at: string;
   images: string[];
@@ -275,7 +275,7 @@ export interface VariantDTO {
   product_id: number /* uint */;
   sku: string;
   price: number /* float64 */;
-  compare_price?: number /* float64 */;
+  currency: string;
   stock: number /* int */;
   attributes: VariantAttributeDTO[];
   images?: string[];
@@ -306,7 +306,6 @@ export interface CreateProductRequest {
 export interface CreateVariantRequest {
   sku: string;
   price?: number /* float64 */;
-  compare_price?: number /* float64 */;
   stock: number /* int */;
   attributes: VariantAttributeDTO[];
   images?: string[];
