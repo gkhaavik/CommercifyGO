@@ -28,7 +28,6 @@ func NewProductHandler(productUseCase *usecase.ProductUseCase, logger logger.Log
 	}
 }
 
-
 // --- Helper Functions --- //
 
 func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
@@ -45,17 +44,16 @@ func toVariantDTO(variant *entity.ProductVariant) dto.VariantDTO {
 	}
 
 	return dto.VariantDTO{
-		ID:           variant.ID,
-		ProductID:    variant.ProductID,
-		SKU:          variant.SKU,
-		Price:        money.FromCents(variant.Price),
-		ComparePrice: money.FromCents(variant.ComparePrice),
-		Stock:        variant.Stock,
-		Attributes:   attributesDTO,
-		Images:       variant.Images,
-		IsDefault:    variant.IsDefault,
-		CreatedAt:    variant.CreatedAt,
-		UpdatedAt:    variant.UpdatedAt,
+		ID:         variant.ID,
+		ProductID:  variant.ProductID,
+		SKU:        variant.SKU,
+		Price:      money.FromCents(variant.Price),
+		Stock:      variant.Stock,
+		Attributes: attributesDTO,
+		Images:     variant.Images,
+		IsDefault:  variant.IsDefault,
+		CreatedAt:  variant.CreatedAt,
+		UpdatedAt:  variant.UpdatedAt,
 	}
 }
 
@@ -77,7 +75,6 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 		Stock:       product.Stock,
 		Weight:      product.Weight,
 		CategoryID:  product.CategoryID,
-		SellerID:    product.SellerID,
 		Images:      product.Images,
 		HasVariants: product.HasVariants,
 		Variants:    variantsDTO,
@@ -92,7 +89,7 @@ func toProductDTO(product *entity.Product) dto.ProductDTO {
 // CreateProduct handles product creation
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
+	_, ok := r.Context().Value("user_id").(uint)
 	if !ok {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -128,19 +125,17 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		}
 
 		variantInputs[i] = usecase.CreateVariantInput{
-			SKU:          v.SKU,
-			Price:        v.Price,
-			ComparePrice: v.ComparePrice,
-			Stock:        v.StockQuantity,
-			Attributes:   attributes,
-			Images:       v.Images,
-			IsDefault:    v.IsDefault,
+			SKU:        v.SKU,
+			Price:      v.Price,
+			Stock:      v.Stock,
+			Attributes: attributes,
+			Images:     v.Images,
+			IsDefault:  v.IsDefault,
 		}
 	}
 
 	// Convert DTO to usecase input
 	input := usecase.CreateProductInput{
-		SellerID:    userID,
 		Name:        request.Name,
 		Description: request.Description,
 		Price:       request.Price,
@@ -235,7 +230,7 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 // UpdateProduct handles updating a product
 func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
+	_, ok := r.Context().Value("user_id").(uint)
 	if !ok {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -286,7 +281,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update product
-	product, err := h.productUseCase.UpdateProduct(uint(id), userID, input)
+	product, err := h.productUseCase.UpdateProduct(uint(id), input)
 	if err != nil {
 		h.logger.Error("Failed to update product: %v", err)
 		response := dto.ResponseDTO[any]{
@@ -319,7 +314,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 // DeleteProduct handles deleting a product
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
+	_, ok := r.Context().Value("user_id").(uint)
 	if !ok {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -346,7 +341,7 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete product
-	err = h.productUseCase.DeleteProduct(uint(id), userID)
+	err = h.productUseCase.DeleteProduct(uint(id))
 	if err != nil {
 		h.logger.Error("Failed to delete product: %v", err)
 		response := dto.ResponseDTO[any]{
@@ -512,65 +507,6 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(response)
 }
 
-// ListSellerProducts handles listing products for a seller
-func (h *ProductHandler) ListSellerProducts(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		response := dto.ResponseDTO[any]{
-			Success: false,
-			Error:   "Unauthorized",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	// Parse pagination parameters
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
-	if pageSize <= 0 {
-		pageSize = 10 // Default page size
-
-	}
-
-	offset := (page - 1) * pageSize
-	products, total, err := h.productUseCase.ListProductsBySeller(userID, offset, pageSize)
-	if err != nil {
-		h.logger.Error("Failed to list seller products: %v", err)
-		response := dto.ResponseDTO[any]{
-			Success: false,
-			Error:   "Failed to list seller products",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	// Convert to DTOs
-	productDTOs := make([]dto.ProductDTO, len(products))
-	for i, product := range products {
-		productDTOs[i] = toProductDTO(product)
-	}
-
-	response := dto.ProductListResponse{
-		ListResponseDTO: dto.ListResponseDTO[dto.ProductDTO]{
-			Success: true,
-			Data:    productDTOs,
-			Pagination: dto.PaginationDTO{
-				Page:     page,
-				PageSize: pageSize,
-				Total:    total,
-			},
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
 // ListCategories handles listing all product categories
 func (h *ProductHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	categories, err := h.productUseCase.ListCategories()
@@ -599,7 +535,7 @@ func (h *ProductHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 // AddVariant handles adding a new variant to a product
 func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
+	_, ok := r.Context().Value("user_id").(uint)
 	if !ok {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -650,18 +586,17 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 
 	// Convert DTO to usecase input
 	input := usecase.AddVariantInput{
-		ProductID:    uint(productID),
-		SKU:          request.SKU,
-		Price:        request.Price,
-		ComparePrice: request.ComparePrice,
-		Stock:        request.StockQuantity,
-		Attributes:   attributesDTO,
-		Images:       request.Images,
-		IsDefault:    request.IsDefault,
+		ProductID:  uint(productID),
+		SKU:        request.SKU,
+		Price:      request.Price,
+		Stock:      request.Stock,
+		Attributes: attributesDTO,
+		Images:     request.Images,
+		IsDefault:  request.IsDefault,
 	}
 
 	// Add variant
-	variant, err := h.productUseCase.AddVariant(userID, input)
+	variant, err := h.productUseCase.AddVariant(input)
 	if err != nil {
 		h.logger.Error("Failed to add variant: %v", err)
 		response := dto.ResponseDTO[any]{
@@ -694,7 +629,7 @@ func (h *ProductHandler) AddVariant(w http.ResponseWriter, r *http.Request) {
 // UpdateVariant handles updating a product variant
 func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
+	_, ok := r.Context().Value("user_id").(uint)
 	if !ok {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -755,17 +690,16 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 
 	// Convert DTO to usecase input
 	input := usecase.UpdateVariantInput{
-		SKU:          request.SKU,
-		Price:        request.Price,
-		ComparePrice: request.ComparePrice,
-		Stock:        request.StockQuantity,
-		Attributes:   attributesDTO,
-		Images:       request.Images,
-		IsDefault:    request.IsDefault,
+		SKU:        request.SKU,
+		Price:      request.Price,
+		Stock:      request.Stock,
+		Attributes: attributesDTO,
+		Images:     request.Images,
+		IsDefault:  request.IsDefault,
 	}
 
 	// Update variant
-	variant, err := h.productUseCase.UpdateVariant(uint(productID), uint(variantID), userID, input)
+	variant, err := h.productUseCase.UpdateVariant(uint(productID), uint(variantID), input)
 	if err != nil {
 		h.logger.Error("Failed to update variant: %v", err)
 		response := dto.ResponseDTO[any]{
@@ -797,7 +731,7 @@ func (h *ProductHandler) UpdateVariant(w http.ResponseWriter, r *http.Request) {
 // DeleteVariant handles deleting a product variant
 func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
+	_, ok := r.Context().Value("user_id").(uint)
 	if !ok {
 		response := dto.ResponseDTO[any]{
 			Success: false,
@@ -836,7 +770,7 @@ func (h *ProductHandler) DeleteVariant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete variant
-	err = h.productUseCase.DeleteVariant(uint(productID), uint(variantID), userID)
+	err = h.productUseCase.DeleteVariant(uint(productID), uint(variantID))
 
 	if err != nil {
 		h.logger.Error("Failed to delete variant: %v", err)
