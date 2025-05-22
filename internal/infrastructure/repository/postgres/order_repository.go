@@ -56,7 +56,7 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			INSERT INTO orders (
 				user_id, total_amount, status, shipping_address, billing_address,
 				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount,
-				guest_email, guest_phone, guest_full_name, is_guest_order, shipping_method_id, shipping_cost,
+				customer_email, customer_phone, customer_full_name, is_guest_order, shipping_method_id, shipping_cost,
 				total_weight
 			)
 			VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
@@ -76,9 +76,9 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			order.UpdatedAt,
 			order.CompletedAt,
 			order.FinalAmount,
-			order.GuestEmail,
-			order.GuestPhone,
-			order.GuestFullName,
+			order.CustomerDetails.Email,
+			order.CustomerDetails.Phone,
+			order.CustomerDetails.FullName,
 			order.IsGuestOrder,
 			order.ShippingMethodID,
 			order.ShippingCost,
@@ -90,9 +90,9 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			INSERT INTO orders (
 				user_id, total_amount, status, shipping_address, billing_address,
 				payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at, final_amount,
-				shipping_method_id, shipping_cost, total_weight
+				customer_email, customer_phone, customer_full_name, shipping_method_id, shipping_cost, total_weight
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 			RETURNING id
 		`
 
@@ -110,6 +110,9 @@ func (r *OrderRepository) Create(order *entity.Order) error {
 			order.UpdatedAt,
 			order.CompletedAt,
 			order.FinalAmount,
+			order.CustomerDetails.Email,
+			order.CustomerDetails.Phone,
+			order.CustomerDetails.FullName,
 			order.ShippingMethodID,
 			order.ShippingCost,
 			order.TotalWeight,
@@ -165,7 +168,7 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
 			discount_amount, discount_id, discount_code, final_amount, action_url,
-			guest_email, guest_phone, guest_full_name, is_guest_order, shipping_method_id, shipping_cost,
+			customer_email, customer_phone, customer_full_name, is_guest_order, shipping_method_id, shipping_cost,
 			total_weight
 		FROM orders
 		WHERE id = $1
@@ -178,7 +181,7 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 	var orderNumber sql.NullString
 	var actionURL sql.NullString
 	var userID sql.NullInt64 // Use NullInt64 to handle NULL user_id
-	var guestEmail, guestPhone, guestFullName sql.NullString
+	var customerEmail, customerPhone, customerFullName sql.NullString
 	var isGuestOrder sql.NullBool
 	var shippingMethodID sql.NullInt64
 	var shippingCost sql.NullInt64
@@ -206,9 +209,9 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 		&discountCode,
 		&order.FinalAmount,
 		&actionURL,
-		&guestEmail,
-		&guestPhone,
-		&guestFullName,
+		&customerEmail,
+		&customerPhone,
+		&customerFullName,
 		&isGuestOrder,
 		&shippingMethodID,
 		&shippingCost,
@@ -233,14 +236,10 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 	// Handle guest order fields
 	if isGuestOrder.Valid && isGuestOrder.Bool {
 		order.IsGuestOrder = true
-		if guestEmail.Valid {
-			order.GuestEmail = guestEmail.String
-		}
-		if guestPhone.Valid {
-			order.GuestPhone = guestPhone.String
-		}
-		if guestFullName.Valid {
-			order.GuestFullName = guestFullName.String
+		order.CustomerDetails = entity.CustomerDetails{
+			Email:    customerEmail.String,
+			Phone:    customerPhone.String,
+			FullName: customerFullName.String,
 		}
 	}
 
@@ -300,9 +299,11 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 
 	// Get order items
 	query = `
-		SELECT id, order_id, product_id, quantity, price, subtotal
-		FROM order_items
-		WHERE order_id = $1
+		SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.subtotal,
+			p.name as product_name, p.product_number as sku
+		FROM order_items oi
+		LEFT JOIN products p ON p.id = oi.product_id
+		WHERE oi.order_id = $1
 	`
 
 	rows, err := r.db.Query(query, order.ID)
@@ -314,6 +315,7 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 	order.Items = []entity.OrderItem{}
 	for rows.Next() {
 		item := entity.OrderItem{}
+		var productName, sku sql.NullString
 		err := rows.Scan(
 			&item.ID,
 			&item.OrderID,
@@ -321,9 +323,17 @@ func (r *OrderRepository) GetByID(orderID uint) (*entity.Order, error) {
 			&item.Quantity,
 			&item.Price,
 			&item.Subtotal,
+			&productName,
+			&sku,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if productName.Valid {
+			item.ProductName = productName.String
+		}
+		if sku.Valid {
+			item.SKU = sku.String
 		}
 		order.Items = append(order.Items, item)
 	}
@@ -356,8 +366,11 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 			action_url = $14,
 			shipping_method_id = $15,
 			shipping_cost = $16,
-			total_weight = $17
-		WHERE id = $18
+			total_weight = $17,
+			customer_email = $18,
+			customer_phone = $19,
+			customer_full_name = $20
+		WHERE id = $21
 	`
 
 	var discountID sql.NullInt64
@@ -391,6 +404,9 @@ func (r *OrderRepository) Update(order *entity.Order) error {
 		order.ShippingMethodID,
 		order.ShippingCost,
 		order.TotalWeight,
+		order.CustomerDetails.Email,
+		order.CustomerDetails.Phone,
+		order.CustomerDetails.FullName,
 		order.ID,
 	)
 
@@ -402,7 +418,7 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
-			guest_email, guest_phone, guest_full_name, is_guest_order
+			customer_email, customer_phone, customer_full_name, is_guest_order
 		FROM orders
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -423,7 +439,7 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 		var paymentProvider sql.NullString
 		var orderNumber sql.NullString
 		var userIDNull sql.NullInt64
-		var guestEmail, guestPhone, guestFullName sql.NullString
+		var customerEmail, customerPhone, customerFullName sql.NullString
 		var isGuestOrder sql.NullBool
 
 		err := rows.Scan(
@@ -440,9 +456,9 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 			&order.CreatedAt,
 			&order.UpdatedAt,
 			&completedAt,
-			&guestEmail,
-			&guestPhone,
-			&guestFullName,
+			&customerEmail,
+			&customerPhone,
+			&customerFullName,
 			&isGuestOrder,
 		)
 		if err != nil {
@@ -459,14 +475,10 @@ func (r *OrderRepository) GetByUser(userID uint, offset, limit int) ([]*entity.O
 		// Handle guest order fields
 		if isGuestOrder.Valid && isGuestOrder.Bool {
 			order.IsGuestOrder = true
-			if guestEmail.Valid {
-				order.GuestEmail = guestEmail.String
-			}
-			if guestPhone.Valid {
-				order.GuestPhone = guestPhone.String
-			}
-			if guestFullName.Valid {
-				order.GuestFullName = guestFullName.String
+			order.CustomerDetails = entity.CustomerDetails{
+				Email:    customerEmail.String,
+				Phone:    customerPhone.String,
+				FullName: customerFullName.String,
 			}
 		}
 
@@ -536,7 +548,7 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 	query := `
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
-			guest_email, guest_phone, guest_full_name, is_guest_order
+			customer_email, customer_phone, customer_full_name, is_guest_order
 		FROM orders
 		WHERE status = $1
 		ORDER BY created_at DESC
@@ -557,7 +569,7 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 		var paymentProvider sql.NullString
 		var orderNumber sql.NullString
 		var userIDNull sql.NullInt64
-		var guestEmail, guestPhone, guestFullName sql.NullString
+		var customerEmail, customerPhone, customerFullName sql.NullString
 		var isGuestOrder sql.NullBool
 
 		err := rows.Scan(
@@ -574,9 +586,9 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 			&order.CreatedAt,
 			&order.UpdatedAt,
 			&completedAt,
-			&guestEmail,
-			&guestPhone,
-			&guestFullName,
+			&customerEmail,
+			&customerPhone,
+			&customerFullName,
 			&isGuestOrder,
 		)
 		if err != nil {
@@ -593,14 +605,10 @@ func (r *OrderRepository) ListByStatus(status entity.OrderStatus, offset, limit 
 		// Handle guest order fields
 		if isGuestOrder.Valid && isGuestOrder.Bool {
 			order.IsGuestOrder = true
-			if guestEmail.Valid {
-				order.GuestEmail = guestEmail.String
-			}
-			if guestPhone.Valid {
-				order.GuestPhone = guestPhone.String
-			}
-			if guestFullName.Valid {
-				order.GuestFullName = guestFullName.String
+			order.CustomerDetails = entity.CustomerDetails{
+				Email:    customerEmail.String,
+				Phone:    customerPhone.String,
+				FullName: customerFullName.String,
 			}
 		}
 
@@ -692,7 +700,8 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 		SELECT id, order_number, user_id, total_amount, status, shipping_address, billing_address,
 			payment_id, payment_provider, tracking_code, created_at, updated_at, completed_at,
 			discount_amount, discount_id, discount_code, final_amount, action_url,
-			guest_email, guest_phone, guest_full_name, is_guest_order
+			customer_email, customer_phone, customer_full_name, is_guest_order, shipping_method_id, shipping_cost,
+			total_weight
 		FROM orders
 		WHERE payment_id = $1
 	`
@@ -704,8 +713,11 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 	var orderNumber sql.NullString
 	var actionURL sql.NullString
 	var userID sql.NullInt64 // Use NullInt64 to handle NULL user_id
-	var guestEmail, guestPhone, guestFullName sql.NullString
+	var customerEmail, customerPhone, customerFullName sql.NullString
 	var isGuestOrder sql.NullBool
+	var shippingMethodID sql.NullInt64
+	var shippingCost sql.NullInt64
+	var totalWeight sql.NullFloat64
 
 	var discountID sql.NullInt64
 	var discountCode sql.NullString
@@ -729,10 +741,13 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 		&discountCode,
 		&order.FinalAmount,
 		&actionURL,
-		&guestEmail,
-		&guestPhone,
-		&guestFullName,
+		&customerEmail,
+		&customerPhone,
+		&customerFullName,
 		&isGuestOrder,
+		&shippingMethodID,
+		&shippingCost,
+		&totalWeight,
 	)
 
 	if err == sql.ErrNoRows {
@@ -753,14 +768,10 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 	// Handle guest order fields
 	if isGuestOrder.Valid && isGuestOrder.Bool {
 		order.IsGuestOrder = true
-		if guestEmail.Valid {
-			order.GuestEmail = guestEmail.String
-		}
-		if guestPhone.Valid {
-			order.GuestPhone = guestPhone.String
-		}
-		if guestFullName.Valid {
-			order.GuestFullName = guestFullName.String
+		order.CustomerDetails = entity.CustomerDetails{
+			Email:    customerEmail.String,
+			Phone:    customerPhone.String,
+			FullName: customerFullName.String,
 		}
 	}
 
@@ -803,11 +814,28 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 		order.CompletedAt = &completedAt.Time
 	}
 
+	// Set shipping method ID if valid
+	if shippingMethodID.Valid {
+		order.ShippingMethodID = uint(shippingMethodID.Int64)
+	}
+
+	// Set shipping cost if valid
+	if shippingCost.Valid {
+		order.ShippingCost = shippingCost.Int64
+	}
+
+	// Set total weight if valid
+	if totalWeight.Valid {
+		order.TotalWeight = totalWeight.Float64
+	}
+
 	// Get order items
 	query = `
-		SELECT id, order_id, product_id, quantity, price, subtotal
-		FROM order_items
-		WHERE order_id = $1
+		SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.subtotal,
+			p.name as product_name, p.product_number as sku
+		FROM order_items oi
+		LEFT JOIN products p ON p.id = oi.product_id
+		WHERE oi.order_id = $1
 	`
 
 	rows, err := r.db.Query(query, order.ID)
@@ -819,6 +847,7 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 	order.Items = []entity.OrderItem{}
 	for rows.Next() {
 		item := entity.OrderItem{}
+		var productName, sku sql.NullString
 		err := rows.Scan(
 			&item.ID,
 			&item.OrderID,
@@ -826,12 +855,95 @@ func (r *OrderRepository) GetByPaymentID(paymentID string) (*entity.Order, error
 			&item.Quantity,
 			&item.Price,
 			&item.Subtotal,
+			&productName,
+			&sku,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if productName.Valid {
+			item.ProductName = productName.String
+		}
+		if sku.Valid {
+			item.SKU = sku.String
 		}
 		order.Items = append(order.Items, item)
 	}
 
 	return order, nil
+}
+
+// ListAll lists all orders
+func (r *OrderRepository) ListAll(offset, limit int) ([]*entity.Order, error) {
+	query := `
+		SELECT id, order_number, user_id, total_amount, status,
+			payment_id, payment_provider, created_at, updated_at, completed_at,
+			discount_amount, discount_id, discount_code, final_amount,
+			customer_email, customer_phone, customer_full_name, is_guest_order, shipping_method_id, shipping_cost
+		FROM orders
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orders := []*entity.Order{}
+	for rows.Next() {
+		order := &entity.Order{}
+		var completedAt sql.NullTime
+		var userID sql.NullInt64
+		var guestEmail, guestPhone, guestFullName sql.NullString
+		var isGuestOrder sql.NullBool
+		var discountID sql.NullInt64
+		var discountCode sql.NullString
+
+		err := rows.Scan(
+			&order.ID,
+			&order.OrderNumber,
+			&userID,
+			&order.TotalAmount,
+			&order.Status,
+			&order.PaymentID,
+			&order.PaymentProvider,
+			&order.CreatedAt,
+			&order.UpdatedAt,
+			&completedAt,
+			&order.DiscountAmount,
+			&discountID,
+			&discountCode,
+			&order.FinalAmount,
+			&guestEmail,
+			&guestPhone,
+			&guestFullName,
+			&isGuestOrder,
+			&order.ShippingMethodID,
+			&order.ShippingCost,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if discountID.Valid {
+			order.AppliedDiscount = &entity.AppliedDiscount{
+				DiscountID:     uint(discountID.Int64),
+				DiscountCode:   discountCode.String,
+				DiscountAmount: order.DiscountAmount,
+			}
+		}
+
+		if order.ShippingMethodID != 0 {
+			order.ShippingMethod = &entity.ShippingMethod{
+				ID: order.ShippingMethodID,
+			}
+		}
+
+		orders = append(orders, order)
+	}
+
+	return orders, nil
 }

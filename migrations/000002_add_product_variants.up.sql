@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS product_variants (
     product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     sku VARCHAR(100) NOT NULL UNIQUE,
     price DECIMAL(10, 2) NOT NULL,
-    compare_price DECIMAL(10, 2),
     stock INTEGER NOT NULL DEFAULT 0,
     attributes JSONB NOT NULL,
     images JSONB NOT NULL DEFAULT '[]',

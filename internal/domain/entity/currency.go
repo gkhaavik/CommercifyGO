@@ -23,8 +23,7 @@ type ProductPrice struct {
 	ID           uint      `json:"id"`
 	ProductID    uint      `json:"product_id"`
 	CurrencyCode string    `json:"currency_code"`
-	Price        int64     `json:"price"`         // Price in cents
-	ComparePrice int64     `json:"compare_price"` // Compare price in cents
+	Price        int64     `json:"price"` // Price in cents
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -34,8 +33,7 @@ type ProductVariantPrice struct {
 	ID           uint      `json:"id"`
 	VariantID    uint      `json:"variant_id"`
 	CurrencyCode string    `json:"currency_code"`
-	Price        int64     `json:"price"`         // Price in cents
-	ComparePrice int64     `json:"compare_price"` // Compare price in cents
+	Price        int64     `json:"price"` // Price in cents
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -118,7 +116,7 @@ func (c *Currency) ConvertAmount(amount int64, targetCurrency *Currency) int64 {
 		return amount
 	}
 
-	// First convert to a base unit (like USD)
+	// First convert to a base unit
 	baseAmount := float64(amount) / c.ExchangeRate
 
 	// Then convert to target currency

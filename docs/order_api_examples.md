@@ -16,24 +16,26 @@ Create an order as a guest user.
 
 ```json
 {
-  "email": "customer@example.com",
-  "full_name": "John Smith",
+  "first_name": "John",
+  "last_name": "Smith",
   "phone_number": "+1234567890",
   "shipping_address": {
-    "street_address": "123 Main St",
+    "address_line1": "123 Main St",
+    "address_line2": "Apt 4B",
     "city": "San Francisco",
     "state": "CA",
     "postal_code": "94105",
-    "country": "US"
+    "country": "USA"
   },
   "billing_address": {
-    "street_address": "123 Main St",
+    "address_line1": "123 Main St",
+    "address_line2": "Apt 4B",
     "city": "San Francisco",
     "state": "CA",
     "postal_code": "94105",
-    "country": "US" 
+    "country": "USA"
   },
-  "shipping_method_id": 3
+  "shipping_method_id": 1
 }
 ```
 
@@ -41,62 +43,51 @@ Example response:
 
 ```json
 {
-  "id": 10,
-  "order_number": "ORD-20230625-000010",
-  "user_id": 0,
-  "items": [
-    {
-      "id": 15,
-      "order_id": 10,
-      "product_id": 3,
-      "quantity": 1,
-      "price": 19.99,
-      "subtotal": 19.99,
-      "weight": 0.2
+  "success": true,
+  "message": "Order created successfully",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "order_number": "ORD_xxxxx",
+    "session_id": "",
+    "status": "pending",
+    "total_amount": 227.96,
+    "currency": "USD",
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440001",
+        "order_id": "550e8400-e29b-41d4-a716-446655440000",
+        "product_id": "550e8400-e29b-41d4-a716-446655440002",
+        "name": "Product Name",
+        "sku": "PROD-001",
+        "quantity": 1,
+        "unit_price": 199.99,
+        "total_price": 199.99
+      }
+    ],
+    "shipping_address": {
+      "address_line1": "123 Main St",
+      "address_line2": "Apt 4B",
+      "city": "San Francisco",
+      "state": "CA",
+      "postal_code": "94105",
+      "country": "US"
     },
-    {
-      "id": 16,
-      "order_id": 10,
-      "product_id": 5,
-      "variant_id": 10,
-      "quantity": 2,
-      "price": 99.99,
-      "subtotal": 199.98,
-      "weight": 1.6
-    }
-  ],
-  "subtotal": 219.97,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 7.99,
-  "final_amount": 227.96,
-  "status": "pending",
-  "shipping_address": {
-    "street_address": "123 Main St",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "123 Main St",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "US" 
-  },
-  "email": "customer@example.com",
-  "full_name": "John Smith",
-  "phone_number": "+1234567890",
-  "shipping_method_id": 3,
-  "shipping_method_name": "Standard Shipping",
-  "payment_id": null,
-  "payment_provider": null,
-  "is_guest_order": true,
-  "requires_action": false,
-  "action_url": "",
-  "created_at": "2023-06-25T15:30:45Z",
-  "updated_at": "2023-06-25T15:30:45Z"
+    "billing_address": {
+      "address_line1": "123 Main St",
+      "address_line2": "Apt 4B",
+      "city": "San Francisco",
+      "state": "CA",
+      "postal_code": "94105",
+      "country": "US"
+    },
+    "payment_method": "credit_card",
+    "payment_status": "pending",
+    "shipping_method": "standard",
+    "shipping_cost": 7.99,
+    "discount_amount": 0,
+    "created_at": "2024-03-20T10:00:00Z",
+    "updated_at": "2024-03-20T10:00:00Z"
+  }
 }
 ```
 
@@ -127,7 +118,7 @@ Process payment for a guest order.
     "cvc": "123",
     "card_holder_name": "John Smith"
   },
-  "customer_email": "customer@example.com"
+  "phone_number": "+1234567890"
 }
 ```
 
@@ -135,131 +126,63 @@ Example response:
 
 ```json
 {
-  "id": 10,
-  "order_number": "ORD-20230625-000010",
-  "user_id": 0,
-  "items": [
-    {
-      "id": 15,
-      "order_id": 10,
-      "product_id": 3,
-      "quantity": 1,
-      "price": 19.99,
-      "subtotal": 19.99,
-      "weight": 0.2
+  "success": true,
+  "message": "Payment processed successfully",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "status": "paid",
+    "total_amount": 227.96,
+    "currency": "USD",
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440001",
+        "order_id": "550e8400-e29b-41d4-a716-446655440000",
+        "product_id": "550e8400-e29b-41d4-a716-446655440002",
+        "name": "Product Name",
+        "sku": "PROD-001",
+        "quantity": 1,
+        "unit_price": 199.99,
+        "total_price": 199.99
+      }
+    ],
+    "shipping_address": {
+      "first_name": "John",
+      "last_name": "Smith",
+      "address_line1": "123 Main St",
+      "address_line2": "Apt 4B",
+      "city": "San Francisco",
+      "state": "CA",
+      "postal_code": "94105",
+      "country": "US",
+      "phone_number": "+1234567890"
     },
-    {
-      "id": 16,
-      "order_id": 10,
-      "product_id": 5,
-      "variant_id": 10,
-      "quantity": 2,
-      "price": 99.99,
-      "subtotal": 199.98,
-      "weight": 1.6
-    }
-  ],
-  "subtotal": 219.97,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 7.99,
-  "final_amount": 227.96,
-  "status": "paid",
-  "shipping_address": {
-    "street_address": "123 Main St",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "123 Main St",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "US" 
-  },
-  "email": "customer@example.com",
-  "full_name": "John Smith",
-  "phone_number": "+1234567890",
-  "shipping_method_id": 3,
-  "shipping_method_name": "Standard Shipping",
-  "payment_id": "pi_3NJQDLGSwq9VmN8I0bmUrvYx",
-  "payment_provider": "stripe",
-  "is_guest_order": true,
-  "requires_action": false,
-  "action_url": "",
-  "created_at": "2023-06-25T15:30:45Z",
-  "updated_at": "2023-06-25T15:35:20Z"
-}
-```
-
-Alternative response (when 3D Secure authentication is required):
-
-```json
-{
-  "id": 10,
-  "order_number": "ORD-20230625-000010",
-  "user_id": 0,
-  "items": [
-    {
-      "id": 15,
-      "order_id": 10,
-      "product_id": 3,
-      "quantity": 1,
-      "price": 19.99,
-      "subtotal": 19.99,
-      "weight": 0.2
+    "billing_address": {
+      "first_name": "John",
+      "last_name": "Smith",
+      "address_line1": "123 Main St",
+      "address_line2": "Apt 4B",
+      "city": "San Francisco",
+      "state": "CA",
+      "postal_code": "94105",
+      "country": "US",
+      "phone_number": "+1234567890"
     },
-    {
-      "id": 16,
-      "order_id": 10,
-      "product_id": 5,
-      "variant_id": 10,
-      "quantity": 2,
-      "price": 99.99,
-      "subtotal": 199.98,
-      "weight": 1.6
-    }
-  ],
-  "subtotal": 219.97,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 7.99,
-  "final_amount": 227.96,
-  "status": "pending_action",
-  "shipping_address": {
-    "street_address": "123 Main St",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "123 Main St",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "US" 
-  },
-  "email": "customer@example.com",
-  "full_name": "John Smith",
-  "phone_number": "+1234567890",
-  "shipping_method_id": 3,
-  "shipping_method_name": "Standard Shipping",
-  "payment_id": "pi_3NJQDLGSwq9VmN8I0bmUrvYx",
-  "payment_provider": "stripe",
-  "is_guest_order": true,
-  "requires_action": true,
-  "action_url": "https://hooks.stripe.com/3d_secure_2_eap/begin_test/src_1NJQDLGSwq9VmN8I0OOVbLwE/src_client_secret_CG9LMEyAnFQw9OdPvRD0NCmz",
-  "created_at": "2023-06-25T15:30:45Z",
-  "updated_at": "2023-06-25T15:35:20Z"
+    "payment_method": "credit_card",
+    "payment_status": "paid",
+    "shipping_method": "standard",
+    "shipping_cost": 7.99,
+    "tax_amount": 19.98,
+    "discount_amount": 0,
+    "created_at": "2024-03-20T10:00:00Z",
+    "updated_at": "2024-03-20T10:05:00Z"
+  }
 }
 ```
 
 **Status Codes:**
 
-- `200 OK`: Payment processed or requires further action
+- `200 OK`: Payment processed successfully
 - `400 Bad Request`: Invalid payment details or order already paid
 - `401 Unauthorized`: Invalid session for guest order
 - `404 Not Found`: Order not found
@@ -280,21 +203,29 @@ Create an order for the authenticated user.
 ```json
 {
   "shipping_address": {
-    "street_address": "456 Oak Avenue",
+    "first_name": "Sarah",
+    "last_name": "Johnson",
+    "address_line1": "456 Oak Avenue",
+    "address_line2": "Suite 100",
     "city": "Seattle",
     "state": "WA",
     "postal_code": "98101",
-    "country": "US"
+    "country": "US",
+    "phone_number": "+1987654321"
   },
   "billing_address": {
-    "street_address": "456 Oak Avenue",
+    "first_name": "Sarah",
+    "last_name": "Johnson",
+    "address_line1": "456 Oak Avenue",
+    "address_line2": "Suite 100",
     "city": "Seattle",
     "state": "WA",
     "postal_code": "98101",
-    "country": "US"
+    "country": "US",
+    "phone_number": "+1987654321"
   },
-  "shipping_method_id": 2,
-  "phone_number": "+1987654321"
+  "shipping_method": "express",
+  "payment_method": "wallet"
 }
 ```
 
@@ -302,62 +233,57 @@ Example response:
 
 ```json
 {
-  "id": 12,
-  "order_number": "ORD-20230626-000012",
-  "user_id": 5,
-  "items": [
-    {
-      "id": 20,
-      "order_id": 12,
-      "product_id": 1,
-      "quantity": 1,
-      "price": 999.99,
-      "subtotal": 999.99,
-      "weight": 0.35
+  "success": true,
+  "message": "Order created successfully",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "user_id": "550e8400-e29b-41d4-a716-446655440004",
+    "status": "pending",
+    "total_amount": 2514.97,
+    "currency": "USD",
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440005",
+        "order_id": "550e8400-e29b-41d4-a716-446655440003",
+        "product_id": "550e8400-e29b-41d4-a716-446655440006",
+        "name": "Premium Product",
+        "sku": "PROD-002",
+        "quantity": 1,
+        "unit_price": 2499.99,
+        "total_price": 2499.99
+      }
+    ],
+    "shipping_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
     },
-    {
-      "id": 21,
-      "order_id": 12,
-      "product_id": 2,
-      "variant_id": 1,
-      "quantity": 1,
-      "price": 1499.99,
-      "subtotal": 1499.99,
-      "weight": 2.1
-    }
-  ],
-  "subtotal": 2499.98,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 14.99,
-  "final_amount": 2514.97,
-  "status": "pending",
-  "shipping_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "email": "user@example.com",
-  "full_name": "Sarah Johnson",
-  "phone_number": "+1987654321",
-  "shipping_method_id": 2,
-  "shipping_method_name": "Express Shipping",
-  "payment_id": null,
-  "payment_provider": null,
-  "is_guest_order": false,
-  "requires_action": false,
-  "action_url": "",
-  "created_at": "2023-06-26T10:15:30Z",
-  "updated_at": "2023-06-26T10:15:30Z"
+    "billing_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
+    },
+    "payment_method": "wallet",
+    "payment_status": "pending",
+    "shipping_method": "express",
+    "shipping_cost": 14.99,
+    "tax_amount": 0,
+    "discount_amount": 0,
+    "created_at": "2024-03-20T11:00:00Z",
+    "updated_at": "2024-03-20T11:00:00Z"
+  }
 }
 ```
 
@@ -390,68 +316,63 @@ Example response:
 
 ```json
 {
-  "id": 12,
-  "order_number": "ORD-20230626-000012",
-  "user_id": 5,
-  "items": [
-    {
-      "id": 20,
-      "order_id": 12,
-      "product_id": 1,
-      "quantity": 1,
-      "price": 999.99,
-      "subtotal": 999.99,
-      "weight": 0.35
+  "success": true,
+  "message": "Payment processed successfully",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "user_id": "550e8400-e29b-41d4-a716-446655440004",
+    "status": "paid",
+    "total_amount": 2514.97,
+    "currency": "USD",
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440005",
+        "order_id": "550e8400-e29b-41d4-a716-446655440003",
+        "product_id": "550e8400-e29b-41d4-a716-446655440006",
+        "name": "Premium Product",
+        "sku": "PROD-002",
+        "quantity": 1,
+        "unit_price": 2499.99,
+        "total_price": 2499.99
+      }
+    ],
+    "shipping_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
     },
-    {
-      "id": 21,
-      "order_id": 12,
-      "product_id": 2,
-      "variant_id": 1,
-      "quantity": 1,
-      "price": 1499.99,
-      "subtotal": 1499.99,
-      "weight": 2.1
-    }
-  ],
-  "subtotal": 2499.98,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 14.99,
-  "final_amount": 2514.97,
-  "status": "pending_action",
-  "shipping_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "email": "user@example.com",
-  "full_name": "Sarah Johnson",
-  "phone_number": "+1987654321",
-  "shipping_method_id": 2,
-  "shipping_method_name": "Express Shipping",
-  "payment_id": "mp-123456789",
-  "payment_provider": "mobilepay",
-  "is_guest_order": false,
-  "requires_action": true,
-  "action_url": "https://api.mobilepay.dk/v1/payments/mp-123456789/authorize",
-  "created_at": "2023-06-26T10:15:30Z",
-  "updated_at": "2023-06-26T10:18:45Z"
+    "billing_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
+    },
+    "payment_method": "wallet",
+    "payment_status": "paid",
+    "shipping_method": "express",
+    "shipping_cost": 14.99,
+    "tax_amount": 0,
+    "discount_amount": 0,
+    "created_at": "2024-03-20T11:00:00Z",
+    "updated_at": "2024-03-20T11:05:00Z"
+  }
 }
 ```
 
 **Status Codes:**
 
-- `200 OK`: Payment processed or requires further action
+- `200 OK`: Payment processed successfully
 - `400 Bad Request`: Invalid payment details or order already paid
 - `401 Unauthorized`: User not authenticated
 - `403 Forbidden`: User not authorized for this order
@@ -470,62 +391,57 @@ Example response:
 
 ```json
 {
-  "id": 12,
-  "order_number": "ORD-20230626-000012",
-  "user_id": 5,
-  "items": [
-    {
-      "id": 20,
-      "order_id": 12,
-      "product_id": 1,
-      "quantity": 1,
-      "price": 999.99,
-      "subtotal": 999.99,
-      "weight": 0.35
+  "success": true,
+  "message": "Order retrieved successfully",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "user_id": "550e8400-e29b-41d4-a716-446655440004",
+    "status": "paid",
+    "total_amount": 2514.97,
+    "currency": "USD",
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440005",
+        "order_id": "550e8400-e29b-41d4-a716-446655440003",
+        "product_id": "550e8400-e29b-41d4-a716-446655440006",
+        "name": "Premium Product",
+        "sku": "PROD-002",
+        "quantity": 1,
+        "unit_price": 2499.99,
+        "total_price": 2499.99
+      }
+    ],
+    "shipping_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
     },
-    {
-      "id": 21,
-      "order_id": 12,
-      "product_id": 2,
-      "variant_id": 1,
-      "quantity": 1,
-      "price": 1499.99,
-      "subtotal": 1499.99,
-      "weight": 2.1
-    }
-  ],
-  "subtotal": 2499.98,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 14.99,
-  "final_amount": 2514.97,
-  "status": "paid",
-  "shipping_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "email": "user@example.com",
-  "full_name": "Sarah Johnson",
-  "phone_number": "+1987654321",
-  "shipping_method_id": 2,
-  "shipping_method_name": "Express Shipping",
-  "payment_id": "mp-123456789",
-  "payment_provider": "mobilepay",
-  "is_guest_order": false,
-  "requires_action": false,
-  "action_url": "",
-  "created_at": "2023-06-26T10:15:30Z",
-  "updated_at": "2023-06-26T10:25:12Z"
+    "billing_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
+    },
+    "payment_method": "wallet",
+    "payment_status": "paid",
+    "shipping_method": "express",
+    "shipping_cost": 14.99,
+    "tax_amount": 0,
+    "discount_amount": 0,
+    "created_at": "2024-03-20T11:00:00Z",
+    "updated_at": "2024-03-20T11:05:00Z"
+  }
 }
 ```
 
@@ -553,40 +469,32 @@ List all orders for the authenticated user.
 Example response:
 
 ```json
-[
-  {
-    "id": 12,
-    "order_number": "ORD-20230626-000012",
-    "user_id": 5,
-    "subtotal": 2499.98,
-    "discount_code": null,
-    "discount_amount": 0,
-    "shipping_cost": 14.99,
-    "final_amount": 2514.97,
-    "status": "paid",
-    "items_count": 2,
-    "shipping_method_name": "Express Shipping",
-    "payment_provider": "mobilepay",
-    "created_at": "2023-06-26T10:15:30Z",
-    "updated_at": "2023-06-26T10:25:12Z"
-  },
-  {
-    "id": 9,
-    "order_number": "ORD-20230620-000009",
-    "user_id": 5,
-    "subtotal": 39.98,
-    "discount_code": "SUMMER2023",
-    "discount_amount": 4.00,
-    "shipping_cost": 5.99,
-    "final_amount": 41.97,
-    "status": "shipped",
-    "items_count": 2,
-    "shipping_method_name": "Standard Shipping",
-    "payment_provider": "stripe",
-    "created_at": "2023-06-20T14:22:15Z",
-    "updated_at": "2023-06-22T09:30:00Z"
+{
+  "success": true,
+  "message": "Orders retrieved successfully",
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440003",
+      "user_id": "550e8400-e29b-41d4-a716-446655440004",
+      "status": "paid",
+      "total_amount": 2514.97,
+      "currency": "USD",
+      "payment_method": "wallet",
+      "payment_status": "paid",
+      "shipping_method": "express",
+      "shipping_cost": 14.99,
+      "tax_amount": 0,
+      "discount_amount": 0,
+      "created_at": "2024-03-20T11:00:00Z",
+      "updated_at": "2024-03-20T11:05:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "offset": 0,
+    "limit": 10
   }
-]
+}
 ```
 
 **Status Codes:**
@@ -614,41 +522,32 @@ List all orders in the system (admin only).
 Example response:
 
 ```json
-[
-  {
-    "id": 12,
-    "order_number": "ORD-20230626-000012",
-    "user_id": 5,
-    "email": "user@example.com",
-    "full_name": "Sarah Johnson",
-    "subtotal": 2499.98,
-    "discount_amount": 0,
-    "shipping_cost": 14.99,
-    "final_amount": 2514.97,
-    "status": "paid",
-    "items_count": 2,
-    "payment_provider": "mobilepay",
-    "created_at": "2023-06-26T10:15:30Z",
-    "updated_at": "2023-06-26T10:25:12Z"
-  },
-  {
-    "id": 10,
-    "order_number": "ORD-20230625-000010",
-    "user_id": 0,
-    "email": "customer@example.com",
-    "full_name": "John Smith",
-    "subtotal": 219.97,
-    "discount_amount": 0,
-    "shipping_cost": 7.99,
-    "final_amount": 227.96,
-    "status": "paid",
-    "items_count": 2,
-    "payment_provider": "stripe",
-    "is_guest_order": true,
-    "created_at": "2023-06-25T15:30:45Z",
-    "updated_at": "2023-06-25T15:35:20Z"
+{
+  "success": true,
+  "message": "Orders retrieved successfully",
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440003",
+      "user_id": "550e8400-e29b-41d4-a716-446655440004",
+      "status": "paid",
+      "total_amount": 2514.97,
+      "currency": "USD",
+      "payment_method": "wallet",
+      "payment_status": "paid",
+      "shipping_method": "express",
+      "shipping_cost": 14.99,
+      "tax_amount": 0,
+      "discount_amount": 0,
+      "created_at": "2024-03-20T11:00:00Z",
+      "updated_at": "2024-03-20T11:05:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "offset": 0,
+    "limit": 10
   }
-]
+}
 ```
 
 **Status Codes:**
@@ -678,62 +577,57 @@ Example response:
 
 ```json
 {
-  "id": 12,
-  "order_number": "ORD-20230626-000012",
-  "user_id": 5,
-  "items": [
-    {
-      "id": 20,
-      "order_id": 12,
-      "product_id": 1,
-      "quantity": 1,
-      "price": 999.99,
-      "subtotal": 999.99,
-      "weight": 0.35
+  "success": true,
+  "message": "Order status updated successfully",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "user_id": "550e8400-e29b-41d4-a716-446655440004",
+    "status": "shipped",
+    "total_amount": 2514.97,
+    "currency": "USD",
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440005",
+        "order_id": "550e8400-e29b-41d4-a716-446655440003",
+        "product_id": "550e8400-e29b-41d4-a716-446655440006",
+        "name": "Premium Product",
+        "sku": "PROD-002",
+        "quantity": 1,
+        "unit_price": 2499.99,
+        "total_price": 2499.99
+      }
+    ],
+    "shipping_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
     },
-    {
-      "id": 21,
-      "order_id": 12,
-      "product_id": 2,
-      "variant_id": 1,
-      "quantity": 1,
-      "price": 1499.99,
-      "subtotal": 1499.99,
-      "weight": 2.1
-    }
-  ],
-  "subtotal": 2499.98,
-  "discount_code": null,
-  "discount_amount": 0,
-  "shipping_cost": 14.99,
-  "final_amount": 2514.97,
-  "status": "shipped",
-  "shipping_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "billing_address": {
-    "street_address": "456 Oak Avenue",
-    "city": "Seattle",
-    "state": "WA",
-    "postal_code": "98101",
-    "country": "US"
-  },
-  "email": "user@example.com",
-  "full_name": "Sarah Johnson",
-  "phone_number": "+1987654321",
-  "shipping_method_id": 2,
-  "shipping_method_name": "Express Shipping",
-  "payment_id": "mp-123456789",
-  "payment_provider": "mobilepay",
-  "is_guest_order": false,
-  "requires_action": false,
-  "action_url": "",
-  "created_at": "2023-06-26T10:15:30Z",
-  "updated_at": "2023-06-26T14:30:15Z"
+    "billing_address": {
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "address_line1": "456 Oak Avenue",
+      "address_line2": "Suite 100",
+      "city": "Seattle",
+      "state": "WA",
+      "postal_code": "98101",
+      "country": "US",
+      "phone_number": "+1987654321"
+    },
+    "payment_method": "wallet",
+    "payment_status": "paid",
+    "shipping_method": "express",
+    "shipping_cost": 14.99,
+    "tax_amount": 0,
+    "discount_amount": 0,
+    "created_at": "2024-03-20T11:00:00Z",
+    "updated_at": "2024-03-20T14:30:00Z"
+  }
 }
 ```
 
@@ -746,75 +640,6 @@ Example response:
 - `404 Not Found`: Order not found
 - `500 Internal Server Error`: Failed to update order status
 
-## Payment Management Endpoints (Admin Only)
-
-### Capture Payment
-
-```plaintext
-POST /api/admin/payments/{paymentId}/capture
-```
-
-Capture a previously authorized payment (admin only).
-
-**Request Body:**
-
-```json
-{
-  "amount": 2514.97
-}
-```
-
-**Status Codes:**
-
-- `200 OK`: Payment captured successfully
-- `400 Bad Request`: Invalid request or capture not allowed
-- `401 Unauthorized`: User not authenticated
-- `403 Forbidden`: User not authorized (not an admin)
-- `404 Not Found`: Payment not found
-- `500 Internal Server Error`: Failed to capture payment
-
-### Cancel Payment
-
-```plaintext
-POST /api/admin/payments/{paymentId}/cancel
-```
-
-Cancel a payment that requires action but hasn't been completed (admin only).
-
-**Status Codes:**
-
-- `200 OK`: Payment cancelled successfully
-- `400 Bad Request`: Payment cancellation not allowed
-- `401 Unauthorized`: User not authenticated
-- `403 Forbidden`: User not authorized (not an admin)
-- `404 Not Found`: Payment not found
-- `500 Internal Server Error`: Failed to cancel payment
-
-### Refund Payment
-
-```plaintext
-POST /api/admin/payments/{paymentId}/refund
-```
-
-Refund a captured payment (admin only).
-
-**Request Body:**
-
-```json
-{
-  "amount": 2514.97
-}
-```
-
-**Status Codes:**
-
-- `200 OK`: Payment refunded successfully
-- `400 Bad Request`: Invalid request or refund not allowed
-- `401 Unauthorized`: User not authenticated
-- `403 Forbidden`: User not authorized (not an admin)
-- `404 Not Found`: Payment not found
-- `500 Internal Server Error`: Failed to refund payment
-
 ## Example Workflow
 
 ### Guest Checkout Flow
@@ -823,8 +648,7 @@ Refund a captured payment (admin only).
 2. Guest provides shipping information and selects shipping method
 3. System creates an order with `POST /api/guest/orders`
 4. Guest provides payment details with `POST /api/guest/orders/{id}/payment`
-5. If payment requires additional action (3D Secure, etc.), guest completes it
-6. Payment is processed and order status is updated to "paid"
+5. Payment is processed and order status is updated to "paid"
 
 ### Authenticated User Checkout Flow
 
@@ -832,14 +656,12 @@ Refund a captured payment (admin only).
 2. User provides shipping information and selects shipping method
 3. System creates an order with `POST /api/orders`
 4. User provides payment details with `POST /api/orders/{id}/payment`
-5. If payment requires additional action, user completes it
-6. Payment is processed and order status is updated to "paid"
+5. Payment is processed and order status is updated to "paid"
 
 ### Order Fulfillment Flow (Admin)
 
 1. Admin views orders with `GET /api/admin/orders`
-2. Admin captures payment if necessary with `POST /api/admin/payments/{paymentId}/capture`
-3. Admin processes the order (picking, packing)
-4. Admin updates order status to "shipped" with `PUT /api/admin/orders/{id}/status`
-5. System sends shipping confirmation email to customer
-6. When delivery is confirmed, admin updates status to "delivered"
+2. Admin processes the order (picking, packing)
+3. Admin updates order status to "shipped" with `PUT /api/admin/orders/{id}/status`
+4. System sends shipping confirmation email to customer
+5. When delivery is confirmed, admin updates status to "delivered"

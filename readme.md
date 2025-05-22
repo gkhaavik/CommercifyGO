@@ -170,20 +170,19 @@ Authorization: Bearer <token>
 
 #### Products
 
-- `GET /api/products` - List products with pagination
+- `GET /api/admin/products` - List products with pagination
 - `GET /api/products/{id}` - Get product details
 - `GET /api/products/search` - Search products
 - `GET /api/categories` - List product categories
-- `GET /api/products/seller` - List seller's products (seller only)
-- `POST /api/products` - Create product (seller only)
-- `PUT /api/products/{id}` - Update product (seller only)
-- `DELETE /api/products/{id}` - Delete product (seller only)
+- `POST /api/admin/products` - Create product
+- `PUT /api/admin/products/{id}` - Update product
+- `DELETE /api/admin/products/{id}` - Delete product
 
 #### Product Variants
 
-- `POST /api/products/{productId}/variants` - Add variant (seller only)
-- `PUT /api/products/{productId}/variants/{variantId}` - Update variant (seller only)
-- `DELETE /api/products/{productId}/variants/{variantId}` - Delete variant (seller only)
+- `POST /api/admin/products/{productId}/variants` - Add variant
+- `PUT /api/admin/products/{productId}/variants/{variantId}` - Update variant
+- `DELETE /api/admin/products/{productId}/variants/{variantId}` - Delete variant
 
 #### Shopping Cart
 
@@ -412,6 +411,7 @@ When required by the bank, customers will be redirected to complete 3D Secure au
 #### Testing Stripe Integration
 
 Use Stripe's test cards for development:
+
 - `4242 4242 4242 4242` - Successful payment
 - `4000 0000 0000 3220` - 3D Secure authentication required
 - `4000 0000 0000 9995` - Payment declined

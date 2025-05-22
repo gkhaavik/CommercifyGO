@@ -1,12 +1,11 @@
 Features:
-+ Add configurable currencies
 + Add GraphQL integration
-+ Add a payment repository, to keep track of captured and refunded amount etc.
 + Add stripe-hosted checkout page
 
 Chores:
 * Remove debug messages from vipps sdk
-* Refactor getting order final amount to a method
+* Put a primary key on (shipping_method_id, shipping_zone_id) inside shipping_rates table
+* Confirmation email are not being sent
 
 Stores v1.2.0:
 Authenticated with certain permission can create stores. Stores can be used to create 

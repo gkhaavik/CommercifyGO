@@ -1,6 +1,6 @@
 # Product API Examples
 
-This document provides example request bodies for the product system API endpoints.
+This document provides example request bodies and responses for the product system API endpoints.
 
 ## Public Product Endpoints
 
@@ -12,87 +12,77 @@ List all products with pagination.
 
 **Query Parameters:**
 
-- `offset` (optional): Pagination offset (default: 0)
-- `limit` (optional): Pagination limit (default: 10)
+- `page` (optional): Page number (default: 1)
+- `page_size` (optional): Items per page (default: 10)
 
 Example response:
 
 ```json
-[
-  {
-    "id": 1,
-    "product_number": "PROD-000001",
-    "name": "Smartphone",
-    "description": "Latest smartphone model",
-    "price": 999.99,
-    "stock": 50,
-    "weight": 0.35,
-    "category_id": 1,
-    "seller_id": 2,
-    "images": ["smartphone.jpg"],
-    "has_variants": false,
-    "created_at": "2023-04-15T10:00:00Z",
-    "updated_at": "2023-04-15T10:00:00Z"
-  },
-  {
-    "id": 2,
-    "product_number": "PROD-000002",
-    "name": "Laptop",
-    "description": "Powerful laptop for professionals",
-    "price": 1499.99,
-    "stock": 25,
-    "weight": 2.1,
-    "category_id": 1,
-    "seller_id": 2,
-    "images": ["laptop.jpg"],
-    "has_variants": true,
-    "variants": [
-      {
-        "id": 1,
-        "product_id": 2,
-        "sku": "LAPT-8GB-256",
-        "price": 1499.99,
-        "compare_price": 1599.99,
-        "stock": 10,
-        "weight": 2.1,
-        "attributes": {
-          "ram": "8GB",
-          "storage": "256GB",
-          "color": "Silver"
-        },
-        "images": ["laptop_silver.jpg"],
-        "is_default": true,
-        "created_at": "2023-04-15T10:00:00Z",
-        "updated_at": "2023-04-15T10:00:00Z"
-      },
-      {
-        "id": 2,
-        "product_id": 2,
-        "sku": "LAPT-16GB-512",
-        "price": 1799.99,
-        "compare_price": 1899.99,
-        "stock": 15,
-        "weight": 2.1,
-        "attributes": {
-          "ram": "16GB",
-          "storage": "512GB",
-          "color": "Space Gray"
-        },
-        "images": ["laptop_gray.jpg"],
-        "is_default": false,
-        "created_at": "2023-04-15T10:00:00Z",
-        "updated_at": "2023-04-15T10:00:00Z"
-      }
-    ],
-    "created_at": "2023-04-16T11:00:00Z",
-    "updated_at": "2023-04-16T11:00:00Z"
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "created_at": "2023-04-15T10:00:00Z",
+      "updated_at": "2023-04-15T10:00:00Z",
+      "name": "Smartphone",
+      "description": "Latest smartphone model",
+      "sku": "PROD-000001",
+      "price": 999.99,
+      "stock_quantity": 50,
+      "weight": 0.35,
+      "category_id": 1,
+      "seller_id": 2,
+      "images": ["smartphone.jpg"],
+      "has_variants": false
+    },
+    {
+      "id": 2,
+      "created_at": "2023-04-16T11:00:00Z",
+      "updated_at": "2023-04-16T11:00:00Z",
+      "name": "Laptop",
+      "description": "Powerful laptop for professionals",
+      "sku": "PROD-000002",
+      "price": 1499.99,
+      "stock_quantity": 25,
+      "weight": 2.1,
+      "category_id": 1,
+      "seller_id": 2,
+      "images": ["laptop.jpg"],
+      "has_variants": true,
+      "variants": [
+        {
+          "id": 1,
+          "created_at": "2023-04-15T10:00:00Z",
+          "updated_at": "2023-04-15T10:00:00Z",
+          "product_id": 2,
+          "sku": "LAPT-8GB-256",
+          "price": 1499.99,
+          "compare_price": 1599.99,
+          "stock_quantity": 10,
+          "attributes": {
+            "ram": "8GB",
+            "storage": "256GB",
+            "color": "Silver"
+          },
+          "images": ["laptop_silver.jpg"],
+          "is_default": true
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 10,
+    "total": 2
   }
-]
+}
 ```
 
 **Status Codes:**
 
 - `200 OK`: Products retrieved successfully
+- `500 Internal Server Error`: Server error occurred
 
 ### Get Product
 
@@ -108,125 +98,124 @@ Example response:
 
 ```json
 {
-  "id": 2,
-  "product_number": "PROD-000002",
-  "name": "Laptop",
-  "description": "Powerful laptop for professionals",
-  "price": 1499.99,
-  "stock": 25,
-  "weight": 2.1,
-  "category_id": 1,
-  "seller_id": 2,
-  "images": ["laptop.jpg"],
-  "has_variants": true,
-  "variants": [
-    {
-      "id": 1,
-      "product_id": 2,
-      "sku": "LAPT-8GB-256",
-      "price": 1499.99,
-      "compare_price": 1599.99,
-      "stock": 10,
-      "weight": 2.1,
-      "attributes": {
-        "ram": "8GB",
-        "storage": "256GB",
-        "color": "Silver"
-      },
-      "images": ["laptop_silver.jpg"],
-      "is_default": true,
-      "created_at": "2023-04-15T10:00:00Z",
-      "updated_at": "2023-04-15T10:00:00Z"
-    },
-    {
-      "id": 2,
-      "product_id": 2,
-      "sku": "LAPT-16GB-512",
-      "price": 1799.99,
-      "compare_price": 1899.99,
-      "stock": 15,
-      "weight": 2.1,
-      "attributes": {
-        "ram": "16GB",
-        "storage": "512GB",
-        "color": "Space Gray"
-      },
-      "images": ["laptop_gray.jpg"],
-      "is_default": false,
-      "created_at": "2023-04-15T10:00:00Z",
-      "updated_at": "2023-04-15T10:00:00Z"
-    }
-  ],
-  "created_at": "2023-04-16T11:00:00Z",
-  "updated_at": "2023-04-16T11:00:00Z"
+  "success": true,
+  "data": {
+    "id": 2,
+    "created_at": "2023-04-16T11:00:00Z",
+    "updated_at": "2023-04-16T11:00:00Z",
+    "name": "Laptop",
+    "description": "Powerful laptop for professionals",
+    "sku": "PROD-000002",
+    "price": 1499.99,
+    "stock_quantity": 25,
+    "weight": 2.1,
+    "category_id": 1,
+    "seller_id": 2,
+    "images": ["laptop.jpg"],
+    "has_variants": true,
+    "variants": [
+      {
+        "id": 1,
+        "created_at": "2023-04-15T10:00:00Z",
+        "updated_at": "2023-04-15T10:00:00Z",
+        "product_id": 2,
+        "sku": "LAPT-8GB-256",
+        "price": 1499.99,
+        "compare_price": 1599.99,
+        "stock_quantity": 10,
+        "attributes": {
+          "ram": "8GB",
+          "storage": "256GB",
+          "color": "Silver"
+        },
+        "images": ["laptop_silver.jpg"],
+        "is_default": true
+      }
+    ]
+  }
 }
 ```
 
 **Status Codes:**
 
 - `200 OK`: Product retrieved successfully
+- `400 Bad Request`: Invalid product ID
 - `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error occurred
 
 ### Search Products
 
-`GET /api/products/search`
+`POST /api/products/search`
 
 Search products based on various criteria.
 
-**Query Parameters:**
+Request body:
 
-- `q` (optional): Search query
-- `category` (optional): Category ID
-- `min_price` (optional): Minimum price
-- `max_price` (optional): Maximum price
-- `currency_code` (optional): Currency code for price filtering and display
-- `offset` (optional): Pagination offset (default: 0)
-- `limit` (optional): Pagination limit (default: 10)
+```json
+{
+  "query": "laptop",
+  "category_id": 1,
+  "min_price": 1000,
+  "max_price": 2000,
+  "page": 1,
+  "page_size": 10
+}
+```
 
 Example response:
 
 ```json
-[
-  {
-    "id": 3,
-    "product_number": "PROD-000003",
-    "name": "T-Shirt",
-    "description": "Cotton t-shirt for everyday wear",
-    "price": 19.99,
-    "stock": 150,
-    "weight": 0.2,
-    "category_id": 3,
-    "seller_id": 3,
-    "images": ["tshirt.jpg"],
-    "has_variants": true,
-    "variants": [
-      {
-        "id": 5,
-        "product_id": 3,
-        "sku": "TS-BLU-M",
-        "price": 19.99,
-        "compare_price": 24.99,
-        "stock": 50,
-        "weight": 0.2,
-        "attributes": {
-          "color": "Blue",
-          "size": "M"
-        },
-        "images": ["tshirt_blue.jpg"],
-        "is_default": true,
-        "created_at": "2023-04-20T10:00:00Z",
-        "updated_at": "2023-04-20T10:00:00Z"
-      }
-    ],
-    "created_at": "2023-04-20T10:00:00Z",
-    "updated_at": "2023-04-20T10:00:00Z"
+{
+  "success": true,
+  "data": [
+    {
+      "id": 2,
+      "created_at": "2023-04-16T11:00:00Z",
+      "updated_at": "2023-04-16T11:00:00Z",
+      "name": "Laptop",
+      "description": "Powerful laptop for professionals",
+      "sku": "PROD-000002",
+      "price": 1499.99,
+      "stock_quantity": 25,
+      "weight": 2.1,
+      "category_id": 1,
+      "seller_id": 2,
+      "images": ["laptop.jpg"],
+      "has_variants": true,
+      "variants": [
+        {
+          "id": 1,
+          "created_at": "2023-04-15T10:00:00Z",
+          "updated_at": "2023-04-15T10:00:00Z",
+          "product_id": 2,
+          "sku": "LAPT-8GB-256",
+          "price": 1499.99,
+          "compare_price": 1599.99,
+          "stock_quantity": 10,
+          "attributes": {
+            "ram": "8GB",
+            "storage": "256GB",
+            "color": "Silver"
+          },
+          "images": ["laptop_silver.jpg"],
+          "is_default": true
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 10,
+    "total": 1
   }
-]
+}
 ```
 
 **Status Codes:**
 
 - `200 OK`: Search results retrieved successfully
+- `400 Bad Request`: Invalid request body
+- `500 Internal Server Error`: Server error occurred
 
 ### List Categories
 
@@ -237,37 +226,33 @@ List all product categories.
 Example response:
 
 ```json
-[
-  {
-    "id": 1,
-    "name": "Electronics",
-    "description": "Electronic devices and gadgets",
-    "parent_id": null,
-    "created_at": "2023-04-10T09:00:00Z",
-    "updated_at": "2023-04-10T09:00:00Z"
-  },
-  {
-    "id": 2,
-    "name": "Smartphones",
-    "description": "Mobile phones and smartphones",
-    "parent_id": 1,
-    "created_at": "2023-04-10T09:05:00Z",
-    "updated_at": "2023-04-10T09:05:00Z"
-  },
-  {
-    "id": 3,
-    "name": "Clothing",
-    "description": "Apparel and fashion items",
-    "parent_id": null,
-    "created_at": "2023-04-10T09:10:00Z",
-    "updated_at": "2023-04-10T09:10:00Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Electronics",
+      "description": "Electronic devices and gadgets",
+      "parent_id": null,
+      "created_at": "2023-04-10T09:00:00Z",
+      "updated_at": "2023-04-10T09:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Smartphones",
+      "description": "Mobile phones and smartphones",
+      "parent_id": 1,
+      "created_at": "2023-04-10T09:05:00Z",
+      "updated_at": "2023-04-10T09:05:00Z"
+    }
+  ]
+}
 ```
 
 **Status Codes:**
 
 - `200 OK`: Categories retrieved successfully
+- `500 Internal Server Error`: Server error occurred
 
 ## Seller Product Endpoints
 
@@ -277,29 +262,18 @@ Example response:
 
 Create a new product (seller only).
 
+Request body:
+
 ```json
 {
   "name": "New Product",
   "description": "Product description",
   "price": 199.99,
-  "compare_price": 249.99,
-  "stock": 100,
+  "stock_quantity": 100,
   "weight": 1.5,
   "category_id": 1,
   "images": ["product.jpg"],
-  "has_variants": false,
-  "currency_prices": [
-    {
-      "currency_code": "EUR",
-      "price": 169.99,
-      "compare_price": 212.49
-    },
-    {
-      "currency_code": "GBP",
-      "price": 149.99,
-      "compare_price": 187.49
-    }
-  ]
+  "has_variants": false
 }
 ```
 
@@ -307,19 +281,22 @@ Example response:
 
 ```json
 {
-  "id": 4,
-  "product_number": "PROD-000004",
-  "name": "New Product",
-  "description": "Product description",
-  "price": 199.99,
-  "stock": 100,
-  "weight": 1.5,
-  "category_id": 1,
-  "seller_id": 2,
-  "images": ["product.jpg"],
-  "has_variants": false,
-  "created_at": "2023-04-25T14:00:00Z",
-  "updated_at": "2023-04-25T14:00:00Z"
+  "success": true,
+  "data": {
+    "id": 4,
+    "created_at": "2023-04-25T14:00:00Z",
+    "updated_at": "2023-04-25T14:00:00Z",
+    "name": "New Product",
+    "description": "Product description",
+    "sku": "PROD-000004",
+    "price": 199.99,
+    "stock_quantity": 100,
+    "weight": 1.5,
+    "category_id": 1,
+    "seller_id": 2,
+    "images": ["product.jpg"],
+    "has_variants": false
+  }
 }
 ```
 
@@ -328,7 +305,7 @@ Example response:
 - `201 Created`: Product created successfully
 - `400 Bad Request`: Invalid request body
 - `401 Unauthorized`: Not authenticated
-- `403 Forbidden`: Not authorized (not a seller)
+- `500 Internal Server Error`: Server error occurred
 
 ### Update Product
 
@@ -336,27 +313,17 @@ Example response:
 
 Update an existing product (seller only).
 
+Request body:
+
 ```json
 {
   "name": "Updated Product",
   "description": "Updated product description",
   "price": 249.99,
-  "stock": 75,
+  "stock_quantity": 75,
   "weight": 1.6,
   "category_id": 1,
-  "images": ["updated-product.jpg"],
-  "currency_prices": [
-    {
-      "currency_code": "EUR",
-      "price": 212.49,
-      "compare_price": 254.99
-    },
-    {
-      "currency_code": "GBP",
-      "price": 187.49,
-      "compare_price": 224.99
-    }
-  ]
+  "images": ["updated-product.jpg"]
 }
 ```
 
@@ -364,19 +331,22 @@ Example response:
 
 ```json
 {
-  "id": 4,
-  "product_number": "PROD-000004",
-  "name": "Updated Product",
-  "description": "Updated product description",
-  "price": 249.99,
-  "stock": 75,
-  "weight": 1.6,
-  "category_id": 1,
-  "seller_id": 2,
-  "images": ["updated-product.jpg"],
-  "has_variants": false,
-  "created_at": "2023-04-25T14:00:00Z",
-  "updated_at": "2023-04-25T14:30:00Z"
+  "success": true,
+  "data": {
+    "id": 4,
+    "created_at": "2023-04-25T14:00:00Z",
+    "updated_at": "2023-04-25T14:30:00Z",
+    "name": "Updated Product",
+    "description": "Updated product description",
+    "sku": "PROD-000004",
+    "price": 249.99,
+    "stock_quantity": 75,
+    "weight": 1.6,
+    "category_id": 1,
+    "seller_id": 2,
+    "images": ["updated-product.jpg"],
+    "has_variants": false
+  }
 }
 ```
 
@@ -386,7 +356,7 @@ Example response:
 - `400 Bad Request`: Invalid request body
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Not authorized (not the seller of this product)
-- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error occurred
 
 ### Delete Product
 
@@ -394,12 +364,22 @@ Example response:
 
 Delete a product (seller only).
 
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Product deleted successfully"
+}
+```
+
 **Status Codes:**
 
-- `204 No Content`: Product deleted successfully
+- `200 OK`: Product deleted successfully
+- `400 Bad Request`: Invalid product ID
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Not authorized (not the seller of this product)
-- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error occurred
 
 ### List Seller Products
 
@@ -409,68 +389,44 @@ List all products for the authenticated seller.
 
 **Query Parameters:**
 
-- `offset` (optional): Pagination offset (default: 0)
-- `limit` (optional): Pagination limit (default: 10)
+- `page` (optional): Page number (default: 1)
+- `page_size` (optional): Items per page (default: 10)
 
 Example response:
 
 ```json
-[
-  {
-    "id": 4,
-    "product_number": "PROD-000004",
-    "name": "Updated Product",
-    "description": "Updated product description",
-    "price": 249.99,
-    "stock": 75,
-    "weight": 1.6,
-    "category_id": 1,
-    "seller_id": 2,
-    "images": ["updated-product.jpg"],
-    "has_variants": false,
-    "created_at": "2023-04-25T14:00:00Z",
-    "updated_at": "2023-04-25T14:30:00Z"
-  },
-  {
-    "id": 5,
-    "product_number": "PROD-000005",
-    "name": "Another Product",
-    "description": "Another product description",
-    "price": 99.99,
-    "stock": 50,
-    "weight": 0.8,
-    "category_id": 2,
-    "seller_id": 2,
-    "images": ["another-product.jpg"],
-    "has_variants": true,
-    "variants": [
-      {
-        "id": 10,
-        "product_id": 5,
-        "sku": "AP-RED",
-        "price": 99.99,
-        "compare_price": 119.99,
-        "stock": 25,
-        "weight": 0.8,
-        "attributes": {
-          "color": "Red"
-        },
-        "images": ["another-product-red.jpg"],
-        "is_default": true,
-        "created_at": "2023-04-26T10:00:00Z",
-        "updated_at": "2023-04-26T10:00:00Z"
-      }
-    ],
-    "created_at": "2023-04-26T10:00:00Z",
-    "updated_at": "2023-04-26T10:00:00Z"
+{
+  "success": true,
+  "data": [
+    {
+      "id": 4,
+      "created_at": "2023-04-25T14:00:00Z",
+      "updated_at": "2023-04-25T14:30:00Z",
+      "name": "Updated Product",
+      "description": "Updated product description",
+      "sku": "PROD-000004",
+      "price": 249.99,
+      "stock_quantity": 75,
+      "weight": 1.6,
+      "category_id": 1,
+      "seller_id": 2,
+      "images": ["updated-product.jpg"],
+      "has_variants": false
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 10,
+    "total": 1
   }
-]
+}
 ```
 
 **Status Codes:**
 
 - `200 OK`: Products retrieved successfully
 - `401 Unauthorized`: Not authenticated
+- `500 Internal Server Error`: Server error occurred
 
 ## Product Variant Endpoints
 
@@ -480,31 +436,20 @@ Example response:
 
 Add a variant to a product (seller only).
 
+Request body:
+
 ```json
 {
   "sku": "PROD-RED-M",
   "price": 29.99,
   "compare_price": 39.99,
-  "stock": 10,
-  "weight": 0.3,
+  "stock_quantity": 10,
   "attributes": {
     "color": "Red",
     "size": "Medium"
   },
   "images": ["red-shirt.jpg"],
-  "is_default": true,
-  "currency_prices": [
-    {
-      "currency_code": "EUR",
-      "price": 25.49,
-      "compare_price": 33.99
-    },
-    {
-      "currency_code": "GBP",
-      "price": 22.49,
-      "compare_price": 29.99
-    }
-  ]
+  "is_default": true
 }
 ```
 
@@ -512,21 +457,23 @@ Example response:
 
 ```json
 {
-  "id": 11,
-  "product_id": 3,
-  "sku": "PROD-RED-M",
-  "price": 29.99,
-  "compare_price": 39.99,
-  "stock": 10,
-  "weight": 0.3,
-  "attributes": {
-    "color": "Red",
-    "size": "Medium"
-  },
-  "images": ["red-shirt.jpg"],
-  "is_default": true,
-  "created_at": "2023-04-28T15:00:00Z",
-  "updated_at": "2023-04-28T15:00:00Z"
+  "success": true,
+  "data": {
+    "id": 11,
+    "created_at": "2023-04-28T15:00:00Z",
+    "updated_at": "2023-04-28T15:00:00Z",
+    "product_id": 3,
+    "sku": "PROD-RED-M",
+    "price": 29.99,
+    "compare_price": 39.99,
+    "stock_quantity": 10,
+    "attributes": {
+      "color": "Red",
+      "size": "Medium"
+    },
+    "images": ["red-shirt.jpg"],
+    "is_default": true
+  }
 }
 ```
 
@@ -536,7 +483,7 @@ Example response:
 - `400 Bad Request`: Invalid request body
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Not authorized (not the seller of this product)
-- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server error occurred
 
 ### Update Product Variant
 
@@ -544,31 +491,20 @@ Example response:
 
 Update a product variant (seller only).
 
+Request body:
+
 ```json
 {
   "sku": "PROD-RED-M",
   "price": 24.99,
   "compare_price": 34.99,
-  "stock": 15,
-  "weight": 0.3,
+  "stock_quantity": 15,
   "attributes": {
     "color": "Red",
     "size": "Medium"
   },
   "images": ["red-shirt-updated.jpg"],
-  "is_default": true,
-  "currency_prices": [
-    {
-      "currency_code": "EUR",
-      "price": 21.24,
-      "compare_price": 29.74
-    },
-    {
-      "currency_code": "GBP",
-      "price": 18.74,
-      "compare_price": 26.24
-    }
-  ]
+  "is_default": true
 }
 ```
 
@@ -576,21 +512,23 @@ Example response:
 
 ```json
 {
-  "id": 11,
-  "product_id": 3,
-  "sku": "PROD-RED-M",
-  "price": 24.99,
-  "compare_price": 34.99,
-  "stock": 15,
-  "weight": 0.3,
-  "attributes": {
-    "color": "Red",
-    "size": "Medium"
-  },
-  "images": ["red-shirt-updated.jpg"],
-  "is_default": true,
-  "created_at": "2023-04-28T15:00:00Z",
-  "updated_at": "2023-04-28T15:30:00Z"
+  "success": true,
+  "data": {
+    "id": 11,
+    "created_at": "2023-04-28T15:00:00Z",
+    "updated_at": "2023-04-28T15:30:00Z",
+    "product_id": 3,
+    "sku": "PROD-RED-M",
+    "price": 24.99,
+    "compare_price": 34.99,
+    "stock_quantity": 15,
+    "attributes": {
+      "color": "Red",
+      "size": "Medium"
+    },
+    "images": ["red-shirt-updated.jpg"],
+    "is_default": true
+  }
 }
 ```
 
@@ -600,7 +538,7 @@ Example response:
 - `400 Bad Request`: Invalid request body
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Not authorized (not the seller of this product)
-- `404 Not Found`: Product or variant not found
+- `500 Internal Server Error`: Server error occurred
 
 ### Delete Product Variant
 
@@ -608,13 +546,22 @@ Example response:
 
 Delete a product variant (seller only).
 
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Variant deleted successfully"
+}
+```
+
 **Status Codes:**
 
-- `204 No Content`: Variant deleted successfully
-- `400 Bad Request`: Cannot delete the only variant of a product
+- `200 OK`: Variant deleted successfully
+- `400 Bad Request`: Invalid product or variant ID
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Not authorized (not the seller of this product)
-- `404 Not Found`: Product or variant not found
+- `500 Internal Server Error`: Server error occurred
 
 ## Multi-Currency Product Management
 

@@ -11,4 +11,5 @@ type OrderRepository interface {
 	ListByStatus(status entity.OrderStatus, offset, limit int) ([]*entity.Order, error)
 	IsDiscountIdUsed(discountID uint) (bool, error)
 	GetByPaymentID(paymentID string) (*entity.Order, error)
+	ListAll(offset, limit int) ([]*entity.Order, error)
 }

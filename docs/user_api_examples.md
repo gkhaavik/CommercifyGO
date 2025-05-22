@@ -19,7 +19,8 @@ Register a new user account.
   "email": "user@example.com",
   "password": "Password123!",
   "first_name": "John",
-  "last_name": "Smith"
+  "last_name": "Smith",
+  "role": "user"
 }
 ```
 
@@ -27,16 +28,21 @@ Example response:
 
 ```json
 {
-  "user": {
-    "id": 123,
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Smith",
-    "role": "user",
-    "created_at": "2023-05-15T10:30:45Z",
-    "updated_at": "2023-05-15T10:30:45Z"
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "success": true,
+  "data": {
+    "user": {
+      "id": 123,
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Smith",
+      "role": "user",
+      "created_at": "2023-05-15T10:30:45Z",
+      "updated_at": "2023-05-15T10:30:45Z"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "",
+    "expires_in": 3600
+  }
 }
 ```
 
@@ -67,16 +73,21 @@ Example response:
 
 ```json
 {
-  "user": {
-    "id": 123,
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Smith",
-    "role": "user",
-    "created_at": "2023-05-15T10:30:45Z",
-    "updated_at": "2023-05-15T10:30:45Z"
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "success": true,
+  "data": {
+    "user": {
+      "id": 123,
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Smith",
+      "role": "user",
+      "created_at": "2023-05-15T10:30:45Z",
+      "updated_at": "2023-05-15T10:30:45Z"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "",
+    "expires_in": 3600
+  }
 }
 ```
 
@@ -100,26 +111,16 @@ Example response:
 
 ```json
 {
-  "id": 123,
-  "email": "user@example.com",
-  "first_name": "John",
-  "last_name": "Smith",
-  "role": "user",
-  "created_at": "2023-05-15T10:30:45Z",
-  "updated_at": "2023-05-15T10:30:45Z",
-  "addresses": [
-    {
-      "id": 45,
-      "user_id": 123,
-      "name": "Home",
-      "street_address": "123 Main St",
-      "city": "San Francisco",
-      "state": "CA",
-      "postal_code": "94105",
-      "country": "US",
-      "is_default": true
-    }
-  ]
+  "success": true,
+  "data": {
+    "id": 123,
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Smith",
+    "role": "user",
+    "created_at": "2023-05-15T10:30:45Z",
+    "updated_at": "2023-05-15T10:30:45Z"
+  }
 }
 ```
 
@@ -149,13 +150,16 @@ Example response:
 
 ```json
 {
-  "id": 123,
-  "email": "user@example.com",
-  "first_name": "Johnny",
-  "last_name": "Smith",
-  "role": "user",
-  "created_at": "2023-05-15T10:30:45Z",
-  "updated_at": "2023-05-16T14:22:30Z"
+  "success": true,
+  "data": {
+    "id": 123,
+    "email": "user@example.com",
+    "first_name": "Johnny",
+    "last_name": "Smith",
+    "role": "user",
+    "created_at": "2023-05-15T10:30:45Z",
+    "updated_at": "2023-05-16T14:22:30Z"
+  }
 }
 ```
 
@@ -208,48 +212,47 @@ List all users (admin only).
 
 **Query Parameters:**
 
-- `offset` (optional): Pagination offset (default: 0)
-- `limit` (optional): Pagination limit (default: 10)
+- `page` (optional): Page number (default: 1)
+- `page_size` (optional): Items per page (default: 10)
 
 Example response:
 
 ```json
-[
-  {
-    "id": 123,
-    "email": "user@example.com",
-    "first_name": "Johnny",
-    "last_name": "Smith",
-    "role": "user",
-    "created_at": "2023-05-15T10:30:45Z",
-    "updated_at": "2023-05-16T14:22:30Z"
-  },
-  {
-    "id": 124,
-    "email": "seller@example.com",
-    "first_name": "Sarah",
-    "last_name": "Johnson",
-    "role": "seller",
-    "created_at": "2023-05-10T09:15:22Z",
-    "updated_at": "2023-05-10T09:15:22Z"
-  },
-  {
-    "id": 125,
-    "email": "admin@example.com",
-    "first_name": "Admin",
-    "last_name": "User",
-    "role": "admin",
-    "created_at": "2023-01-01T00:00:00Z",
-    "updated_at": "2023-01-01T00:00:00Z"
+{
+  "success": true,
+  "data": [
+    {
+      "id": 123,
+      "email": "user@example.com",
+      "first_name": "Johnny",
+      "last_name": "Smith",
+      "role": "user",
+      "created_at": "2023-05-15T10:30:45Z",
+      "updated_at": "2023-05-16T14:22:30Z"
+    },
+    {
+      "id": 124,
+      "email": "seller@example.com",
+      "first_name": "Sarah",
+      "last_name": "Johnson",
+      "role": "seller",
+      "created_at": "2023-05-10T09:15:22Z",
+      "updated_at": "2023-05-10T09:15:22Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 10,
+    "total": 2
   }
-]
+}
 ```
 
 **Status Codes:**
 
 - `200 OK`: Users retrieved successfully
 - `401 Unauthorized`: Not authenticated
-- `403 Forbidden`: Not authorized (not an admin)
+- `403 Forbidden`: Not authorized (admin only)
 
 ### Get User By ID
 

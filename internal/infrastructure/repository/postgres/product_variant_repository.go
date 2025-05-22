@@ -26,7 +26,7 @@ func NewProductVariantRepository(db *sql.DB) repository.ProductVariantRepository
 // Create creates a new product variant
 func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error {
 	query := `
-		INSERT INTO product_variants (product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at)
+		INSERT INTO product_variants (product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id
 	`
@@ -43,19 +43,12 @@ func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error 
 		return err
 	}
 
-	// Handle compare price which may be null
-	var comparePrice sql.NullInt64
-	if variant.ComparePrice > 0 {
-		comparePrice.Int64 = variant.ComparePrice
-		comparePrice.Valid = true
-	}
-
 	err = r.db.QueryRow(
 		query,
 		variant.ProductID,
 		variant.SKU,
 		variant.Price,
-		comparePrice,
+		variant.CurrencyCode,
 		variant.Stock,
 		attributesJSON,
 		imagesJSON,
@@ -70,18 +63,6 @@ func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error 
 			return errors.New("a variant with this SKU already exists")
 		}
 		return err
-	}
-
-	// If this is the default variant, update product price
-	if variant.IsDefault {
-		_, err = r.db.Exec(
-			"UPDATE products SET price = $1 WHERE id = $2",
-			variant.Price,
-			variant.ProductID,
-		)
-		if err != nil {
-			return err
-		}
 	}
 
 	// If the variant has currency-specific prices, save them
@@ -100,20 +81,13 @@ func (r *ProductVariantRepository) Create(variant *entity.ProductVariant) error 
 // createVariantPrice creates a variant price entry for a specific currency
 func (r *ProductVariantRepository) createVariantPrice(price *entity.ProductVariantPrice) error {
 	query := `
-		INSERT INTO product_variant_prices (variant_id, currency_code, price, compare_price, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO product_variant_prices (variant_id, currency_code, price, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (variant_id, currency_code) DO UPDATE SET
 			price = EXCLUDED.price,
-			compare_price = EXCLUDED.compare_price,
 			updated_at = EXCLUDED.updated_at
 		RETURNING id
 	`
-
-	var comparePrice sql.NullInt64
-	if price.ComparePrice > 0 {
-		comparePrice.Int64 = price.ComparePrice
-		comparePrice.Valid = true
-	}
 
 	now := time.Now()
 
@@ -122,7 +96,6 @@ func (r *ProductVariantRepository) createVariantPrice(price *entity.ProductVaria
 		price.VariantID,
 		price.CurrencyCode,
 		price.Price,
-		comparePrice,
 		now,
 		now,
 	).Scan(&price.ID)
@@ -131,21 +104,20 @@ func (r *ProductVariantRepository) createVariantPrice(price *entity.ProductVaria
 // GetByID gets a variant by ID
 func (r *ProductVariantRepository) GetByID(variantID uint) (*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE id = $1
 	`
 
 	var attributesJSON, imagesJSON []byte
 	variant := &entity.ProductVariant{}
-	var comparePrice sql.NullInt64
 
 	err := r.db.QueryRow(query, variantID).Scan(
 		&variant.ID,
 		&variant.ProductID,
 		&variant.SKU,
 		&variant.Price,
-		&comparePrice,
+		&variant.CurrencyCode,
 		&variant.Stock,
 		&attributesJSON,
 		&imagesJSON,
@@ -159,11 +131,6 @@ func (r *ProductVariantRepository) GetByID(variantID uint) (*entity.ProductVaria
 			return nil, errors.New("variant not found")
 		}
 		return nil, err
-	}
-
-	// Set compare price if valid
-	if comparePrice.Valid {
-		variant.ComparePrice = comparePrice.Int64
 	}
 
 	// Unmarshal attributes JSON directly into VariantAttribute slice
@@ -189,7 +156,7 @@ func (r *ProductVariantRepository) GetByID(variantID uint) (*entity.ProductVaria
 // getVariantPrices retrieves all prices for a variant in different currencies
 func (r *ProductVariantRepository) getVariantPrices(variantID uint) ([]entity.ProductVariantPrice, error) {
 	query := `
-		SELECT id, variant_id, currency_code, price, compare_price, created_at, updated_at
+		SELECT id, variant_id, currency_code, price, created_at, updated_at
 		FROM product_variant_prices
 		WHERE variant_id = $1
 	`
@@ -203,23 +170,17 @@ func (r *ProductVariantRepository) getVariantPrices(variantID uint) ([]entity.Pr
 	var prices []entity.ProductVariantPrice
 	for rows.Next() {
 		var price entity.ProductVariantPrice
-		var comparePrice sql.NullInt64
 
 		err := rows.Scan(
 			&price.ID,
 			&price.VariantID,
 			&price.CurrencyCode,
 			&price.Price,
-			&comparePrice,
 			&price.CreatedAt,
 			&price.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		if comparePrice.Valid {
-			price.ComparePrice = comparePrice.Int64
 		}
 
 		prices = append(prices, price)
@@ -236,7 +197,7 @@ func (r *ProductVariantRepository) getVariantPrices(variantID uint) ([]entity.Pr
 func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error {
 	query := `
 		UPDATE product_variants
-		SET sku = $1, price = $2, compare_price = $3, stock = $4, 
+		SET sku = $1, price = $2, currency_code = $3, stock = $4, 
 		    attributes = $5, images = $6, is_default = $7, updated_at = $8
 		WHERE id = $9
 	`
@@ -253,18 +214,11 @@ func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error 
 		return err
 	}
 
-	// Handle compare price which may be null
-	var comparePrice sql.NullInt64
-	if variant.ComparePrice > 0 {
-		comparePrice.Int64 = variant.ComparePrice
-		comparePrice.Valid = true
-	}
-
 	_, err = r.db.Exec(
 		query,
 		variant.SKU,
 		variant.Price,
-		comparePrice,
+		variant.CurrencyCode,
 		variant.Stock,
 		attributesJSON,
 		imagesJSON,
@@ -275,18 +229,6 @@ func (r *ProductVariantRepository) Update(variant *entity.ProductVariant) error 
 
 	if err != nil {
 		return err
-	}
-
-	// If this is the default variant, update product price
-	if variant.IsDefault {
-		_, err = r.db.Exec(
-			"UPDATE products SET price = $1 WHERE id = $2",
-			variant.Price,
-			variant.ProductID,
-		)
-		if err != nil {
-			return err
-		}
 	}
 
 	// Update currency-specific prices
@@ -388,19 +330,6 @@ func (r *ProductVariantRepository) Delete(variantID uint) error {
 		if err != nil {
 			return err
 		}
-
-		// Update product price to match the new default variant
-		_, err = tx.Exec(`
-			UPDATE products p
-			SET price = v.price
-			FROM product_variants v
-			WHERE p.id = v.product_id
-			AND v.product_id = $1
-			AND v.is_default = true
-		`, productID)
-		if err != nil {
-			return err
-		}
 	}
 
 	return tx.Commit()
@@ -409,7 +338,7 @@ func (r *ProductVariantRepository) Delete(variantID uint) error {
 // GetByProduct gets all variants for a product
 func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE product_id = $1
 		ORDER BY is_default DESC, id ASC
@@ -425,14 +354,13 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 	for rows.Next() {
 		var attributesJSON, imagesJSON []byte
 		variant := &entity.ProductVariant{}
-		var comparePrice sql.NullInt64
 
 		err := rows.Scan(
 			&variant.ID,
 			&variant.ProductID,
 			&variant.SKU,
 			&variant.Price,
-			&comparePrice,
+			&variant.CurrencyCode,
 			&variant.Stock,
 			&attributesJSON,
 			&imagesJSON,
@@ -442,11 +370,6 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		// Set compare price if valid
-		if comparePrice.Valid {
-			variant.ComparePrice = comparePrice.Int64
 		}
 
 		// Unmarshal attributes JSON directly into VariantAttribute slice
@@ -464,6 +387,7 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 		if err != nil {
 			return nil, err
 		}
+
 		variant.Prices = prices
 
 		variants = append(variants, variant)
@@ -479,21 +403,20 @@ func (r *ProductVariantRepository) GetByProduct(productID uint) ([]*entity.Produ
 // GetBySKU gets a variant by SKU
 func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant, error) {
 	query := `
-		SELECT id, product_id, sku, price, compare_price, stock, attributes, images, is_default, created_at, updated_at
+		SELECT id, product_id, sku, price, currency_code, stock, attributes, images, is_default, created_at, updated_at
 		FROM product_variants
 		WHERE sku = $1
 	`
 
 	var attributesJSON, imagesJSON []byte
 	variant := &entity.ProductVariant{}
-	var comparePrice sql.NullInt64
 
 	err := r.db.QueryRow(query, sku).Scan(
 		&variant.ID,
 		&variant.ProductID,
 		&variant.SKU,
 		&variant.Price,
-		&comparePrice,
+		&variant.CurrencyCode,
 		&variant.Stock,
 		&attributesJSON,
 		&imagesJSON,
@@ -507,11 +430,6 @@ func (r *ProductVariantRepository) GetBySKU(sku string) (*entity.ProductVariant,
 			return nil, errors.New("variant not found")
 		}
 		return nil, err
-	}
-
-	// Set compare price if valid
-	if comparePrice.Valid {
-		variant.ComparePrice = comparePrice.Int64
 	}
 
 	// Unmarshal attributes JSON directly into VariantAttribute slice

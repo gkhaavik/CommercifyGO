@@ -165,7 +165,7 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 	// Create a payment intent
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(request.Amount),
-		Currency:      stripe.String(s.getCurrencyCode(request.Currency)),
+		Currency:      stripe.String(request.Currency),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Description:   stripe.String(s.config.PaymentDescription),
 		Confirm:       stripe.Bool(true), // Confirm the payment intent immediately
@@ -246,14 +246,6 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 			Provider:      service.PaymentProviderStripe,
 		}, nil
 	}
-}
-
-// getCurrencyCode returns the standardized currency code
-func (s *StripePaymentService) getCurrencyCode(currency string) string {
-	if currency == "" {
-		return string(stripe.CurrencyUSD) // Default currency
-	}
-	return currency
 }
 
 // VerifyPayment verifies a payment
