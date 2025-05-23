@@ -3,8 +3,6 @@ package payment
 import (
 	"fmt"
 
-	"slices"
-
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/domain/service"
 	"github.com/zenfulcode/commercify/internal/infrastructure/logger"
@@ -179,11 +177,6 @@ func (s *MultiProviderPaymentService) CancelPayment(transactionID string, provid
 	}
 
 	return paymentProvider.CancelPayment(transactionID, provider)
-}
-
-// Helper function to check if a slice contains a string
-func contains(slice []string, item string) bool {
-	return slices.Contains(slice, item)
 }
 
 func (s *MultiProviderPaymentService) ForceApprovePayment(transactionID string, phoneNumber string, provider service.PaymentProviderType) error {
