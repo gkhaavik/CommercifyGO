@@ -2,6 +2,7 @@ package payment
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/zenfulcode/commercify/config"
 	"github.com/zenfulcode/commercify/internal/domain/service"
@@ -107,6 +108,11 @@ func (s *MultiProviderPaymentService) GetAvailableProviders() []service.PaymentP
 	}
 
 	return enabledProviders
+}
+
+// Helper function to check if a slice contains a string
+func contains(slice []string, item string) bool {
+	return slices.Contains(slice, item)
 }
 
 // GetProviders returns all configured payment providers
