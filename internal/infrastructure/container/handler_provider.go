@@ -10,13 +10,14 @@ import (
 type HandlerProvider interface {
 	UserHandler() *handler.UserHandler
 	ProductHandler() *handler.ProductHandler
-	CartHandler() *handler.CartHandler
+	CheckoutHandler() *handler.CheckoutHandler
 	OrderHandler() *handler.OrderHandler
 	PaymentHandler() *handler.PaymentHandler
 	WebhookHandler() *handler.WebhookHandler
 	DiscountHandler() *handler.DiscountHandler
 	ShippingHandler() *handler.ShippingHandler
 	CurrencyHandler() *handler.CurrencyHandler
+	CartRedirectHandler() *handler.CartRedirectHandler
 }
 
 // handlerProvider is the concrete implementation of HandlerProvider
@@ -24,15 +25,16 @@ type handlerProvider struct {
 	container Container
 	mu        sync.Mutex
 
-	userHandler     *handler.UserHandler
-	productHandler  *handler.ProductHandler
-	cartHandler     *handler.CartHandler
-	orderHandler    *handler.OrderHandler
-	paymentHandler  *handler.PaymentHandler
-	webhookHandler  *handler.WebhookHandler
-	discountHandler *handler.DiscountHandler
-	shippingHandler *handler.ShippingHandler
-	currencyHandler *handler.CurrencyHandler
+	userHandler         *handler.UserHandler
+	productHandler      *handler.ProductHandler
+	checkoutHandler     *handler.CheckoutHandler
+	orderHandler        *handler.OrderHandler
+	paymentHandler      *handler.PaymentHandler
+	webhookHandler      *handler.WebhookHandler
+	discountHandler     *handler.DiscountHandler
+	shippingHandler     *handler.ShippingHandler
+	currencyHandler     *handler.CurrencyHandler
+	cartRedirectHandler *handler.CartRedirectHandler
 }
 
 // NewHandlerProvider creates a new handler provider
@@ -70,20 +72,6 @@ func (p *handlerProvider) ProductHandler() *handler.ProductHandler {
 		)
 	}
 	return p.productHandler
-}
-
-// CartHandler returns the cart handler
-func (p *handlerProvider) CartHandler() *handler.CartHandler {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.cartHandler == nil {
-		p.cartHandler = handler.NewCartHandler(
-			p.container.UseCases().CartUseCase(),
-			p.container.Logger(),
-		)
-	}
-	return p.cartHandler
 }
 
 // OrderHandler returns the order handler
@@ -130,6 +118,20 @@ func (p *handlerProvider) WebhookHandler() *handler.WebhookHandler {
 	return p.webhookHandler
 }
 
+// CheckoutHandler returns the checkout handler
+func (p *handlerProvider) CheckoutHandler() *handler.CheckoutHandler {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.checkoutHandler == nil {
+		p.checkoutHandler = handler.NewCheckoutHandler(
+			p.container.UseCases().CheckoutUseCase(),
+			p.container.Logger(),
+		)
+	}
+	return p.checkoutHandler
+}
+
 // DiscountHandler returns the discount handler
 func (p *handlerProvider) DiscountHandler() *handler.DiscountHandler {
 	p.mu.Lock()
@@ -172,4 +174,17 @@ func (p *handlerProvider) CurrencyHandler() *handler.CurrencyHandler {
 		)
 	}
 	return p.currencyHandler
+}
+
+// CartRedirectHandler returns the cart redirect handler
+func (p *handlerProvider) CartRedirectHandler() *handler.CartRedirectHandler {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.cartRedirectHandler == nil {
+		p.cartRedirectHandler = handler.NewCartRedirectHandler(
+			p.container.Logger(),
+		)
+	}
+	return p.cartRedirectHandler
 }

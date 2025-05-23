@@ -29,61 +29,6 @@ func NewOrderHandler(orderUseCase *usecase.OrderUseCase, logger logger.Logger) *
 	}
 }
 
-// CreateOrder handles order creation for both authenticated users and guests
-func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	// Parse request body
-	var input dto.CreateOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Check if user is authenticated
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok {
-		userID = 0 // Set to 0 for guest orders
-	}
-
-	var order *entity.Order
-	var err error
-
-	if userID > 0 {
-		// Authenticated user checkout
-		order, err = h.orderUseCase.CreateOrderFromCart(convertToCreateOrderInput(input, userID, ""))
-	} else {
-		// Guest checkout
-		// Get session ID from cookie
-		cookie, cookieErr := r.Cookie(common.SessionCookieName)
-		if cookieErr != nil || cookie.Value == "" {
-			http.Error(w, "No cart session found", http.StatusBadRequest)
-			return
-		}
-
-		// Validate required guest fields
-		if input.FirstName == "" || input.LastName == "" {
-			http.Error(w, "First name and last name are required for guest checkout", http.StatusBadRequest)
-			return
-		}
-
-		// Set session ID from cookie
-		order, err = h.orderUseCase.CreateOrderFromCart(convertToCreateOrderInput(input, 0, cookie.Value))
-	}
-
-	if err != nil {
-		h.logger.Error("Failed to create order: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Convert order to DTO
-	orderDTO := convertToOrderDTO(order)
-
-	// Return created order
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(orderDTO)
-}
-
 // GetOrder handles getting an order by ID
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
@@ -484,35 +429,5 @@ func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 		ActionURL:       order.ActionURL,
 		CreatedAt:       order.CreatedAt,
 		UpdatedAt:       order.UpdatedAt,
-	}
-}
-
-func convertToCreateOrderInput(input dto.CreateOrderRequest, userID uint, sessionID string) usecase.CreateOrderInput {
-	// Convert addresses
-	shippingAddr := entity.Address{
-		Street:     input.ShippingAddress.AddressLine1,
-		City:       input.ShippingAddress.City,
-		State:      input.ShippingAddress.State,
-		PostalCode: input.ShippingAddress.PostalCode,
-		Country:    input.ShippingAddress.Country,
-	}
-
-	billingAddr := entity.Address{
-		Street:     input.BillingAddress.AddressLine1,
-		City:       input.BillingAddress.City,
-		State:      input.BillingAddress.State,
-		PostalCode: input.BillingAddress.PostalCode,
-		Country:    input.BillingAddress.Country,
-	}
-
-	return usecase.CreateOrderInput{
-		UserID:           userID,
-		SessionID:        sessionID,
-		ShippingAddr:     shippingAddr,
-		BillingAddr:      billingAddr,
-		Email:            input.Email,
-		PhoneNumber:      input.PhoneNumber,
-		FullName:         input.FirstName + " " + input.LastName,
-		ShippingMethodID: input.ShippingMethodID,
 	}
 }

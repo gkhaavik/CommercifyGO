@@ -6,10 +6,12 @@ A robust, scalable e-commerce backend API built with Go, following clean archite
 
 - **User Management**: Registration, authentication, profile management
 - **Product Management**: CRUD operations, categories, variants, search
-- **Shopping Cart**: Add, update, remove items
+- **Checkout System**: Add, update, remove items, apply discounts, shipping methods
 - **Order Processing**: Create orders, payment processing, order status tracking
 - **Payment Integration**: Support for multiple payment providers (Stripe, MobilePay, etc.)
 - **Email Notifications**: Order confirmations, status updates
+
+> **Note**: The Cart API has been replaced by the Checkout System. See [Cart to Checkout Migration](/docs/cart_to_checkout_migration.md) for details.
 
 ## Technology Stack
 
@@ -188,6 +190,8 @@ Authorization: Bearer <token>
 
 - `GET /api/guest/cart` - Get guest cart
 - `POST /api/guest/cart/items` - Add item to guest cart
+<!-- Cart endpoints are deprecated - Use checkout endpoints instead -->
+<!-- 
 - `PUT /api/guest/cart/items/{productId}` - Update guest cart item
 - `DELETE /api/guest/cart/items/{productId}` - Remove item from guest cart
 - `DELETE /api/guest/cart` - Clear guest cart
@@ -197,6 +201,7 @@ Authorization: Bearer <token>
 - `PUT /api/cart/items/{productId}` - Update user cart item
 - `DELETE /api/cart/items/{productId}` - Remove item from user cart
 - `DELETE /api/cart` - Clear user cart
+-->
 
 #### Orders
 

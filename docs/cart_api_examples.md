@@ -1,8 +1,15 @@
-# Cart API Examples
+# DEPRECATED: Cart API Examples
 
-This document provides example request bodies for the shopping cart system API endpoints.
+> **WARNING**: The Cart API is deprecated as of May 23, 2025.
+> 
+> The cart functionality has been replaced by the checkout system. Please use the checkout API endpoints instead.
+> See [Checkout API Examples](./checkout_api_examples.md) for the current implementation.
+>
+> The following documentation is kept for reference purposes only.
 
-## Public Cart Endpoints
+This document provides example request bodies for the deprecated shopping cart system API endpoints.
+
+## DEPRECATED: Public Cart Endpoints
 
 ### Get Cart
 

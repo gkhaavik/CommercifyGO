@@ -72,13 +72,14 @@ func (s *Server) setupRoutes() {
 	// Extract handlers from container
 	userHandler := s.container.Handlers().UserHandler()
 	productHandler := s.container.Handlers().ProductHandler()
-	cartHandler := s.container.Handlers().CartHandler()
+	checkoutHandler := s.container.Handlers().CheckoutHandler()
 	orderHandler := s.container.Handlers().OrderHandler()
 	paymentHandler := s.container.Handlers().PaymentHandler()
 	webhookHandler := s.container.Handlers().WebhookHandler()
 	discountHandler := s.container.Handlers().DiscountHandler()
 	shippingHandler := s.container.Handlers().ShippingHandler()
 	currencyHandler := s.container.Handlers().CurrencyHandler()
+	cartRedirectHandler := s.container.Handlers().CartRedirectHandler()
 
 	// Extract middleware from container
 	authMiddleware := s.container.Middlewares().AuthMiddleware()
@@ -110,21 +111,30 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/shipping/options", shippingHandler.CalculateShippingOptions).Methods(http.MethodPost)
 	api.HandleFunc("/shipping/rates/{shippingRateId:[0-9]+}/cost", shippingHandler.GetShippingCost).Methods(http.MethodPost)
 
-	// Guest cart routes (no authentication required)
-	api.HandleFunc("/guest/cart", cartHandler.GetCart).Methods(http.MethodGet)
-	api.HandleFunc("/guest/cart/items", cartHandler.AddToCart).Methods(http.MethodPost)
-	api.HandleFunc("/guest/cart/items/{productId:[0-9]+}", cartHandler.UpdateCartItem).Methods(http.MethodPut)
-	api.HandleFunc("/guest/cart/items/{productId:[0-9]+}", cartHandler.RemoveFromCart).Methods(http.MethodDelete)
-	api.HandleFunc("/guest/cart", cartHandler.ClearCart).Methods(http.MethodDelete)
+	// Deprecated cart routes - redirect to checkout
+	api.HandleFunc("/guest/cart", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodGet, http.MethodDelete)
+	api.HandleFunc("/guest/cart/items", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPost)
+	api.HandleFunc("/guest/cart/items/{productId:[0-9]+}", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPut, http.MethodDelete)
+	api.HandleFunc("/cart", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodGet, http.MethodDelete)
+	api.HandleFunc("/cart/items", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPost)
+	api.HandleFunc("/cart/items/{productId:[0-9]+}", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPut, http.MethodDelete)
 
-	// Guest checkout route
-	api.HandleFunc("/guest/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
-	api.HandleFunc("/guest/orders/{orderId:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
+	// Guest checkout routes (no authentication required)
+	api.HandleFunc("/guest/checkout", checkoutHandler.GetCheckout).Methods(http.MethodGet)
+	api.HandleFunc("/guest/checkout/items", checkoutHandler.AddToCheckout).Methods(http.MethodPost)
+	api.HandleFunc("/guest/checkout/items/{productId:[0-9]+}", checkoutHandler.UpdateCheckoutItem).Methods(http.MethodPut)
+	api.HandleFunc("/guest/checkout/items/{productId:[0-9]+}", checkoutHandler.RemoveFromCheckout).Methods(http.MethodDelete)
+	api.HandleFunc("/guest/checkout", checkoutHandler.ClearCheckout).Methods(http.MethodDelete)
+	api.HandleFunc("/guest/checkout/shipping-address", checkoutHandler.SetShippingAddress).Methods(http.MethodPut)
+	api.HandleFunc("/guest/checkout/billing-address", checkoutHandler.SetBillingAddress).Methods(http.MethodPut)
+	api.HandleFunc("/guest/checkout/customer-details", checkoutHandler.SetCustomerDetails).Methods(http.MethodPut)
+	api.HandleFunc("/guest/checkout/shipping-method", checkoutHandler.SetShippingMethod).Methods(http.MethodPut)
+	api.HandleFunc("/guest/checkout/discount", checkoutHandler.ApplyDiscount).Methods(http.MethodPost)
+	api.HandleFunc("/guest/checkout/discount", checkoutHandler.RemoveDiscount).Methods(http.MethodDelete)
+	api.HandleFunc("/guest/checkout/to-order", checkoutHandler.ConvertToOrder).Methods(http.MethodPost)
+	// api.HandleFunc("/guest/checkout/convert", checkoutHandler.ConvertGuestCheckoutToUserCheckout).Methods(http.MethodPost)
 
-	// Convert guest cart to user cart after login
-	api.HandleFunc("/guest/cart/convert", cartHandler.ConvertGuestCartToUserCart).Methods(http.MethodPost)
-
-	// Webhooks
+	// Public webhook routes
 	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
 
 	// Setup payment provider webhooks
@@ -140,15 +150,21 @@ func (s *Server) setupRoutes() {
 	protected.HandleFunc("/users/me", userHandler.UpdateProfile).Methods(http.MethodPut)
 	protected.HandleFunc("/users/me/password", userHandler.ChangePassword).Methods(http.MethodPut)
 
-	// Cart routes
-	protected.HandleFunc("/cart", cartHandler.GetCart).Methods(http.MethodGet)
-	protected.HandleFunc("/cart/items", cartHandler.AddToCart).Methods(http.MethodPost)
-	protected.HandleFunc("/cart/items/{productId:[0-9]+}", cartHandler.UpdateCartItem).Methods(http.MethodPut)
-	protected.HandleFunc("/cart/items/{productId:[0-9]+}", cartHandler.RemoveFromCart).Methods(http.MethodDelete)
-	protected.HandleFunc("/cart", cartHandler.ClearCart).Methods(http.MethodDelete)
+	// Checkout routes
+	protected.HandleFunc("/checkout", checkoutHandler.GetCheckout).Methods(http.MethodGet)
+	protected.HandleFunc("/checkout/items", checkoutHandler.AddToCheckout).Methods(http.MethodPost)
+	protected.HandleFunc("/checkout/items/{productId:[0-9]+}", checkoutHandler.UpdateCheckoutItem).Methods(http.MethodPut)
+	protected.HandleFunc("/checkout/items/{productId:[0-9]+}", checkoutHandler.RemoveFromCheckout).Methods(http.MethodDelete)
+	protected.HandleFunc("/checkout", checkoutHandler.ClearCheckout).Methods(http.MethodDelete)
+	protected.HandleFunc("/checkout/shipping-address", checkoutHandler.SetShippingAddress).Methods(http.MethodPut)
+	protected.HandleFunc("/checkout/billing-address", checkoutHandler.SetBillingAddress).Methods(http.MethodPut)
+	protected.HandleFunc("/checkout/customer-details", checkoutHandler.SetCustomerDetails).Methods(http.MethodPut)
+	protected.HandleFunc("/checkout/shipping-method", checkoutHandler.SetShippingMethod).Methods(http.MethodPut)
+	protected.HandleFunc("/checkout/discount", checkoutHandler.ApplyDiscount).Methods(http.MethodPost)
+	protected.HandleFunc("/checkout/discount", checkoutHandler.RemoveDiscount).Methods(http.MethodDelete)
+	protected.HandleFunc("/checkout/to-order", checkoutHandler.ConvertToOrder).Methods(http.MethodPost)
 
 	// Order routes
-	protected.HandleFunc("/orders", orderHandler.CreateOrder).Methods(http.MethodPost)
 	protected.HandleFunc("/orders/{orderId:[0-9]+}", orderHandler.GetOrder).Methods(http.MethodGet)
 	protected.HandleFunc("/orders", orderHandler.ListOrders).Methods(http.MethodGet)
 	protected.HandleFunc("/orders/{orderId:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
@@ -169,6 +185,14 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/users", userHandler.ListUsers).Methods(http.MethodGet)
 	admin.HandleFunc("/orders", orderHandler.ListAllOrders).Methods(http.MethodGet)
 	admin.HandleFunc("/orders/{orderId:[0-9]+}/status", orderHandler.UpdateOrderStatus).Methods(http.MethodPut)
+
+	// Admin checkout routes
+	admin.HandleFunc("/checkouts", checkoutHandler.ListAdminCheckouts).Methods(http.MethodGet)
+	admin.HandleFunc("/checkouts/{checkoutId:[0-9]+}", checkoutHandler.GetAdminCheckout).Methods(http.MethodGet)
+	admin.HandleFunc("/checkouts/{checkoutId:[0-9]+}", checkoutHandler.DeleteAdminCheckout).Methods(http.MethodDelete)
+	admin.HandleFunc("/users/{userId:[0-9]+}/checkouts", checkoutHandler.ListUserCheckouts).Methods(http.MethodGet)
+	admin.HandleFunc("/checkouts/abandoned", checkoutHandler.ListAbandonedCheckouts).Methods(http.MethodGet)
+	admin.HandleFunc("/checkouts/expired", checkoutHandler.ListExpiredCheckouts).Methods(http.MethodGet)
 
 	// Admin currency routes
 	admin.HandleFunc("/currencies/all", currencyHandler.ListCurrencies).Methods(http.MethodGet)

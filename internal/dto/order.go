@@ -69,16 +69,6 @@ type OrderItemDTO struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// AddressDTO represents a shipping or billing address
-type AddressDTO struct {
-	AddressLine1 string `json:"address_line1"`
-	AddressLine2 string `json:"address_line2,omitempty"`
-	City         string `json:"city"`
-	State        string `json:"state"`
-	PostalCode   string `json:"postal_code"`
-	Country      string `json:"country"`
-}
-
 // CreateOrderRequest represents the data needed to create a new order
 type CreateOrderRequest struct {
 	FirstName        string     `json:"first_name"`
