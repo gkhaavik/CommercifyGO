@@ -210,13 +210,15 @@ func (uc *OrderUseCase) createOrderFromUserCart(input CreateOrderInput) (*entity
 
 // createOrderFromGuestCart creates an order from a guest's cart
 func (uc *OrderUseCase) createOrderFromGuestCart(input CreateOrderInput) (*entity.Order, error) {
-	// Validate guest information
+	// Validate and sanitize guest information
+	input.Email = sanitizeEmail(input.Email)
 	if input.Email == "" {
-		return nil, errors.New("email is required for guest checkout")
+		return nil, errors.New("valid email is required for guest checkout")
 	}
 
+	input.FullName = sanitizeString(input.FullName)
 	if input.FullName == "" {
-		return nil, errors.New("full name is required for guest checkout")
+		return nil, errors.New("valid full name is required for guest checkout")
 	}
 
 	// Validate shipping method ID

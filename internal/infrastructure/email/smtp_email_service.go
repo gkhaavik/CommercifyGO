@@ -66,8 +66,8 @@ func (s *SMTPEmailService) SendEmail(data service.EmailData) error {
 
 	// Format email message
 	// Sanitize email subject and body
-	sanitizedSubject := template.HTMLEscapeString(data.Subject)
-	sanitizedBody := template.HTMLEscapeString(body)
+	sanitizedSubject := sanitizeString(data.Subject)
+	sanitizedBody := sanitizeString(body)
 
 	msg := []byte(fmt.Sprintf("From: %s <%s>\r\n"+
 		"To: %s\r\n"+
