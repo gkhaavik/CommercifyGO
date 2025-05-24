@@ -23,22 +23,23 @@ const (
 
 // Order represents an order entity
 type Order struct {
-	ID              uint
-	OrderNumber     string
-	UserID          uint // 0 for guest orders
-	Items           []OrderItem
-	TotalAmount     int64 // stored in cents
-	Status          OrderStatus
-	ShippingAddr    Address
-	BillingAddr     Address
-	PaymentID       string
-	PaymentProvider string
-	PaymentMethod   string
-	TrackingCode    string
-	ActionURL       string // URL for redirect to payment provider
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	CompletedAt     *time.Time
+	ID                uint
+	OrderNumber       string
+	UserID            uint // 0 for guest orders
+	Items             []OrderItem
+	TotalAmount       int64 // stored in cents
+	Status            OrderStatus
+	ShippingAddr      Address
+	BillingAddr       Address
+	PaymentID         string
+	PaymentProvider   string
+	PaymentMethod     string
+	TrackingCode      string
+	ActionURL         string // URL for redirect to payment provider
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	CompletedAt       *time.Time
+	CheckoutSessionID string // Tracks which checkout session created this order
 
 	// Guest information (only used for guest orders where UserID is 0)
 	CustomerDetails CustomerDetails `json:"customer_details"`

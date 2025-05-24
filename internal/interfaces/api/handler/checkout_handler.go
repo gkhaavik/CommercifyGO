@@ -17,6 +17,7 @@ import (
 // CheckoutHandler handles checkout-related HTTP requests
 type CheckoutHandler struct {
 	checkoutUseCase *usecase.CheckoutUseCase
+	orderUseCase    *usecase.OrderUseCase
 	logger          logger.Logger
 }
 
@@ -28,21 +29,21 @@ func NewCheckoutHandler(checkoutUseCase *usecase.CheckoutUseCase, logger logger.
 	}
 }
 
-// getSessionID gets or creates a session ID for guest users
-func (h *CheckoutHandler) getSessionID(w http.ResponseWriter, r *http.Request) string {
-	// Check if session cookie exists
-	cookie, err := r.Cookie(common.SessionCookieName)
+// getCheckoutSessionID gets or creates a checkout session ID
+func (h *CheckoutHandler) getCheckoutSessionID(w http.ResponseWriter, r *http.Request) string {
+	// Check if checkout session cookie exists
+	cookie, err := r.Cookie(common.CheckoutSessionCookie)
 	if err == nil && cookie.Value != "" {
 		return cookie.Value
 	}
 
-	// Create new session ID if none exists
+	// Create new checkout session ID if none exists
 	sessionID := uuid.New().String()
 	http.SetCookie(w, &http.Cookie{
-		Name:     common.SessionCookieName,
+		Name:     common.CheckoutSessionCookie,
 		Value:    sessionID,
 		Path:     "/",
-		MaxAge:   common.SessionCookieAge,
+		MaxAge:   common.CheckoutSessionMaxAge,
 		HttpOnly: true,
 		Secure:   r.TLS != nil, // Set secure flag if connection is HTTPS
 		SameSite: http.SameSiteLaxMode,
@@ -53,20 +54,10 @@ func (h *CheckoutHandler) getSessionID(w http.ResponseWriter, r *http.Request) s
 
 // GetCheckout handles getting a user's checkout
 func (h *CheckoutHandler) GetCheckout(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	// Always get checkout session ID, needed for all checkouts
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
 
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, get checkout by user ID
-		checkout, err = h.checkoutUseCase.GetOrCreateCheckout(userID)
-	} else {
-		// User is a guest, get checkout by session ID
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.GetOrCreateGuestCheckout(sessionID)
-	}
+	checkout, err := h.checkoutUseCase.GetOrCreateCheckoutBySessionID(checkoutSessionID)
 
 	if err != nil {
 		h.logger.Error("Failed to get checkout: %v", err)
@@ -91,11 +82,16 @@ func (h *CheckoutHandler) AddToCheckout(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	// Always get checkout session ID, needed for all checkouts
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
 
-	var checkout *entity.Checkout
-	var err error
+	// Try to find checkout by checkout session ID first
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Convert DTO to usecase input
 	checkoutInput := usecase.CheckoutInput{
@@ -104,14 +100,8 @@ func (h *CheckoutHandler) AddToCheckout(w http.ResponseWriter, r *http.Request) 
 		Quantity:  request.Quantity,
 	}
 
-	if ok && userID > 0 {
-		// User is authenticated, add to user checkout
-		checkout, err = h.checkoutUseCase.AddToCheckout(userID, checkoutInput)
-	} else {
-		// User is a guest, add to guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.AddToGuestCheckout(sessionID, checkoutInput)
-	}
+	// Add item to checkout
+	checkout, err = h.checkoutUseCase.AddItemToCheckout(checkout.ID, checkoutInput)
 
 	if err != nil {
 		h.logger.Error("Failed to add to checkout: %v", err)
@@ -144,10 +134,14 @@ func (h *CheckoutHandler) UpdateCheckoutItem(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
 
-	var checkout *entity.Checkout
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Convert DTO to usecase input
 	updateInput := usecase.UpdateCheckoutItemInput{
@@ -156,14 +150,8 @@ func (h *CheckoutHandler) UpdateCheckoutItem(w http.ResponseWriter, r *http.Requ
 		Quantity:  request.Quantity,
 	}
 
-	if ok && userID > 0 {
-		// User is authenticated, update user checkout
-		checkout, err = h.checkoutUseCase.UpdateCheckoutItem(userID, updateInput)
-	} else {
-		// User is a guest, update guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.UpdateGuestCheckoutItem(sessionID, updateInput)
-	}
+	checkout.UpdateItem(updateInput.ProductID, updateInput.VariantID, updateInput.Quantity)
+	h.checkoutUseCase.UpdateCheckout(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to update checkout item: %v", err)
@@ -189,19 +177,25 @@ func (h *CheckoutHandler) RemoveFromCheckout(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
 
-	var checkout *entity.Checkout
-
-	if ok && userID > 0 {
-		// User is authenticated, remove from user checkout
-		checkout, err = h.checkoutUseCase.RemoveFromCheckout(userID, uint(productID), 0)
-	} else {
-		// User is a guest, remove from guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.RemoveFromGuestCheckout(sessionID, uint(productID), 0)
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	// Remove the item from checkout
+	err = checkout.RemoveItem(uint(productID), 0)
+	if err != nil {
+		h.logger.Error("Failed to remove item from checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Update the checkout
+	checkout, err = h.checkoutUseCase.UpdateCheckout(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to remove item from checkout: %v", err)
@@ -219,20 +213,17 @@ func (h *CheckoutHandler) RemoveFromCheckout(w http.ResponseWriter, r *http.Requ
 
 // ClearCheckout handles emptying the checkout
 func (h *CheckoutHandler) ClearCheckout(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
 
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, clear user checkout
-		checkout, err = h.checkoutUseCase.ClearCheckout(userID)
-	} else {
-		// User is a guest, clear guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.ClearGuestCheckout(sessionID)
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	checkout.Clear()
+	checkout, err = h.checkoutUseCase.UpdateCheckout(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to clear checkout: %v", err)
@@ -257,10 +248,15 @@ func (h *CheckoutHandler) SetShippingAddress(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
 
-	// Convert DTO to address entity
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	address := entity.Address{
 		Street:     request.AddressLine1,
 		City:       request.City,
@@ -269,17 +265,8 @@ func (h *CheckoutHandler) SetShippingAddress(w http.ResponseWriter, r *http.Requ
 		Country:    request.Country,
 	}
 
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, set address for user checkout
-		checkout, err = h.checkoutUseCase.SetShippingAddress(userID, address)
-	} else {
-		// User is a guest, set address for guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.SetGuestShippingAddress(sessionID, address)
-	}
+	checkout.SetShippingAddress(address)
+	checkout, err = h.checkoutUseCase.UpdateCheckout(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to set shipping address: %v", err)
@@ -304,8 +291,13 @@ func (h *CheckoutHandler) SetBillingAddress(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Convert DTO to address entity
 	address := entity.Address{
@@ -316,17 +308,8 @@ func (h *CheckoutHandler) SetBillingAddress(w http.ResponseWriter, r *http.Reque
 		Country:    request.Country,
 	}
 
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, set address for user checkout
-		checkout, err = h.checkoutUseCase.SetBillingAddress(userID, address)
-	} else {
-		// User is a guest, set address for guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.SetGuestBillingAddress(sessionID, address)
-	}
+	checkout.SetBillingAddress(address)
+	checkout, err = h.checkoutUseCase.UpdateCheckout(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to set billing address: %v", err)
@@ -351,8 +334,14 @@ func (h *CheckoutHandler) SetCustomerDetails(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
+
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Convert DTO to customer details entity
 	customerDetails := entity.CustomerDetails{
@@ -361,17 +350,8 @@ func (h *CheckoutHandler) SetCustomerDetails(w http.ResponseWriter, r *http.Requ
 		FullName: request.FullName,
 	}
 
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, set customer details for user checkout
-		checkout, err = h.checkoutUseCase.SetCustomerDetails(userID, customerDetails)
-	} else {
-		// User is a guest, set customer details for guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.SetGuestCustomerDetails(sessionID, customerDetails)
-	}
+	checkout.SetCustomerDetails(customerDetails)
+	checkout, err = h.checkoutUseCase.UpdateCheckout(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to set customer details: %v", err)
@@ -396,20 +376,15 @@ func (h *CheckoutHandler) SetShippingMethod(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
-
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, set shipping method for user checkout
-		checkout, err = h.checkoutUseCase.SetShippingMethod(userID, request.ShippingMethodID)
-	} else {
-		// User is a guest, set shipping method for guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.SetGuestShippingMethod(sessionID, request.ShippingMethodID)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	checkout, err = h.checkoutUseCase.SetShippingMethod(checkout, request.ShippingMethodID)
 
 	if err != nil {
 		h.logger.Error("Failed to set shipping method: %v", err)
@@ -433,21 +408,15 @@ func (h *CheckoutHandler) ApplyDiscount(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
-
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, apply discount to user checkout
-		checkout, err = h.checkoutUseCase.ApplyDiscountCode(userID, request.DiscountCode)
-	} else {
-		// User is a guest, apply discount to guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.ApplyGuestDiscountCode(sessionID, request.DiscountCode)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	checkout, err = h.checkoutUseCase.ApplyDiscountCode(checkout, request.DiscountCode)
 
 	if err != nil {
 		h.logger.Error("Failed to apply discount: %v", err)
@@ -465,20 +434,15 @@ func (h *CheckoutHandler) ApplyDiscount(w http.ResponseWriter, r *http.Request) 
 
 // RemoveDiscount handles removing a discount from a checkout
 func (h *CheckoutHandler) RemoveDiscount(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (if authenticated)
-	userID, ok := r.Context().Value("user_id").(uint)
-
-	var checkout *entity.Checkout
-	var err error
-
-	if ok && userID > 0 {
-		// User is authenticated, remove discount from user checkout
-		checkout, err = h.checkoutUseCase.RemoveDiscountCode(userID)
-	} else {
-		// User is a guest, remove discount from guest checkout
-		sessionID := h.getSessionID(w, r)
-		checkout, err = h.checkoutUseCase.RemoveGuestDiscountCode(sessionID)
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	h.checkoutUseCase.RemoveDiscountCode(checkout)
 
 	if err != nil {
 		h.logger.Error("Failed to remove discount: %v", err)
@@ -494,30 +458,50 @@ func (h *CheckoutHandler) RemoveDiscount(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(checkoutDTO)
 }
 
-// ConvertToOrder handles converting a checkout to an order
-func (h *CheckoutHandler) ConvertToOrder(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (if authenticated)
-	userID, authenticated := r.Context().Value("user_id").(uint)
+// CompleteOrder handles converting a checkout to an order
+func (h *CheckoutHandler) CompleteCheckout(w http.ResponseWriter, r *http.Request) {
+	// Parse request body
+	var paymentInput dto.CompleteCheckoutRequest
+	if err := json.NewDecoder(r.Body).Decode(&paymentInput); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-	h.logger.Info("Converting checkout to order. Authenticated: %v, UserID: %d", authenticated, userID)
+	// Get checkout session ID
+	checkoutSessionID := h.getCheckoutSessionID(w, r)
+
+	h.logger.Info("Converting checkout to order. Authenticated: %v, UserID: %d, CheckoutSessionID: %s",
+		false, 0, checkoutSessionID)
 
 	var order *entity.Order
 	var err error
 
-	if authenticated && userID > 0 {
-		// User is authenticated, convert their current checkout to order
-		h.logger.Debug("Creating order from user checkout for userID: %d", userID)
-		order, err = h.checkoutUseCase.CreateOrderFromUserCheckout(userID)
-	} else {
-		// User is a guest, use their session ID to find their checkout
-		sessionID := h.getSessionID(w, r)
-		h.logger.Debug("Creating order from guest checkout for sessionID: %s", sessionID)
-		order, err = h.checkoutUseCase.CreateOrderFromGuestCheckout(sessionID)
+	// Try to find checkout by checkout session ID first
+	checkout, err := h.checkoutUseCase.GetCheckoutBySessionID(checkoutSessionID)
+	if err != nil {
+		h.logger.Error("Failed to get checkout: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
+	// If checkout exists for this session, convert it to order
+	order, err = h.checkoutUseCase.CreateOrderFromCheckout(checkout.ID)
 	if err != nil {
 		h.logger.Error("Failed to convert checkout to order: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate payment data
+	if paymentInput.PaymentData.CardDetails == nil && paymentInput.PaymentData.PhoneNumber == "" {
+		http.Error(w, "Payment data is required", http.StatusBadRequest)
+		return
+	}
+	// Process payment
+	order, err = h.checkoutUseCase.ProcessPayment(order, paymentInput.PaymentData)
+	if err != nil {
+		h.logger.Error("Failed to process payment: %v", err)
+		http.Error(w, "Failed to process payment", http.StatusBadRequest)
 		return
 	}
 
@@ -533,40 +517,6 @@ func (h *CheckoutHandler) ConvertToOrder(w http.ResponseWriter, r *http.Request)
 	}
 
 	json.NewEncoder(w).Encode(response)
-}
-
-// ConvertGuestCheckoutToUserCheckout handles converting a guest checkout to a user checkout after login
-func (h *CheckoutHandler) ConvertGuestCheckoutToUserCheckout(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID, ok := r.Context().Value("user_id").(uint)
-	if !ok || userID == 0 {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Get session ID from cookie
-	cookie, err := r.Cookie(common.SessionCookieName)
-	if err != nil || cookie.Value == "" {
-		http.Error(w, "No session found", http.StatusBadRequest)
-		return
-	}
-
-	sessionID := cookie.Value
-
-	// Convert guest checkout to user checkout
-	checkout, err := h.checkoutUseCase.ConvertGuestCheckoutToUserCheckout(sessionID, userID)
-	if err != nil {
-		h.logger.Error("Failed to convert guest checkout to user checkout: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Convert entity to DTO
-	checkoutDTO := convertToCheckoutDTO(checkout)
-
-	// Return updated checkout
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(checkoutDTO)
 }
 
 // ListAdminCheckouts handles listing all checkouts (admin only)
@@ -679,132 +629,6 @@ func (h *CheckoutHandler) DeleteAdminCheckout(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// ListUserCheckouts handles listing checkouts for a specific user (admin only)
-func (h *CheckoutHandler) ListUserCheckouts(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from URL
-	vars := mux.Vars(r)
-	userID, err := strconv.ParseUint(vars["userId"], 10, 32)
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-		return
-	}
-
-	// Parse pagination parameters
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-
-	if limit <= 0 {
-		limit = 10 // Default limit
-	}
-
-	// Get checkouts for user
-	checkouts, err := h.checkoutUseCase.GetCheckoutsByUserID(uint(userID), offset, limit)
-	if err != nil {
-		h.logger.Error("Failed to list user checkouts: %v", err)
-		http.Error(w, "Failed to list user checkouts", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert checkouts to DTOs
-	checkoutDTOs := make([]dto.CheckoutDTO, len(checkouts))
-	for i, checkout := range checkouts {
-		checkoutDTOs[i] = convertToCheckoutDTO(checkout)
-	}
-
-	// Return response
-	pagination := dto.PaginationDTO{
-		Page:     offset/limit + 1,
-		PageSize: limit,
-		Total:    len(checkoutDTOs),
-	}
-
-	response := dto.ListResponseDTO[dto.CheckoutDTO]{
-		Success:    true,
-		Data:       checkoutDTOs,
-		Pagination: pagination,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-// ListAbandonedCheckouts handles listing abandoned checkouts (admin only)
-func (h *CheckoutHandler) ListAbandonedCheckouts(w http.ResponseWriter, r *http.Request) {
-	// Parse pagination parameters
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-
-	if limit <= 0 {
-		limit = 10 // Default limit
-	}
-
-	// Get abandoned checkouts
-	checkouts, err := h.checkoutUseCase.GetAbandonedCheckouts(offset, limit)
-	if err != nil {
-		h.logger.Error("Failed to list abandoned checkouts: %v", err)
-		http.Error(w, "Failed to list abandoned checkouts", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert checkouts to DTOs
-	checkoutDTOs := make([]dto.CheckoutDTO, len(checkouts))
-	for i, checkout := range checkouts {
-		checkoutDTOs[i] = convertToCheckoutDTO(checkout)
-	}
-
-	// Return response
-	pagination := dto.PaginationDTO{
-		Page:     offset/limit + 1,
-		PageSize: limit,
-		Total:    len(checkoutDTOs),
-	}
-
-	response := dto.ListResponseDTO[dto.CheckoutDTO]{
-		Success:    true,
-		Data:       checkoutDTOs,
-		Pagination: pagination,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-// ListExpiredCheckouts handles listing expired checkouts (admin only)
-func (h *CheckoutHandler) ListExpiredCheckouts(w http.ResponseWriter, r *http.Request) {
-	// Get expired checkouts
-	checkouts, err := h.checkoutUseCase.GetExpiredCheckouts()
-	if err != nil {
-		h.logger.Error("Failed to list expired checkouts: %v", err)
-		http.Error(w, "Failed to list expired checkouts", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert checkouts to DTOs
-	checkoutDTOs := make([]dto.CheckoutDTO, len(checkouts))
-	for i, checkout := range checkouts {
-		checkoutDTOs[i] = convertToCheckoutDTO(checkout)
-	}
-
-	// Return response
-	pagination := dto.PaginationDTO{
-		Page:     1,
-		PageSize: len(checkoutDTOs),
-		Total:    len(checkoutDTOs),
-	}
-
-	response := dto.ListResponseDTO[dto.CheckoutDTO]{
-		Success:    true,
-		Data:       checkoutDTOs,
-		Pagination: pagination,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 

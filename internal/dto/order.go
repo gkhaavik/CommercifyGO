@@ -22,18 +22,18 @@ type OrderDTO struct {
 	ShippingDetails ShippingDetails `json:"shipping_details"`
 	DiscountDetails DiscountDetails `json:"discount_details"`
 	Customer        CustomerDetails `json:"customer"`
-	ActionURL       string          `json:"action_url,omitempty"`
+	CheckoutID      string          `json:"checkout_id,omitempty"`
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 }
 
 type PaymentDetails struct {
-	Provider PaymentProvider `json:"provider"`
-	Method   PaymentMethod   `json:"method"`
-	ID       string          `json:"id"`
-	Status   string          `json:"status"`
-	Captured bool            `json:"captured"`
-	Refunded bool            `json:"refunded"`
+	PaymentID string          `json:"payment_id"`
+	Provider  PaymentProvider `json:"provider"`
+	Method    PaymentMethod   `json:"method"`
+	Status    string          `json:"status"`
+	Captured  bool            `json:"captured"`
+	Refunded  bool            `json:"refunded"`
 }
 
 type ShippingDetails struct {

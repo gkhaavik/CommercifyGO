@@ -103,10 +103,6 @@ func (uc *OrderUseCase) ProcessPayment(input ProcessPaymentInput) (*entity.Order
 		PaymentMethod:   input.PaymentMethod,
 		PaymentProvider: input.PaymentProvider,
 		CardDetails:     input.CardDetails,
-		PayPalDetails:   input.PayPalDetails,
-		BankDetails:     input.BankDetails,
-		CustomerEmail:   input.CustomerEmail,
-		PhoneNumber:     input.PhoneNumber,
 	})
 
 	if err != nil {

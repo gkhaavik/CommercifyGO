@@ -194,8 +194,6 @@ func (h *OrderHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 	switch paymentInput.PaymentProvider {
 	case "stripe":
 		paymentProvider = service.PaymentProviderStripe
-	case "paypal":
-		paymentProvider = service.PaymentProviderPayPal
 	case "mock":
 		paymentProvider = service.PaymentProviderMock
 	case "mobilepay":
@@ -387,11 +385,11 @@ func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 	}
 
 	paymentDetails := dto.PaymentDetails{
-		ID:       order.PaymentID,
-		Provider: dto.PaymentProvider(order.PaymentProvider),
-		Method:   dto.PaymentMethod(order.PaymentMethod),
-		Captured: order.IsCaptured(),
-		Refunded: order.IsRefunded(),
+		PaymentID: order.PaymentID,
+		Provider:  dto.PaymentProvider(order.PaymentProvider),
+		Method:    dto.PaymentMethod(order.PaymentMethod),
+		Captured:  order.IsCaptured(),
+		Refunded:  order.IsRefunded(),
 	}
 
 	var discountDetails dto.DiscountDetails
@@ -426,7 +424,7 @@ func convertToOrderDTO(order *entity.Order) dto.OrderDTO {
 		ShippingDetails: shippingDetails,
 		DiscountDetails: discountDetails,
 		Customer:        customerDetails,
-		ActionURL:       order.ActionURL,
+		CheckoutID:      order.CheckoutSessionID,
 		CreatedAt:       order.CreatedAt,
 		UpdatedAt:       order.UpdatedAt,
 	}

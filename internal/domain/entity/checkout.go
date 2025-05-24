@@ -75,33 +75,8 @@ type AppliedDiscount struct {
 	DiscountAmount int64  `json:"discount_amount"` // stored in cents
 }
 
-// NewCheckout creates a new checkout for a user
-func NewCheckout(userID uint) (*Checkout, error) {
-	if userID == 0 {
-		return nil, errors.New("user ID cannot be empty")
-	}
-
-	now := time.Now()
-	expiresAt := now.Add(24 * time.Hour) // Checkouts expire after 24 hours by default
-
-	return &Checkout{
-		UserID:         userID,
-		Items:          []CheckoutItem{},
-		Status:         CheckoutStatusActive,
-		Currency:       "USD", // Default currency
-		TotalAmount:    0,
-		ShippingCost:   0,
-		DiscountAmount: 0,
-		FinalAmount:    0,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		LastActivityAt: now,
-		ExpiresAt:      expiresAt,
-	}, nil
-}
-
-// NewGuestCheckout creates a new checkout for a guest user
-func NewGuestCheckout(sessionID string) (*Checkout, error) {
+// NewCheckout creates a new checkout for a guest user
+func NewCheckout(sessionID string) (*Checkout, error) {
 	if sessionID == "" {
 		return nil, errors.New("session ID cannot be empty")
 	}
@@ -388,39 +363,31 @@ func (c *Checkout) ToOrder() *Order {
 		}
 	}
 
-	// Determine if this is a guest order
-	isGuestOrder := c.UserID == 0
-
 	// Create the order
 	order := &Order{
-		UserID:           c.UserID,
-		Items:            items,
-		TotalAmount:      c.TotalAmount,
-		TotalWeight:      c.TotalWeight,
-		ShippingCost:     c.ShippingCost,
-		DiscountAmount:   c.DiscountAmount,
-		FinalAmount:      c.FinalAmount,
-		Status:           OrderStatusPending,
-		ShippingAddr:     c.ShippingAddr,
-		BillingAddr:      c.BillingAddr,
-		CustomerDetails:  c.CustomerDetails,
-		IsGuestOrder:     isGuestOrder,
-		ShippingMethodID: c.ShippingMethodID,
-		ShippingMethod:   c.ShippingMethod,
-		PaymentProvider:  c.PaymentProvider,
-		AppliedDiscount:  c.AppliedDiscount,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		UserID:            c.UserID,
+		Items:             items,
+		TotalAmount:       c.TotalAmount,
+		TotalWeight:       c.TotalWeight,
+		ShippingCost:      c.ShippingCost,
+		DiscountAmount:    c.DiscountAmount,
+		FinalAmount:       c.FinalAmount,
+		Status:            OrderStatusPending,
+		ShippingAddr:      c.ShippingAddr,
+		BillingAddr:       c.BillingAddr,
+		CustomerDetails:   c.CustomerDetails,
+		ShippingMethodID:  c.ShippingMethodID,
+		ShippingMethod:    c.ShippingMethod,
+		PaymentProvider:   c.PaymentProvider,
+		PaymentMethod:     "wallet", // Default payment method
+		AppliedDiscount:   c.AppliedDiscount,
+		CheckoutSessionID: c.SessionID,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 
 	// Generate a friendly order number (will be replaced with actual ID after creation)
-	if isGuestOrder {
-		// Format: GS-YYYYMMDD-TEMP (GS prefix for guest orders)
-		order.OrderNumber = generateGuestOrderNumber()
-	} else {
-		// Format: ORD-YYYYMMDD-TEMP
-		order.OrderNumber = generateOrderNumber()
-	}
+	order.OrderNumber = generateOrderNumber()
 
 	return order
 }
@@ -445,9 +412,4 @@ func convertCheckoutItemsToOrderItems(checkoutItems []CheckoutItem) []OrderItem 
 // generateOrderNumber generates a temporary order number
 func generateOrderNumber() string {
 	return "ORD-" + time.Now().Format("20060102") + "-TEMP"
-}
-
-// generateGuestOrderNumber generates a temporary guest order number
-func generateGuestOrderNumber() string {
-	return "GS-" + time.Now().Format("20060102") + "-TEMP"
 }

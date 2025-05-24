@@ -6,12 +6,14 @@ A robust, scalable e-commerce backend API built with Go, following clean archite
 
 - **User Management**: Registration, authentication, profile management
 - **Product Management**: CRUD operations, categories, variants, search
-- **Checkout System**: Add, update, remove items, apply discounts, shipping methods
+- **Checkout System**: Session-based checkout, add/update/remove items, apply discounts, shipping methods
 - **Order Processing**: Create orders, payment processing, order status tracking
 - **Payment Integration**: Support for multiple payment providers (Stripe, MobilePay, etc.)
 - **Email Notifications**: Order confirmations, status updates
 
 > **Note**: The Cart API has been replaced by the Checkout System. See [Cart to Checkout Migration](/docs/cart_to_checkout_migration.md) for details.
+>
+> **New**: The Checkout System now uses a session-based approach with cookies. See [Checkout Session Documentation](/docs/checkout_session.md) for details.
 
 ## Technology Stack
 

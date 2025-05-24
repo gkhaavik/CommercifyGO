@@ -79,7 +79,6 @@ func (s *Server) setupRoutes() {
 	discountHandler := s.container.Handlers().DiscountHandler()
 	shippingHandler := s.container.Handlers().ShippingHandler()
 	currencyHandler := s.container.Handlers().CurrencyHandler()
-	cartRedirectHandler := s.container.Handlers().CartRedirectHandler()
 
 	// Extract middleware from container
 	authMiddleware := s.container.Middlewares().AuthMiddleware()
@@ -98,7 +97,6 @@ func (s *Server) setupRoutes() {
 
 	// Public discount routes
 	api.HandleFunc("/discounts/validate", discountHandler.ValidateDiscountCode).Methods(http.MethodPost)
-	api.HandleFunc("/guest/discounts/apply/{orderId:[0-9]+}", discountHandler.ApplyDiscountToGuestOrder).Methods(http.MethodPost)
 
 	// Public currency routes
 	api.HandleFunc("/currencies", currencyHandler.ListEnabledCurrencies).Methods(http.MethodGet)
@@ -111,31 +109,20 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/shipping/options", shippingHandler.CalculateShippingOptions).Methods(http.MethodPost)
 	api.HandleFunc("/shipping/rates/{shippingRateId:[0-9]+}/cost", shippingHandler.GetShippingCost).Methods(http.MethodPost)
 
-	// Deprecated cart routes - redirect to checkout
-	api.HandleFunc("/guest/cart", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodGet, http.MethodDelete)
-	api.HandleFunc("/guest/cart/items", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPost)
-	api.HandleFunc("/guest/cart/items/{productId:[0-9]+}", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPut, http.MethodDelete)
-	api.HandleFunc("/cart", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodGet, http.MethodDelete)
-	api.HandleFunc("/cart/items", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPost)
-	api.HandleFunc("/cart/items/{productId:[0-9]+}", cartRedirectHandler.RedirectToCheckout).Methods(http.MethodPut, http.MethodDelete)
-
 	// Guest checkout routes (no authentication required)
-	api.HandleFunc("/guest/checkout", checkoutHandler.GetCheckout).Methods(http.MethodGet)
-	api.HandleFunc("/guest/checkout/items", checkoutHandler.AddToCheckout).Methods(http.MethodPost)
-	api.HandleFunc("/guest/checkout/items/{productId:[0-9]+}", checkoutHandler.UpdateCheckoutItem).Methods(http.MethodPut)
-	api.HandleFunc("/guest/checkout/items/{productId:[0-9]+}", checkoutHandler.RemoveFromCheckout).Methods(http.MethodDelete)
-	api.HandleFunc("/guest/checkout", checkoutHandler.ClearCheckout).Methods(http.MethodDelete)
-	api.HandleFunc("/guest/checkout/shipping-address", checkoutHandler.SetShippingAddress).Methods(http.MethodPut)
-	api.HandleFunc("/guest/checkout/billing-address", checkoutHandler.SetBillingAddress).Methods(http.MethodPut)
-	api.HandleFunc("/guest/checkout/customer-details", checkoutHandler.SetCustomerDetails).Methods(http.MethodPut)
-	api.HandleFunc("/guest/checkout/shipping-method", checkoutHandler.SetShippingMethod).Methods(http.MethodPut)
-	api.HandleFunc("/guest/checkout/discount", checkoutHandler.ApplyDiscount).Methods(http.MethodPost)
-	api.HandleFunc("/guest/checkout/discount", checkoutHandler.RemoveDiscount).Methods(http.MethodDelete)
-	api.HandleFunc("/guest/checkout/to-order", checkoutHandler.ConvertToOrder).Methods(http.MethodPost)
+	api.HandleFunc("/checkout", checkoutHandler.GetCheckout).Methods(http.MethodGet)
+	api.HandleFunc("/checkout/items", checkoutHandler.AddToCheckout).Methods(http.MethodPost)
+	api.HandleFunc("/checkout/items/{productId:[0-9]+}", checkoutHandler.UpdateCheckoutItem).Methods(http.MethodPut)
+	api.HandleFunc("/checkout/items/{productId:[0-9]+}", checkoutHandler.RemoveFromCheckout).Methods(http.MethodDelete)
+	api.HandleFunc("/checkout", checkoutHandler.ClearCheckout).Methods(http.MethodDelete)
+	api.HandleFunc("/checkout/shipping-address", checkoutHandler.SetShippingAddress).Methods(http.MethodPut)
+	api.HandleFunc("/checkout/billing-address", checkoutHandler.SetBillingAddress).Methods(http.MethodPut)
+	api.HandleFunc("/checkout/customer-details", checkoutHandler.SetCustomerDetails).Methods(http.MethodPut)
+	api.HandleFunc("/checkout/shipping-method", checkoutHandler.SetShippingMethod).Methods(http.MethodPut)
+	api.HandleFunc("/checkout/discount", checkoutHandler.ApplyDiscount).Methods(http.MethodPost)
+	api.HandleFunc("/checkout/discount", checkoutHandler.RemoveDiscount).Methods(http.MethodDelete)
+	api.HandleFunc("/checkout/complete", checkoutHandler.CompleteCheckout).Methods(http.MethodPost)
 	// api.HandleFunc("/guest/checkout/convert", checkoutHandler.ConvertGuestCheckoutToUserCheckout).Methods(http.MethodPost)
-
-	// Public webhook routes
-	api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
 
 	// Setup payment provider webhooks
 	s.setupMobilePayWebhooks(api, webhookHandler)
@@ -150,34 +137,10 @@ func (s *Server) setupRoutes() {
 	protected.HandleFunc("/users/me", userHandler.UpdateProfile).Methods(http.MethodPut)
 	protected.HandleFunc("/users/me/password", userHandler.ChangePassword).Methods(http.MethodPut)
 
-	// Checkout routes
-	protected.HandleFunc("/checkout", checkoutHandler.GetCheckout).Methods(http.MethodGet)
-	protected.HandleFunc("/checkout/items", checkoutHandler.AddToCheckout).Methods(http.MethodPost)
-	protected.HandleFunc("/checkout/items/{productId:[0-9]+}", checkoutHandler.UpdateCheckoutItem).Methods(http.MethodPut)
-	protected.HandleFunc("/checkout/items/{productId:[0-9]+}", checkoutHandler.RemoveFromCheckout).Methods(http.MethodDelete)
-	protected.HandleFunc("/checkout", checkoutHandler.ClearCheckout).Methods(http.MethodDelete)
-	protected.HandleFunc("/checkout/shipping-address", checkoutHandler.SetShippingAddress).Methods(http.MethodPut)
-	protected.HandleFunc("/checkout/billing-address", checkoutHandler.SetBillingAddress).Methods(http.MethodPut)
-	protected.HandleFunc("/checkout/customer-details", checkoutHandler.SetCustomerDetails).Methods(http.MethodPut)
-	protected.HandleFunc("/checkout/shipping-method", checkoutHandler.SetShippingMethod).Methods(http.MethodPut)
-	protected.HandleFunc("/checkout/discount", checkoutHandler.ApplyDiscount).Methods(http.MethodPost)
-	protected.HandleFunc("/checkout/discount", checkoutHandler.RemoveDiscount).Methods(http.MethodDelete)
-	protected.HandleFunc("/checkout/to-order", checkoutHandler.ConvertToOrder).Methods(http.MethodPost)
-
 	// Order routes
 	protected.HandleFunc("/orders/{orderId:[0-9]+}", orderHandler.GetOrder).Methods(http.MethodGet)
 	protected.HandleFunc("/orders", orderHandler.ListOrders).Methods(http.MethodGet)
 	protected.HandleFunc("/orders/{orderId:[0-9]+}/payment", orderHandler.ProcessPayment).Methods(http.MethodPost)
-
-	// Discount routes
-	protected.HandleFunc("/discounts", discountHandler.CreateDiscount).Methods(http.MethodPost)
-	protected.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.UpdateDiscount).Methods(http.MethodPut)
-	protected.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.DeleteDiscount).Methods(http.MethodDelete)
-	protected.HandleFunc("/discounts", discountHandler.ListDiscounts).Methods(http.MethodGet)
-	protected.HandleFunc("/discounts/active", discountHandler.ListActiveDiscounts).Methods(http.MethodGet)
-	protected.HandleFunc("/discounts/apply/{orderId:[0-9]+}", discountHandler.ApplyDiscountToOrder).Methods(http.MethodPost)
-	protected.HandleFunc("/discounts/remove/{orderId:[0-9]+}", discountHandler.RemoveDiscountFromOrder).Methods(http.MethodDelete)
-	protected.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.GetDiscount).Methods(http.MethodGet)
 
 	// Admin routes
 	admin := protected.PathPrefix("/admin").Subrouter()
@@ -190,9 +153,6 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/checkouts", checkoutHandler.ListAdminCheckouts).Methods(http.MethodGet)
 	admin.HandleFunc("/checkouts/{checkoutId:[0-9]+}", checkoutHandler.GetAdminCheckout).Methods(http.MethodGet)
 	admin.HandleFunc("/checkouts/{checkoutId:[0-9]+}", checkoutHandler.DeleteAdminCheckout).Methods(http.MethodDelete)
-	admin.HandleFunc("/users/{userId:[0-9]+}/checkouts", checkoutHandler.ListUserCheckouts).Methods(http.MethodGet)
-	admin.HandleFunc("/checkouts/abandoned", checkoutHandler.ListAbandonedCheckouts).Methods(http.MethodGet)
-	admin.HandleFunc("/checkouts/expired", checkoutHandler.ListExpiredCheckouts).Methods(http.MethodGet)
 
 	// Admin currency routes
 	admin.HandleFunc("/currencies/all", currencyHandler.ListCurrencies).Methods(http.MethodGet)
@@ -213,6 +173,16 @@ func (s *Server) setupRoutes() {
 	admin.HandleFunc("/shipping/rates/{shippingRateId:[0-9]+}", shippingHandler.UpdateShippingRate).Methods(http.MethodPut)
 	admin.HandleFunc("/shipping/rates/weight", shippingHandler.CreateWeightBasedRate).Methods(http.MethodPost)
 	admin.HandleFunc("/shipping/rates/value", shippingHandler.CreateValueBasedRate).Methods(http.MethodPost)
+
+	// Discount routes
+	admin.HandleFunc("/discounts", discountHandler.CreateDiscount).Methods(http.MethodPost)
+	admin.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.UpdateDiscount).Methods(http.MethodPut)
+	admin.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.DeleteDiscount).Methods(http.MethodDelete)
+	admin.HandleFunc("/discounts", discountHandler.ListDiscounts).Methods(http.MethodGet)
+	admin.HandleFunc("/discounts/active", discountHandler.ListActiveDiscounts).Methods(http.MethodGet)
+	admin.HandleFunc("/discounts/apply/{orderId:[0-9]+}", discountHandler.ApplyDiscountToOrder).Methods(http.MethodPost)
+	admin.HandleFunc("/discounts/remove/{orderId:[0-9]+}", discountHandler.RemoveDiscountFromOrder).Methods(http.MethodDelete)
+	admin.HandleFunc("/discounts/{discountId:[0-9]+}", discountHandler.GetDiscount).Methods(http.MethodGet)
 
 	// Payment management routes (admin only)
 	admin.HandleFunc("/payments/{paymentId}/capture", paymentHandler.CapturePayment).Methods(http.MethodPost)
@@ -248,6 +218,7 @@ func (s *Server) setupStripeWebhooks(api *mux.Router, webhookHandler *handler.We
 		s.logger.Warn("Stripe webhook secret is not configured, webhooks will not validate signatures")
 	} else {
 		s.logger.Info("Stripe webhook endpoint configured at /api/webhooks/stripe")
+		api.HandleFunc("/webhooks/stripe", webhookHandler.HandleStripeWebhook).Methods(http.MethodPost)
 	}
 
 	// Note: For Stripe, webhook endpoints are already registered in the routes.

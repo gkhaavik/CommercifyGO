@@ -23,7 +23,7 @@ func (s *MockPaymentService) GetAvailableProviders() []service.PaymentProvider {
 			Type:        service.PaymentProviderMock,
 			Name:        "Test Payment",
 			Description: "For testing purposes only",
-			Methods:     []service.PaymentMethod{service.PaymentMethodCreditCard, service.PaymentMethodPayPal, service.PaymentMethodBankTransfer},
+			Methods:     []service.PaymentMethod{service.PaymentMethodCreditCard},
 			Enabled:     true,
 		},
 	}
@@ -52,38 +52,6 @@ func (s *MockPaymentService) ProcessPayment(request service.PaymentRequest) (*se
 			return &service.PaymentResult{
 				Success:      false,
 				ErrorMessage: "invalid card details",
-				Provider:     service.PaymentProviderMock,
-			}, nil
-		}
-	case service.PaymentMethodPayPal:
-		if request.PayPalDetails == nil {
-			return &service.PaymentResult{
-				Success:      false,
-				ErrorMessage: "PayPal details are required for PayPal payment",
-				Provider:     service.PaymentProviderMock,
-			}, nil
-		}
-		// Validate PayPal details
-		if request.PayPalDetails.Email == "" || request.PayPalDetails.Token == "" {
-			return &service.PaymentResult{
-				Success:      false,
-				ErrorMessage: "invalid PayPal details",
-				Provider:     service.PaymentProviderMock,
-			}, nil
-		}
-	case service.PaymentMethodBankTransfer:
-		if request.BankDetails == nil {
-			return &service.PaymentResult{
-				Success:      false,
-				ErrorMessage: "bank details are required for bank transfer",
-				Provider:     service.PaymentProviderMock,
-			}, nil
-		}
-		// Validate bank details
-		if request.BankDetails.AccountNumber == "" || request.BankDetails.BankCode == "" {
-			return &service.PaymentResult{
-				Success:      false,
-				ErrorMessage: "invalid bank details",
 				Provider:     service.PaymentProviderMock,
 			}, nil
 		}

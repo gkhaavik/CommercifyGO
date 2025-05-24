@@ -34,13 +34,6 @@ func NewMultiProviderPaymentService(cfg *config.Config, logger logger.Logger) *M
 				providers[service.PaymentProviderStripe] = NewStripePaymentService(cfg.Stripe, logger)
 				logger.Info("Stripe payment provider initialized")
 			}
-		case string(service.PaymentProviderPayPal):
-			if cfg.PayPal.Enabled {
-				// This would be a real PayPal implementation in production
-				// For now, we'll use the mock service
-				providers[service.PaymentProviderPayPal] = NewMockPaymentService()
-				logger.Info("PayPal payment provider initialized (mock)")
-			}
 		case string(service.PaymentProviderMobilePay):
 			if cfg.MobilePay.Enabled {
 				providers[service.PaymentProviderMobilePay] = NewMobilePayPaymentService(cfg.MobilePay, logger)
@@ -71,14 +64,6 @@ func (s *MultiProviderPaymentService) GetAvailableProviders() []service.PaymentP
 			Enabled:     s.config.Stripe.Enabled,
 		},
 		{
-			Type:        service.PaymentProviderPayPal,
-			Name:        "PayPal",
-			Description: "Pay with your PayPal account",
-			IconURL:     "/assets/images/paypal-logo.png",
-			Methods:     []service.PaymentMethod{service.PaymentMethodPayPal},
-			Enabled:     s.config.PayPal.Enabled,
-		},
-		{
 			Type:        service.PaymentProviderMobilePay,
 			Name:        "MobilePay",
 			Description: "Pay with MobilePay app",
@@ -102,7 +87,7 @@ func (s *MultiProviderPaymentService) GetAvailableProviders() []service.PaymentP
 			Type:        service.PaymentProviderMock,
 			Name:        "Test Payment",
 			Description: "For testing purposes only",
-			Methods:     []service.PaymentMethod{service.PaymentMethodCreditCard, service.PaymentMethodPayPal, service.PaymentMethodBankTransfer},
+			Methods:     []service.PaymentMethod{service.PaymentMethodCreditCard, service.PaymentMethodWallet},
 			Enabled:     true,
 		})
 	}

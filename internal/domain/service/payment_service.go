@@ -5,19 +5,16 @@ type PaymentProviderType string
 
 const (
 	PaymentProviderStripe    PaymentProviderType = "stripe"
-	PaymentProviderPayPal    PaymentProviderType = "paypal"
-	PaymentProviderMock      PaymentProviderType = "mock"
 	PaymentProviderMobilePay PaymentProviderType = "mobilepay"
+	PaymentProviderMock      PaymentProviderType = "mock"
 )
 
 // PaymentMethod represents a payment method type
 type PaymentMethod string
 
 const (
-	PaymentMethodCreditCard   PaymentMethod = "credit_card"
-	PaymentMethodPayPal       PaymentMethod = "paypal"
-	PaymentMethodBankTransfer PaymentMethod = "bank_transfer"
-	PaymentMethodWallet       PaymentMethod = "wallet"
+	PaymentMethodCreditCard PaymentMethod = "credit_card"
+	PaymentMethodWallet     PaymentMethod = "wallet"
 )
 
 // PaymentProvider represents information about a payment provider
@@ -38,10 +35,8 @@ type PaymentRequest struct {
 	PaymentMethod   PaymentMethod
 	PaymentProvider PaymentProviderType
 	CardDetails     *CardDetails
-	PayPalDetails   *PayPalDetails
-	BankDetails     *BankDetails
-	CustomerEmail   string
 	PhoneNumber     string
+	CustomerEmail   string
 }
 
 // CardDetails represents credit card payment details

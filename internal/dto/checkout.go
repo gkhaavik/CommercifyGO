@@ -138,11 +138,21 @@ type CheckoutSearchRequest struct {
 	PaginationDTO
 }
 
-// ConvertToOrderRequest represents the data needed to convert a checkout to an order
-type ConvertToOrderRequest struct {
-	PaymentMethod   string          `json:"payment_method"`
-	PaymentProvider string          `json:"payment_provider"`
-	CardDetails     *CardDetailsDTO `json:"card_details,omitempty"`
+type CheckoutCompleteResponse struct {
+	Order          OrderDTO `json:"order"`
+	ActionRequired bool     `json:"action_required,omitempty"`
+	ActionURL      string   `json:"redirect_url,omitempty"`
+}
+
+// CompleteCheckoutRequest represents the data needed to convert a checkout to an order
+type CompleteCheckoutRequest struct {
+	PaymentData PaymentData `json:"payment_data"`
+	RedirectURL string      `json:"redirect_url"`
+}
+
+type PaymentData struct {
+	CardDetails *CardDetailsDTO `json:"card_details,omitempty"`
+	PhoneNumber string          `json:"phone_number,omitempty"`
 }
 
 // CardDetailsDTO represents card details for payment processing

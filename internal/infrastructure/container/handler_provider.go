@@ -17,7 +17,6 @@ type HandlerProvider interface {
 	DiscountHandler() *handler.DiscountHandler
 	ShippingHandler() *handler.ShippingHandler
 	CurrencyHandler() *handler.CurrencyHandler
-	CartRedirectHandler() *handler.CartRedirectHandler
 }
 
 // handlerProvider is the concrete implementation of HandlerProvider
@@ -25,16 +24,15 @@ type handlerProvider struct {
 	container Container
 	mu        sync.Mutex
 
-	userHandler         *handler.UserHandler
-	productHandler      *handler.ProductHandler
-	checkoutHandler     *handler.CheckoutHandler
-	orderHandler        *handler.OrderHandler
-	paymentHandler      *handler.PaymentHandler
-	webhookHandler      *handler.WebhookHandler
-	discountHandler     *handler.DiscountHandler
-	shippingHandler     *handler.ShippingHandler
-	currencyHandler     *handler.CurrencyHandler
-	cartRedirectHandler *handler.CartRedirectHandler
+	userHandler     *handler.UserHandler
+	productHandler  *handler.ProductHandler
+	checkoutHandler *handler.CheckoutHandler
+	orderHandler    *handler.OrderHandler
+	paymentHandler  *handler.PaymentHandler
+	webhookHandler  *handler.WebhookHandler
+	discountHandler *handler.DiscountHandler
+	shippingHandler *handler.ShippingHandler
+	currencyHandler *handler.CurrencyHandler
 }
 
 // NewHandlerProvider creates a new handler provider
@@ -174,17 +172,4 @@ func (p *handlerProvider) CurrencyHandler() *handler.CurrencyHandler {
 		)
 	}
 	return p.currencyHandler
-}
-
-// CartRedirectHandler returns the cart redirect handler
-func (p *handlerProvider) CartRedirectHandler() *handler.CartRedirectHandler {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.cartRedirectHandler == nil {
-		p.cartRedirectHandler = handler.NewCartRedirectHandler(
-			p.container.Logger(),
-		)
-	}
-	return p.cartRedirectHandler
 }

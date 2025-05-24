@@ -133,18 +133,6 @@ func (s *StripePaymentService) ProcessPayment(request service.PaymentRequest) (*
 			}, nil
 		}
 
-	case service.PaymentMethodPayPal:
-		// Stripe supports PayPal through payment methods API
-		if request.PayPalDetails == nil {
-			return &service.PaymentResult{
-				Success:      false,
-				ErrorMessage: "PayPal details are required for PayPal payment",
-				Provider:     service.PaymentProviderStripe,
-			}, nil
-		}
-		paymentMethodType = "paypal"
-		paymentMethodID = request.PayPalDetails.Token
-
 	default:
 		return &service.PaymentResult{
 			Success:      false,

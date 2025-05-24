@@ -364,8 +364,7 @@ func (h *DiscountHandler) ValidateDiscountCode(w http.ResponseWriter, r *http.Re
 
 	// Return discount details
 	response := map[string]interface{}{
-		"valid":    true,
-		"discount": discount,
+		"valid": true,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

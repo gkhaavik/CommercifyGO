@@ -84,6 +84,8 @@ func (p *useCaseProvider) CheckoutUseCase() *usecase.CheckoutUseCase {
 			p.container.Repositories().DiscountRepository(),
 			p.container.Repositories().OrderRepository(),
 			p.container.Repositories().CurrencyRepository(),
+			p.container.Repositories().PaymentTransactionRepository(),
+			p.container.Services().PaymentService(),
 		)
 	}
 	return p.checkoutUseCase

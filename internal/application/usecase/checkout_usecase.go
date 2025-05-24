@@ -2,10 +2,14 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/zenfulcode/commercify/internal/domain/entity"
 	"github.com/zenfulcode/commercify/internal/domain/repository"
+	"github.com/zenfulcode/commercify/internal/domain/service"
+	"github.com/zenfulcode/commercify/internal/dto"
 )
 
 // CheckoutInput defines the input for creating/adding to a checkout
@@ -37,6 +41,176 @@ type CheckoutUseCase struct {
 	discountRepo       repository.DiscountRepository
 	orderRepo          repository.OrderRepository
 	currencyRepo       repository.CurrencyRepository
+	paymentTxnRepo     repository.PaymentTransactionRepository
+	paymentSvc         service.PaymentService
+}
+
+func (uc *CheckoutUseCase) ProcessPayment(order *entity.Order, data dto.PaymentData) (*entity.Order, error) {
+	// Validate order
+	if order == nil {
+		return nil, errors.New("order cannot be nil")
+	}
+
+	if order.ID == 0 {
+		return nil, errors.New("order ID is required")
+	}
+
+	if order.Status != entity.OrderStatusPending {
+		return nil, errors.New("order is not in a valid state for payment processing")
+	}
+
+	// Check if order is already paid
+	if order.Status == entity.OrderStatusPaid ||
+		order.Status == entity.OrderStatusShipped ||
+		order.Status == entity.OrderStatusDelivered {
+		return nil, errors.New("order is already paid")
+	}
+
+	// Validate payment provider
+	availableProviders := uc.GetAvailablePaymentProviders()
+	providerValid := false
+	for _, p := range availableProviders {
+		if p.Type == service.PaymentProviderType(order.PaymentProvider) && p.Enabled {
+			providerValid = true
+			break
+		}
+	}
+	if !providerValid {
+		return nil, errors.New("payment provider not available")
+	}
+
+	// Get default currency
+	defaultCurrency, err := uc.currencyRepo.GetDefault()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default currency: %w", err)
+	}
+
+	// Process payment
+	paymentResult, err := uc.paymentSvc.ProcessPayment(service.PaymentRequest{
+		OrderID:         order.ID,
+		Amount:          order.FinalAmount, // Use final amount (after discounts)
+		Currency:        defaultCurrency.Code,
+		PaymentMethod:   service.PaymentMethod(order.PaymentMethod),
+		PaymentProvider: service.PaymentProviderType(order.PaymentProvider),
+	})
+
+	if paymentResult.RequiresAction && paymentResult.ActionURL != "" {
+		// Update order with payment ID, provider, and status
+		if err := order.SetPaymentID(paymentResult.TransactionID); err != nil {
+			return nil, err
+		}
+		if err := order.SetPaymentProvider(string(paymentResult.Provider)); err != nil {
+			return nil, err
+		}
+		if err := order.SetActionURL(paymentResult.ActionURL); err != nil {
+			return nil, err
+		}
+		if err := order.UpdateStatus(entity.OrderStatusPendingAction); err != nil {
+			return nil, err
+		}
+
+		// Update order in repository
+		if err := uc.orderRepo.Update(order); err != nil {
+			return nil, err
+		}
+
+		// Record the pending authorization transaction
+		txn, err := entity.NewPaymentTransaction(
+			order.ID,
+			paymentResult.TransactionID,
+			entity.TransactionTypeAuthorize,
+			entity.TransactionStatusPending,
+			order.FinalAmount,
+			defaultCurrency.Code,
+			string(paymentResult.Provider),
+		)
+		if err != nil {
+			// Log the error but don't fail the payment process
+			log.Printf("Failed to create payment transaction record: %v", err)
+		} else {
+			// Add metadata
+			txn.AddMetadata("payment_method", string(order.PaymentMethod))
+			txn.AddMetadata("requires_action", "true")
+			txn.AddMetadata("action_url", paymentResult.ActionURL)
+
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				// Log error but don't fail the payment process
+				log.Printf("Failed to save payment transaction: %v\n", err)
+			}
+		}
+
+		return order, nil
+	}
+
+	if !paymentResult.Success {
+		// Record the failed transaction
+		txn, err := entity.NewPaymentTransaction(
+			order.ID,
+			paymentResult.TransactionID,
+			entity.TransactionTypeAuthorize,
+			entity.TransactionStatusFailed,
+			order.FinalAmount,
+			defaultCurrency.Code,
+			string(paymentResult.Provider),
+		)
+		if err == nil {
+			txn.AddMetadata("payment_method", string(order.PaymentMethod))
+			txn.AddMetadata("error_message", paymentResult.ErrorMessage)
+
+			if err := uc.paymentTxnRepo.Create(txn); err != nil {
+				// Log error but don't fail the process
+				log.Printf("Failed to save failed payment transaction: %v\n", err)
+			}
+		}
+
+		return nil, errors.New(paymentResult.ErrorMessage)
+	}
+
+	// Update order with payment ID, provider, and status
+	if err := order.SetPaymentID(paymentResult.TransactionID); err != nil {
+		return nil, err
+	}
+	if err := order.SetPaymentProvider(string(paymentResult.Provider)); err != nil {
+		return nil, err
+	}
+	if err := order.SetPaymentMethod(string(order.PaymentMethod)); err != nil {
+		return nil, err
+	}
+	if err := order.UpdateStatus(entity.OrderStatusPaid); err != nil {
+		return nil, err
+	}
+
+	// Update order in repository
+	if err := uc.orderRepo.Update(order); err != nil {
+		return nil, err
+	}
+
+	// Record the successful authorization transaction
+	txn, err := entity.NewPaymentTransaction(
+		order.ID,
+		paymentResult.TransactionID,
+		entity.TransactionTypeAuthorize,
+		entity.TransactionStatusSuccessful,
+		order.FinalAmount,
+		defaultCurrency.Code,
+		string(paymentResult.Provider),
+	)
+	if err != nil {
+		// Log the error but don't fail the payment process
+		log.Printf("Failed to create payment transaction record: %v", err)
+	} else {
+		if err := uc.paymentTxnRepo.Create(txn); err != nil {
+			// Log error but don't fail the payment process
+			log.Printf("Failed to save payment transaction: %v\n", err)
+		}
+	}
+
+	return order, nil
+}
+
+// GetAvailablePaymentProviders returns a list of available payment providers
+func (uc *CheckoutUseCase) GetAvailablePaymentProviders() []service.PaymentProvider {
+	return uc.paymentSvc.GetAvailableProviders()
 }
 
 // NewCheckoutUseCase creates a new checkout use case
@@ -49,6 +223,9 @@ func NewCheckoutUseCase(
 	discountRepo repository.DiscountRepository,
 	orderRepo repository.OrderRepository,
 	currencyRepo repository.CurrencyRepository,
+	paymentTxnRepo repository.PaymentTransactionRepository,
+	paymentSvc service.PaymentService,
+
 ) *CheckoutUseCase {
 	return &CheckoutUseCase{
 		checkoutRepo:       checkoutRepo,
@@ -58,21 +235,16 @@ func NewCheckoutUseCase(
 		shippingRateRepo:   shippingRateRepo,
 		discountRepo:       discountRepo,
 		orderRepo:          orderRepo,
+		paymentTxnRepo:     paymentTxnRepo,
 		currencyRepo:       currencyRepo,
+		paymentSvc:         paymentSvc,
 	}
 }
 
 // GetOrCreateCheckout retrieves or creates a checkout for a user
-func (uc *CheckoutUseCase) GetOrCreateCheckout(userID uint) (*entity.Checkout, error) {
-	// Try to get an existing active checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err == nil {
-		// If found, return it
-		return checkout, nil
-	}
-
+func (uc *CheckoutUseCase) GetOrCreateCheckout(sessionId string) (*entity.Checkout, error) {
 	// If not found, create a new one
-	checkout, err = entity.NewCheckout(userID)
+	checkout, err := entity.NewCheckout(sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -85,312 +257,6 @@ func (uc *CheckoutUseCase) GetOrCreateCheckout(userID uint) (*entity.Checkout, e
 
 	// Save to repository
 	err = uc.checkoutRepo.Create(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// GetOrCreateGuestCheckout retrieves or creates a checkout for a guest user
-func (uc *CheckoutUseCase) GetOrCreateGuestCheckout(sessionID string) (*entity.Checkout, error) {
-	// Try to get an existing active checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err == nil {
-		// If found, return it
-		return checkout, nil
-	}
-
-	// If not found, create a new one
-	checkout, err = entity.NewGuestCheckout(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set default currency
-	defaultCurrency, err := uc.currencyRepo.GetDefault()
-	if err == nil && defaultCurrency != nil {
-		checkout.Currency = defaultCurrency.Code
-	}
-
-	// Save to repository
-	err = uc.checkoutRepo.Create(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// AddToCheckout adds a product to the user's checkout
-func (uc *CheckoutUseCase) AddToCheckout(userID uint, input CheckoutInput) (*entity.Checkout, error) {
-	// Get or create checkout
-	checkout, err := uc.GetOrCreateCheckout(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get product details if not provided
-	if input.ProductName == "" || input.Price == 0 {
-		product, err := uc.productRepo.GetByID(input.ProductID)
-		if err != nil {
-			return nil, err
-		}
-
-		input.ProductName = product.Name
-		input.Price = product.Price
-		input.Weight = product.Weight
-
-		// Check if product is active
-		if !product.Active {
-			return nil, errors.New("product is not available")
-		}
-	}
-
-	// If variant is provided, get variant details
-	if input.VariantID > 0 && (input.VariantName == "" || input.SKU == "") {
-		variant, err := uc.productVariantRepo.GetByID(input.VariantID)
-		if err != nil {
-			return nil, err
-		}
-
-		// Extract variant name from attributes
-		variantName := ""
-		for _, attr := range variant.Attributes {
-			if variantName == "" {
-				variantName = attr.Value
-			} else {
-				variantName += " / " + attr.Value
-			}
-		}
-		input.VariantName = variantName
-		input.SKU = variant.SKU
-		// Use variant price directly
-		input.Price = variant.Price
-		// Note: Weight is not available in the ProductVariant entity
-	}
-
-	// Add item to checkout
-	err = checkout.AddItem(
-		input.ProductID,
-		input.VariantID,
-		input.Quantity,
-		input.Price,
-		input.Weight,
-		input.ProductName,
-		input.VariantName,
-		input.SKU,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// AddToGuestCheckout adds a product to a guest's checkout
-func (uc *CheckoutUseCase) AddToGuestCheckout(sessionID string, input CheckoutInput) (*entity.Checkout, error) {
-	// Get or create checkout
-	checkout, err := uc.GetOrCreateGuestCheckout(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get product details if not provided
-	if input.ProductName == "" || input.Price == 0 {
-		product, err := uc.productRepo.GetByID(input.ProductID)
-		if err != nil {
-			return nil, err
-		}
-
-		input.ProductName = product.Name
-		input.Price = product.Price
-		input.Weight = product.Weight
-
-		// Check if product is active
-		if !product.Active {
-			return nil, errors.New("product is not available")
-		}
-	}
-
-	// If variant is provided, get variant details
-	if input.VariantID > 0 && (input.VariantName == "" || input.SKU == "") {
-		variant, err := uc.productVariantRepo.GetByID(input.VariantID)
-		if err != nil {
-			return nil, err
-		}
-
-		// Extract variant name from attributes
-		variantName := ""
-		for _, attr := range variant.Attributes {
-			if variantName == "" {
-				variantName = attr.Value
-			} else {
-				variantName += " / " + attr.Value
-			}
-		}
-		input.VariantName = variantName
-		input.SKU = variant.SKU
-		// Use variant price directly
-		input.Price = variant.Price
-		// Note: Weight is not available in the ProductVariant entity
-	}
-
-	// Add item to checkout
-	err = checkout.AddItem(
-		input.ProductID,
-		input.VariantID,
-		input.Quantity,
-		input.Price,
-		input.Weight,
-		input.ProductName,
-		input.VariantName,
-		input.SKU,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// UpdateCheckoutItem updates the quantity of a product in the user's checkout
-func (uc *CheckoutUseCase) UpdateCheckoutItem(userID uint, input UpdateCheckoutItemInput) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update item in checkout
-	err = checkout.UpdateItem(input.ProductID, input.VariantID, input.Quantity)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// UpdateGuestCheckoutItem updates the quantity of a product in a guest's checkout
-func (uc *CheckoutUseCase) UpdateGuestCheckoutItem(sessionID string, input UpdateCheckoutItemInput) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update item in checkout
-	err = checkout.UpdateItem(input.ProductID, input.VariantID, input.Quantity)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// RemoveFromCheckout removes a product from the user's checkout
-func (uc *CheckoutUseCase) RemoveFromCheckout(userID uint, productID uint, variantID uint) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Remove item from checkout
-	err = checkout.RemoveItem(productID, variantID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// RemoveFromGuestCheckout removes a product from a guest's checkout
-func (uc *CheckoutUseCase) RemoveFromGuestCheckout(sessionID string, productID uint, variantID uint) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Remove item from checkout
-	err = checkout.RemoveItem(productID, variantID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// ClearCheckout empties the user's checkout
-func (uc *CheckoutUseCase) ClearCheckout(userID uint) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Clear checkout
-	checkout.Clear()
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// ClearGuestCheckout empties a guest's checkout
-func (uc *CheckoutUseCase) ClearGuestCheckout(sessionID string) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Clear checkout
-	checkout.Clear()
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
 	if err != nil {
 		return nil, err
 	}
@@ -402,26 +268,6 @@ func (uc *CheckoutUseCase) ClearGuestCheckout(sessionID string) (*entity.Checkou
 func (uc *CheckoutUseCase) SetShippingAddress(userID uint, address entity.Address) (*entity.Checkout, error) {
 	// Get checkout
 	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set shipping address
-	checkout.SetShippingAddress(address)
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// SetGuestShippingAddress sets the shipping address for a guest's checkout
-func (uc *CheckoutUseCase) SetGuestShippingAddress(sessionID string, address entity.Address) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -458,26 +304,6 @@ func (uc *CheckoutUseCase) SetBillingAddress(userID uint, address entity.Address
 	return checkout, nil
 }
 
-// SetGuestBillingAddress sets the billing address for a guest's checkout
-func (uc *CheckoutUseCase) SetGuestBillingAddress(sessionID string, address entity.Address) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set billing address
-	checkout.SetBillingAddress(address)
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
 // SetCustomerDetails sets the customer details for the user's checkout
 func (uc *CheckoutUseCase) SetCustomerDetails(userID uint, details entity.CustomerDetails) (*entity.Checkout, error) {
 	// Get checkout
@@ -498,100 +324,8 @@ func (uc *CheckoutUseCase) SetCustomerDetails(userID uint, details entity.Custom
 	return checkout, nil
 }
 
-// SetGuestCustomerDetails sets the customer details for a guest's checkout
-func (uc *CheckoutUseCase) SetGuestCustomerDetails(sessionID string, details entity.CustomerDetails) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set customer details
-	checkout.SetCustomerDetails(details)
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
 // SetShippingMethod sets the shipping method for the user's checkout
-func (uc *CheckoutUseCase) SetShippingMethod(userID uint, methodID uint) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get shipping method
-	shippingMethod, err := uc.shippingMethodRepo.GetByID(methodID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Calculate shipping cost
-	var shippingCost int64
-	if checkout.ShippingAddr.Street != "" && checkout.ShippingAddr.Country != "" {
-		rates, err := uc.shippingRateRepo.GetAvailableRatesForAddress(checkout.ShippingAddr, checkout.TotalAmount)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, rate := range rates {
-			if rate.ShippingMethodID == methodID {
-				shippingCost = rate.BaseRate
-
-				// Check for weight-based rates
-				weightRates, err := uc.shippingRateRepo.GetWeightBasedRates(rate.ID)
-				if err == nil && len(weightRates) > 0 {
-					for _, weightRate := range weightRates {
-						if checkout.TotalWeight >= weightRate.MinWeight && (weightRate.MaxWeight == 0 || checkout.TotalWeight <= weightRate.MaxWeight) {
-							shippingCost = weightRate.Rate
-							break
-						}
-					}
-				}
-
-				// Check for value-based rates
-				valueRates, err := uc.shippingRateRepo.GetValueBasedRates(rate.ID)
-				if err == nil && len(valueRates) > 0 {
-					for _, valueRate := range valueRates {
-						if checkout.TotalAmount >= valueRate.MinOrderValue && (valueRate.MaxOrderValue == 0 || checkout.TotalAmount <= valueRate.MaxOrderValue) {
-							shippingCost = valueRate.Rate
-							break
-						}
-					}
-				}
-
-				break
-			}
-		}
-	}
-
-	// Set shipping method and cost
-	checkout.SetShippingMethod(methodID, shippingCost)
-	checkout.ShippingMethod = shippingMethod
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// SetGuestShippingMethod sets the shipping method for a guest's checkout
-func (uc *CheckoutUseCase) SetGuestShippingMethod(sessionID string, methodID uint) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
+func (uc *CheckoutUseCase) SetShippingMethod(checkout *entity.Checkout, methodID uint) (*entity.Checkout, error) {
 	// Get shipping method
 	shippingMethod, err := uc.shippingMethodRepo.GetByID(methodID)
 	if err != nil {
@@ -670,65 +404,8 @@ func (uc *CheckoutUseCase) SetPaymentProvider(userID uint, provider string) (*en
 	return checkout, nil
 }
 
-// SetGuestPaymentProvider sets the payment provider for a guest's checkout
-func (uc *CheckoutUseCase) SetGuestPaymentProvider(sessionID string, provider string) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set payment provider
-	checkout.SetPaymentProvider(provider)
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
 // ApplyDiscountCode applies a discount code to the user's checkout
-func (uc *CheckoutUseCase) ApplyDiscountCode(userID uint, code string) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get discount
-	discount, err := uc.discountRepo.GetByCode(code)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if discount is valid
-	if !discount.IsValid() {
-		return nil, errors.New("discount is not valid")
-	}
-
-	// Apply discount
-	checkout.ApplyDiscount(discount)
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// ApplyGuestDiscountCode applies a discount code to a guest's checkout
-func (uc *CheckoutUseCase) ApplyGuestDiscountCode(sessionID string, code string) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
+func (uc *CheckoutUseCase) ApplyDiscountCode(checkout *entity.Checkout, code string) (*entity.Checkout, error) {
 	// Get discount
 	discount, err := uc.discountRepo.GetByCode(code)
 	if err != nil {
@@ -753,48 +430,17 @@ func (uc *CheckoutUseCase) ApplyGuestDiscountCode(sessionID string, code string)
 }
 
 // RemoveDiscountCode removes a discount code from the user's checkout
-func (uc *CheckoutUseCase) RemoveDiscountCode(userID uint) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
+func (uc *CheckoutUseCase) RemoveDiscountCode(checkout *entity.Checkout) (*entity.Checkout, error) {
 	// Remove discount
 	checkout.ApplyDiscount(nil)
 
 	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
+	err := uc.checkoutRepo.Update(checkout)
 	if err != nil {
 		return nil, err
 	}
 
 	return checkout, nil
-}
-
-// RemoveGuestDiscountCode removes a discount code from a guest's checkout
-func (uc *CheckoutUseCase) RemoveGuestDiscountCode(sessionID string) (*entity.Checkout, error) {
-	// Get checkout
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Remove discount
-	checkout.ApplyDiscount(nil)
-
-	// Update checkout in repository
-	err = uc.checkoutRepo.Update(checkout)
-	if err != nil {
-		return nil, err
-	}
-
-	return checkout, nil
-}
-
-// ConvertGuestCheckoutToUserCheckout converts a guest checkout to a user checkout
-func (uc *CheckoutUseCase) ConvertGuestCheckoutToUserCheckout(sessionID string, userID uint) (*entity.Checkout, error) {
-	return uc.checkoutRepo.ConvertGuestCheckoutToUserCheckout(sessionID, userID)
 }
 
 // ExpireOldCheckouts marks expired checkouts as expired
@@ -855,9 +501,9 @@ func (uc *CheckoutUseCase) CreateOrderFromCheckout(checkoutID uint) (*entity.Ord
 	// Mark checkout as completed
 	checkout.MarkAsCompleted(order.ID)
 	err = uc.checkoutRepo.Update(checkout)
+	// TODO: Handle error but do not return it, as we want to proceed with order creation even if updating the checkout fails
 	if err != nil {
-		// Don't fail if we can't update checkout status
-		// The order is already created
+		fmt.Printf("Failed to update checkout after order creation: %v\n", err)
 	}
 
 	// Increment discount usage if a discount was applied
@@ -870,30 +516,6 @@ func (uc *CheckoutUseCase) CreateOrderFromCheckout(checkoutID uint) (*entity.Ord
 	}
 
 	return order, nil
-}
-
-// CreateOrderFromUserCheckout creates an order from the active checkout belonging to a user
-func (uc *CheckoutUseCase) CreateOrderFromUserCheckout(userID uint) (*entity.Order, error) {
-	// Get checkout for the user
-	checkout, err := uc.checkoutRepo.GetByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Use the existing method to create the order from checkout
-	return uc.CreateOrderFromCheckout(checkout.ID)
-}
-
-// CreateOrderFromGuestCheckout creates an order from the active checkout belonging to a guest session
-func (uc *CheckoutUseCase) CreateOrderFromGuestCheckout(sessionID string) (*entity.Order, error) {
-	// Get checkout for the session
-	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Use the existing method to create the order from checkout
-	return uc.CreateOrderFromCheckout(checkout.ID)
 }
 
 // ExtendCheckoutExpiry extends the expiry time of a checkout
@@ -965,4 +587,153 @@ func (uc *CheckoutUseCase) GetAbandonedCheckouts(offset, limit int) ([]*entity.C
 // GetCheckoutsByUserID retrieves all checkouts for a user with pagination
 func (uc *CheckoutUseCase) GetCheckoutsByUserID(userID uint, offset, limit int) ([]*entity.Checkout, error) {
 	return uc.checkoutRepo.GetCompletedCheckoutsByUserID(userID, offset, limit)
+}
+
+// GetCheckoutBySessionID retrieves a checkout by session ID
+func (uc *CheckoutUseCase) GetCheckoutBySessionID(sessionID string) (*entity.Checkout, error) {
+	if sessionID == "" {
+		return nil, errors.New("session ID cannot be empty")
+	}
+	return uc.checkoutRepo.GetBySessionID(sessionID)
+}
+
+// UpdateCheckout updates a checkout in the repository
+func (uc *CheckoutUseCase) UpdateCheckout(checkout *entity.Checkout) (*entity.Checkout, error) {
+	if checkout == nil {
+		return nil, errors.New("checkout cannot be nil")
+	}
+
+	// Make sure the checkout is active
+	if checkout.Status != entity.CheckoutStatusActive {
+		return nil, errors.New("cannot update a non-active checkout")
+	}
+
+	// Update timestamps
+	now := time.Now()
+	checkout.UpdatedAt = now
+	checkout.LastActivityAt = now
+
+	// Save to repository
+	err := uc.checkoutRepo.Update(checkout)
+	if err != nil {
+		return nil, err
+	}
+
+	return checkout, nil
+}
+
+// GetOrCreateCheckoutBySessionID retrieves or creates a checkout using a session ID
+func (uc *CheckoutUseCase) GetOrCreateCheckoutBySessionID(sessionID string) (*entity.Checkout, error) {
+	if sessionID == "" {
+		return nil, errors.New("session ID cannot be empty")
+	}
+
+	// Try to get an existing active checkout
+	checkout, err := uc.checkoutRepo.GetBySessionID(sessionID)
+	if err == nil {
+		// If found, return it
+		return checkout, nil
+	}
+
+	// If not found, create a new one
+	checkout, err = entity.NewCheckout(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set default currency
+	defaultCurrency, err := uc.currencyRepo.GetDefault()
+	if err == nil && defaultCurrency != nil {
+		checkout.Currency = defaultCurrency.Code
+	}
+
+	// Save to repository
+	err = uc.checkoutRepo.Create(checkout)
+	if err != nil {
+		return nil, err
+	}
+
+	return checkout, nil
+}
+
+// UpdateOrder updates an order in the repository
+func (uc *CheckoutUseCase) UpdateOrder(order *entity.Order) error {
+	if order == nil {
+		return errors.New("order cannot be nil")
+	}
+
+	return uc.orderRepo.Update(order)
+}
+
+// AddItemToCheckout adds an item to a checkout by ID
+func (uc *CheckoutUseCase) AddItemToCheckout(checkoutID uint, input CheckoutInput) (*entity.Checkout, error) {
+	// Get the checkout
+	checkout, err := uc.checkoutRepo.GetByID(checkoutID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if checkout is active
+	if checkout.Status != entity.CheckoutStatusActive {
+		return nil, errors.New("cannot modify a non-active checkout")
+	}
+
+	// Get product details
+	product, err := uc.productRepo.GetByID(input.ProductID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if product is active
+	if !product.Active {
+		return nil, errors.New("product is not available")
+	}
+
+	// Populate missing fields in the input
+	input.ProductName = product.Name
+	input.Price = product.Price
+	input.Weight = product.Weight
+
+	// If variant ID is provided, get variant details
+	if input.VariantID > 0 {
+		variant, err := uc.productVariantRepo.GetByID(input.VariantID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Make sure variant belongs to this product
+		if variant.ProductID != input.ProductID {
+			return nil, errors.New("variant does not belong to the specified product")
+		}
+
+		// Extract variant name from attributes
+		variantName := ""
+		for _, attr := range variant.Attributes {
+			if variantName == "" {
+				variantName = attr.Value
+			} else {
+				variantName += " / " + attr.Value
+			}
+		}
+
+		// Override with variant-specific details
+		// TODO: might delete VariantName later
+		input.VariantName = variantName
+		input.SKU = variant.SKU
+		input.Price = variant.Price
+	}
+
+	// Add the item to the checkout
+	err = checkout.AddItem(input.ProductID, input.VariantID, input.Quantity, input.Price, input.Weight, input.ProductName, input.VariantName, input.SKU)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the updated checkout
+	err = uc.checkoutRepo.Update(checkout)
+	if err != nil {
+		return nil, err
+	}
+
+	return checkout, nil
 }
